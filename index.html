@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi">
-<head>
+<head><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Boss Timeline Pro</title>
@@ -2488,6 +2488,9 @@
 
   <script>
     const STORAGE_KEY = "bossTimelinePro.v1";
+    const SUPABASE_URL = 'https://qsyomlwwnwmvrbdokrac.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_VFUE46ktzV-ucjxRmHz3RA_r4BWuB-h';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const SOON_LIMIT_MS = 5 * 60 * 1000;
 
     const elements = {
