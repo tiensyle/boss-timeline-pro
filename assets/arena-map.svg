@@ -1,0 +1,35 @@
+<svg width="920" height="520" viewBox="0 0 920 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="920" height="520" rx="24" fill="#151718"/>
+  <path d="M50 430C128 348 210 330 296 354C402 384 444 311 513 265C584 218 662 252 744 195C790 163 828 115 870 67" stroke="#303436" stroke-width="34" stroke-linecap="round"/>
+  <path d="M50 430C128 348 210 330 296 354C402 384 444 311 513 265C584 218 662 252 744 195C790 163 828 115 870 67" stroke="#4AA3FF" stroke-opacity=".38" stroke-width="7" stroke-linecap="round"/>
+  <path d="M120 98L255 80L304 190L195 258L96 202L120 98Z" fill="#202324" stroke="#383D40" stroke-width="3"/>
+  <path d="M620 304L772 280L842 380L776 472L626 449L568 366L620 304Z" fill="#202324" stroke="#383D40" stroke-width="3"/>
+  <path d="M382 86L520 52L602 140L562 246L426 258L342 169L382 86Z" fill="#1D2021" stroke="#383D40" stroke-width="3"/>
+  <path d="M97 408L220 382L289 455L252 507H120L74 468L97 408Z" fill="#1B1E1F" stroke="#383D40" stroke-width="3"/>
+  <g opacity=".24">
+    <path d="M0 80H920M0 160H920M0 240H920M0 320H920M0 400H920M0 480H920" stroke="#FFFFFF"/>
+    <path d="M80 0V520M160 0V520M240 0V520M320 0V520M400 0V520M480 0V520M560 0V520M640 0V520M720 0V520M800 0V520M880 0V520" stroke="#FFFFFF"/>
+  </g>
+  <g>
+    <circle cx="196" cy="177" r="35" fill="#E2574C" fill-opacity=".18" stroke="#E2574C" stroke-width="3"/>
+    <circle cx="196" cy="177" r="10" fill="#E2574C"/>
+    <path d="M196 132V115M196 239V222M151 177H134M258 177H241" stroke="#E2574C" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g>
+    <circle cx="484" cy="155" r="35" fill="#4AA3FF" fill-opacity=".18" stroke="#4AA3FF" stroke-width="3"/>
+    <circle cx="484" cy="155" r="10" fill="#4AA3FF"/>
+    <path d="M484 110V93M484 217V200M439 155H422M546 155H529" stroke="#4AA3FF" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g>
+    <circle cx="714" cy="381" r="35" fill="#37B77A" fill-opacity=".18" stroke="#37B77A" stroke-width="3"/>
+    <circle cx="714" cy="381" r="10" fill="#37B77A"/>
+    <path d="M714 336V319M714 443V426M669 381H652M776 381H759" stroke="#37B77A" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g>
+    <circle cx="195" cy="448" r="35" fill="#E7B84F" fill-opacity=".18" stroke="#E7B84F" stroke-width="3"/>
+    <circle cx="195" cy="448" r="10" fill="#E7B84F"/>
+    <path d="M195 403V386M195 510V493M150 448H133M257 448H240" stroke="#E7B84F" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="48" y="55" fill="#EEE9E2" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">Respawn Route</text>
+  <text x="49" y="85" fill="#A7A19A" font-family="Segoe UI, Arial, sans-serif" font-size="15">Live arena overview for boss timers</text>
+</svg>
