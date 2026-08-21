@@ -2485,12 +2485,11 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <script>
+ <script>
     const STORAGE_KEY = "bossTimelinePro.v1";
     const SUPABASE_URL = 'https://qsyomlwwnwmvrbdokrac.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_VFUE46ktzV-ucjxRmHz3RA_r4BWuB-h';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const SOON_LIMIT_MS = 5 * 60 * 1000;
 
     const elements = {
