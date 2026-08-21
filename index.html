@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi">
-<head><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Boss Timeline Pro</title>
@@ -670,6 +670,64 @@
       width: 15px;
       height: 15px;
       color: var(--muted);
+    }
+
+    /* ── Sound Switcher & Voice Alert ── */
+    .sound-switcher {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+
+    .sound-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 38px;
+      padding: 0 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+      white-space: nowrap;
+    }
+
+    .sound-btn.active {
+      background: rgba(74, 163, 255, 0.16);
+      border-color: rgba(74, 163, 255, 0.4);
+      color: #8ec5fc;
+      box-shadow: 0 2px 8px rgba(74, 163, 255, 0.12);
+    }
+
+    .sound-btn.muted {
+      color: var(--muted-2);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .sound-btn svg {
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+    }
+
+    .sound-test-btn {
+      width: 38px;
+      height: 38px;
+      color: var(--muted);
+      border-radius: 6px;
+    }
+
+    .sound-test-btn:hover {
+      color: #f6d173;
+      background: rgba(231, 184, 79, 0.12);
     }
 
     .clock-box {
@@ -1557,6 +1615,48 @@
       40%, 80% { transform: translateX(6px); }
     }
 
+    /* ── Spawn Mode Selector ── */
+    .spawn-mode-selector {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding: 4px;
+      background: var(--surface-2);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+    }
+
+    .spawn-mode-option {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background .18s ease, color .18s ease, border-color .18s ease;
+      user-select: none;
+    }
+
+    .spawn-mode-option input {
+      display: none;
+    }
+
+    .spawn-mode-option:hover {
+      color: var(--text);
+      background: var(--surface-3);
+    }
+
+    .spawn-mode-option.selected {
+      background: rgba(74, 163, 255, 0.16);
+      border-color: rgba(74, 163, 255, 0.4);
+      color: #8ec5fc;
+    }
+
     .modal-head {
       position: sticky;
       top: 0;
@@ -2202,6 +2302,16 @@
               Thành viên
             </button>
           </div>
+          <div class="sound-switcher" id="soundSwitcher">
+            <button class="sound-btn active" id="soundToggleBtn" type="button" title="Bật/Tắt âm thanh thông báo">
+              <svg viewBox="0 0 24 24" fill="none" class="sound-icon-on"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" class="sound-icon-off" style="display:none;"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span id="soundToggleText">Âm thanh: Bật</span>
+            </button>
+            <button class="icon-button sound-test-btn" id="soundTestBtn" type="button" title="Thử giọng đọc tiếng Việt" aria-label="Thử giọng đọc tiếng Việt">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" stroke="currentColor" stroke-width="2"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
           <div class="clock-box" aria-live="polite">
             <span>Giờ hệ thống</span>
             <strong id="headerClock">--:--:--</strong>
@@ -2356,9 +2466,26 @@
             <label for="bossLevel">Level boss</label>
             <input id="bossLevel" name="level" type="number" min="1" max="999" required placeholder="80">
           </div>
-          <div class="form-field">
+          <div class="form-field full">
+            <label>Loại thời gian xuất hiện</label>
+            <div class="spawn-mode-selector" id="spawnModeSelector">
+              <label class="spawn-mode-option selected" data-mode="interval">
+                <input type="radio" name="spawnMode" value="interval" checked>
+                ⏱️ Theo chu kỳ sau khi chết
+              </label>
+              <label class="spawn-mode-option" data-mode="fixed">
+                <input type="radio" name="spawnMode" value="fixed">
+                🕒 Cố định theo giờ (HH:mm)
+              </label>
+            </div>
+          </div>
+          <div class="form-field" id="respawnMinutesField">
             <label for="bossRespawn">Thời gian hồi sinh (phút)</label>
-            <input id="bossRespawn" name="respawnMinutes" type="number" min="1" max="1440" required placeholder="30">
+            <input id="bossRespawn" name="respawnMinutes" type="number" min="1" max="10080" placeholder="30">
+          </div>
+          <div class="form-field" id="fixedTimeField" style="display:none;">
+            <label for="bossFixedTime">Giờ xuất hiện cố định</label>
+            <input id="bossFixedTime" name="fixedTime" type="time" value="18:00">
           </div>
           <div class="form-field full">
             <label for="bossAvatar">Biểu tượng boss</label>
@@ -2485,11 +2612,9 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
- <script>
+
+  <script>
     const STORAGE_KEY = "bossTimelinePro.v1";
-    const SUPABASE_URL = 'https://qsyomlwwnwmvrbdokrac.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_VFUE46ktzV-ucjxRmHz3RA_r4BWuB-h';
-supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const SOON_LIMIT_MS = 5 * 60 * 1000;
 
     const elements = {
@@ -2522,6 +2647,9 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       modalTitle: document.getElementById("modalTitle"),
       modalHint: document.getElementById("modalHint"),
       deleteBossBtn: document.getElementById("deleteBossBtn"),
+      spawnModeSelector: document.getElementById("spawnModeSelector"),
+      respawnMinutesField: document.getElementById("respawnMinutesField"),
+      fixedTimeField: document.getElementById("fixedTimeField"),
       authModal: document.getElementById("authModal"),
       authStepChoose: document.getElementById("authStepChoose"),
       authStepAdminLogin: document.getElementById("authStepAdminLogin"),
@@ -2532,6 +2660,9 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       adminLoginError: document.getElementById("adminLoginError"),
       adminLoginBackBtn: document.getElementById("adminLoginBackBtn"),
       togglePasswordVisBtn: document.getElementById("togglePasswordVisBtn"),
+      soundToggleBtn: document.getElementById("soundToggleBtn"),
+      soundToggleText: document.getElementById("soundToggleText"),
+      soundTestBtn: document.getElementById("soundTestBtn"),
       toast: document.getElementById("toast")
     };
 
@@ -2600,6 +2731,222 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       if (elements.resetDemoBtn) {
         elements.resetDemoBtn.style.display = isAdmin() ? "inline-flex" : "none";
       }
+    }
+
+    /* ── Sound & Speech Notification Engine ── */
+    const STORAGE_SOUND_KEY = "bossTimelinePro.soundEnabled";
+    let isSoundEnabled = localStorage.getItem(STORAGE_SOUND_KEY) !== "false";
+    let audioCtx = null;
+    const activeSoundNotified = {};
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playChime(type = "alert") {
+      if (!isSoundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        const now = ctx.currentTime;
+        if (type === "spawn") {
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.setValueAtTime(1760, now + 0.15);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        } else if (type === "5m") {
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(659.25, now);
+          osc.frequency.setValueAtTime(783.99, now + 0.12);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } else {
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.setValueAtTime(659.25, now + 0.12);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        }
+      } catch (e) {
+        console.warn("AudioContext error:", e);
+      }
+    }
+
+    function speakText(text) {
+      if (!isSoundEnabled || !("speechSynthesis" in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        const viVoice = voices.find((v) => v.lang && (v.lang === "vi-VN" || v.lang.startsWith("vi")));
+        if (viVoice) {
+          utterance.voice = viVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn("SpeechSynthesis error:", e);
+      }
+    }
+
+    function notifyBossAlert(boss, milestoneType) {
+      let toastMsg = "";
+
+      if (milestoneType === "10m") {
+        playChime("10m");
+        toastMsg = `⏳ [10 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
+      } else if (milestoneType === "5m") {
+        playChime("5m");
+        toastMsg = `⏳ [5 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
+      } else if (milestoneType === "0m") {
+        playChime("spawn");
+        toastMsg = `⚔️ [BOSS XUẤT HIỆN] ${boss.name} đã ra tại ${boss.map}`;
+      }
+
+      showToast(toastMsg);
+      const singleMsg = "Cảnh báo Boss.";
+      const tripleMsg = `${singleMsg} ${singleMsg} ${singleMsg}`;
+      window.setTimeout(() => speakText(tripleMsg), 300);
+    }
+
+    function checkBossSoundAlerts(now) {
+      if (!isSoundEnabled) return;
+
+      state.bosses.forEach((boss) => {
+        if (boss.spawnMode === "fixed") {
+          const nextTime = getNextFixedSpawnTime(boss, now);
+          if (!nextTime) return;
+          const remaining = nextTime - now;
+          const targetKey = boss.id + "_" + nextTime;
+
+          // Mốc 10 phút (phát đúng 1 lần cho chu kỳ này)
+          if (remaining <= 10 * 60 * 1000 && remaining > 8 * 60 * 1000) {
+            if (!activeSoundNotified[targetKey + "_10m"]) {
+              activeSoundNotified[targetKey + "_10m"] = true;
+              notifyBossAlert(boss, "10m");
+            }
+          }
+          // Mốc 5 phút (phát đúng 1 lần cho chu kỳ này)
+          if (remaining <= 5 * 60 * 1000 && remaining > 3 * 60 * 1000) {
+            if (!activeSoundNotified[targetKey + "_5m"]) {
+              activeSoundNotified[targetKey + "_5m"] = true;
+              notifyBossAlert(boss, "5m");
+            }
+          }
+          // Mốc 0 phút - Boss xuất hiện (phát đúng 1 lần cho chu kỳ này)
+          if (remaining <= 2000 && remaining >= -1000) {
+            if (!activeSoundNotified[targetKey + "_0m"]) {
+              activeSoundNotified[targetKey + "_0m"] = true;
+              notifyBossAlert(boss, "0m");
+            }
+          }
+        } else {
+          if (!boss.diedAt || !boss.respawnsAt) return;
+          const remaining = boss.respawnsAt - now;
+          const cycleKey = boss.id + "_" + boss.respawnsAt;
+
+          // Mốc 10 phút (phát đúng 1 lần cho chu kỳ này)
+          if (remaining <= 10 * 60 * 1000 && remaining > 8 * 60 * 1000) {
+            if (!activeSoundNotified[cycleKey + "_10m"]) {
+              activeSoundNotified[cycleKey + "_10m"] = true;
+              notifyBossAlert(boss, "10m");
+            }
+          }
+          // Mốc 5 phút (phát đúng 1 lần cho chu kỳ này)
+          if (remaining <= 5 * 60 * 1000 && remaining > 3 * 60 * 1000) {
+            if (!activeSoundNotified[cycleKey + "_5m"]) {
+              activeSoundNotified[cycleKey + "_5m"] = true;
+              notifyBossAlert(boss, "5m");
+            }
+          }
+          // Mốc 0 phút - Boss xuất hiện (phát đúng 1 lần cho chu kỳ này)
+          if (remaining <= 2000 && remaining >= -1000) {
+            if (!activeSoundNotified[cycleKey + "_0m"]) {
+              activeSoundNotified[cycleKey + "_0m"] = true;
+              notifyBossAlert(boss, "0m");
+            }
+          }
+        }
+      });
+    }
+
+    function updateSoundUI() {
+      if (!elements.soundToggleBtn) return;
+      const onIcon = elements.soundToggleBtn.querySelector(".sound-icon-on");
+      const offIcon = elements.soundToggleBtn.querySelector(".sound-icon-off");
+      if (isSoundEnabled) {
+        elements.soundToggleBtn.classList.remove("muted");
+        elements.soundToggleBtn.classList.add("active");
+        if (onIcon) onIcon.style.display = "inline-block";
+        if (offIcon) offIcon.style.display = "none";
+        elements.soundToggleText.textContent = "Âm thanh: Bật";
+      } else {
+        elements.soundToggleBtn.classList.remove("active");
+        elements.soundToggleBtn.classList.add("muted");
+        if (onIcon) onIcon.style.display = "none";
+        if (offIcon) offIcon.style.display = "inline-block";
+        elements.soundToggleText.textContent = "Âm thanh: Tắt";
+      }
+    }
+
+    function toggleSound() {
+      isSoundEnabled = !isSoundEnabled;
+      try {
+        localStorage.setItem(STORAGE_SOUND_KEY, isSoundEnabled ? "true" : "false");
+      } catch (e) {}
+      updateSoundUI();
+      if (isSoundEnabled) {
+        getAudioContext();
+        speakText("Đã bật âm thanh thông báo.");
+        showToast("🔊 Đã BẬT âm thanh và giọng đọc thông báo.");
+      } else {
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+        showToast("🔇 Đã TẮT âm thanh thông báo.");
+      }
+    }
+
+    function testVoiceAlert() {
+      getAudioContext();
+      if (!isSoundEnabled) {
+        isSoundEnabled = true;
+        try {
+          localStorage.setItem(STORAGE_SOUND_KEY, "true");
+        } catch (e) {}
+        updateSoundUI();
+      }
+      playChime("5m");
+      const singleMsg = "Cảnh báo Boss.";
+      const tripleMsg = `${singleMsg} ${singleMsg} ${singleMsg}`;
+      window.setTimeout(() => {
+        speakText(tripleMsg);
+      }, 350);
+      showToast("📢 Đang thử nghiệm giọng đọc: Cảnh báo Boss (3 lần)...");
     }
 
     function syncModalScrollLock() {
@@ -2769,7 +3116,9 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         name: String(boss.name || "Boss mới").slice(0, 44),
         map: String(boss.map || "Chưa đặt map").slice(0, 44),
         level: clamp(Number(boss.level) || 80, 1, 999),
-        respawnMinutes: clamp(Number(boss.respawnMinutes) || 30, 1, 1440),
+        spawnMode: boss.spawnMode === "fixed" ? "fixed" : "interval",
+        respawnMinutes: clamp(Number(boss.respawnMinutes) || 30, 1, 10080),
+        fixedTime: typeof boss.fixedTime === "string" && /^\d{2}:\d{2}$/.test(boss.fixedTime) ? boss.fixedTime : "18:00",
         diedAt: Number(boss.diedAt) || null,
         respawnsAt: Number(boss.respawnsAt) || null,
         lastRespawnAt: Number(boss.lastRespawnAt) || null,
@@ -2779,6 +3128,27 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
           ? boss.weekDays.map(Number).filter((d) => d >= 0 && d <= 6)
           : []
       };
+    }
+
+    function getNextFixedSpawnTime(boss, now = Date.now()) {
+      if (boss.spawnMode !== "fixed" || !boss.fixedTime) return null;
+      const parts = boss.fixedTime.split(":").map(Number);
+      if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+      const [h, m] = parts;
+      const weekDays = Array.isArray(boss.weekDays) && boss.weekDays.length > 0
+        ? boss.weekDays
+        : [0, 1, 2, 3, 4, 5, 6];
+
+      const nowDate = new Date(now);
+
+      for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+        const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + dayOffset, h, m, 0, 0);
+        const dow = d.getDay();
+        if (weekDays.includes(dow) && d.getTime() > now) {
+          return d.getTime();
+        }
+      }
+      return null;
     }
 
     function makeId() {
@@ -2800,6 +3170,13 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
 
     function getBossStatus(boss, now = Date.now()) {
+      if (boss.spawnMode === "fixed") {
+        const nextTime = getNextFixedSpawnTime(boss, now);
+        if (!nextTime) return "alive";
+        const remaining = nextTime - now;
+        if (remaining <= SOON_LIMIT_MS) return "soon";
+        return "respawning";
+      }
       if (boss.diedAt && boss.respawnsAt) {
         const remaining = boss.respawnsAt - now;
         if (remaining <= 0) return "alive";
@@ -2810,6 +3187,14 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
 
     function getProgress(boss, now = Date.now()) {
+      if (boss.spawnMode === "fixed") {
+        const nextTime = getNextFixedSpawnTime(boss, now);
+        if (!nextTime) return 100;
+        const total = 24 * 60 * 60 * 1000;
+        const remaining = Math.max(0, nextTime - now);
+        const elapsed = clamp(total - remaining, 0, total);
+        return Math.round((elapsed / total) * 100);
+      }
       if (!boss.diedAt || !boss.respawnsAt) return 100;
       const total = Math.max(1, boss.respawnsAt - boss.diedAt);
       const elapsed = clamp(now - boss.diedAt, 0, total);
@@ -2817,8 +3202,20 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
 
     function getRemaining(boss, now = Date.now()) {
+      if (boss.spawnMode === "fixed") {
+        const nextTime = getNextFixedSpawnTime(boss, now);
+        if (!nextTime) return 0;
+        return Math.max(0, nextTime - now);
+      }
       if (!boss.respawnsAt) return 0;
       return Math.max(0, boss.respawnsAt - now);
+    }
+
+    function formatSpawnLabel(boss) {
+      if (boss.spawnMode === "fixed" && boss.fixedTime) {
+        return `Cố định ${boss.fixedTime}`;
+      }
+      return formatRespawnMinutes(boss.respawnMinutes);
     }
 
     function formatCountdown(ms) {
@@ -2857,6 +3254,9 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
 
     function formatRespawnMinutes(minutes) {
+      if (minutes >= 1440 && minutes % 1440 === 0) {
+        return `${minutes / 1440} ngày`;
+      }
       if (minutes >= 60) {
         const hours = Math.floor(minutes / 60);
         const rest = minutes % 60;
@@ -2906,6 +3306,8 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       autoResolveRespawns();
       const now = Date.now();
       updateRoleUI();
+      updateSoundUI();
+      checkBossSoundAlerts(now);
       renderClocks(now);
       renderMetrics(now);
       renderNextPanel(now);
@@ -3068,6 +3470,9 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
           </div>
         `;
 
+      const respawnText = boss.spawnMode === "fixed" ? `Cố định ${boss.fixedTime}` : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
+      const respawnTimeText = isAlive ? respawnText : "Hồi sinh " + formatTimeOnly(boss.respawnsAt || getNextFixedSpawnTime(boss, now));
+
       return `
         <article class="boss-card" data-id="${escapeHtml(boss.id)}">
           <div class="boss-head">
@@ -3087,7 +3492,7 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             <div class="progress-track"><span style="width:${progress}%"></span></div>
             <div class="timeline-labels">
               <span>${isAlive ? "Sẵn sàng" : "Chết " + formatTimeOnly(boss.diedAt)}</span>
-              <span>${isAlive ? "Respawn " + formatRespawnMinutes(boss.respawnMinutes) : "Hồi sinh " + formatTimeOnly(boss.respawnsAt)}</span>
+              <span>${respawnTimeText}</span>
             </div>
           </div>
 
@@ -3095,8 +3500,8 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
           <div class="boss-meta">
             <div class="meta-item">
-              <span>Respawn</span>
-              <strong>${formatRespawnMinutes(boss.respawnMinutes)}</strong>
+              <span>Thời gian</span>
+              <strong>${formatSpawnLabel(boss)}</strong>
             </div>
             <div class="meta-item">
               <span>Level</span>
@@ -3744,7 +4149,7 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       editingBossId = id;
       const boss = id ? state.bosses.find((item) => item.id === id) : null;
       elements.modalTitle.textContent = boss ? "Chỉnh sửa boss" : "Thêm boss";
-      elements.modalHint.textContent = boss ? "Cập nhật thông tin boss mà không làm mất countdown hiện tại." : "Nhập thông tin boss và thời gian hồi sinh sau khi chết.";
+      elements.modalHint.textContent = boss ? "Cập nhật thông tin boss và thời gian hồi sinh." : "Nhập thông tin boss và chọn loại thời gian xuất hiện.";
       elements.deleteBossBtn.hidden = !boss;
       elements.bossForm.reset();
 
@@ -3752,8 +4157,11 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       elements.bossForm.elements.map.value = boss?.map || "";
       elements.bossForm.elements.level.value = boss ? (boss.level || 80) : 80;
       elements.bossForm.elements.respawnMinutes.value = boss?.respawnMinutes || 30;
+      elements.bossForm.elements.fixedTime.value = boss?.fixedTime || "18:00";
       elements.bossForm.elements.avatar.value = boss?.avatar || "ember";
       elements.bossForm.elements.notes.value = boss?.notes || "";
+
+      setSpawnModeInModal(boss?.spawnMode || "interval");
 
       // Load weekDays into chips
       const activeDays = (boss?.weekDays) || [];
@@ -3766,8 +4174,23 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       });
 
       elements.modal.classList.add("open");
-      document.body.classList.add("modal-open");
+      syncModalScrollLock();
       window.setTimeout(() => elements.bossForm.elements.name.focus(), 40);
+    }
+
+    function setSpawnModeInModal(mode) {
+      document.querySelectorAll(".spawn-mode-option").forEach((opt) => {
+        const isMatch = opt.dataset.mode === mode;
+        const radio = opt.querySelector("input[type=radio]");
+        if (radio) radio.checked = isMatch;
+        opt.classList.toggle("selected", isMatch);
+      });
+      if (elements.respawnMinutesField) {
+        elements.respawnMinutesField.style.display = mode === "interval" ? "" : "none";
+      }
+      if (elements.fixedTimeField) {
+        elements.fixedTimeField.style.display = mode === "fixed" ? "" : "none";
+      }
     }
 
     function closeModal() {
@@ -3785,18 +4208,23 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       const form = elements.bossForm;
       const checkedDays = [...document.querySelectorAll(".weekday-chip input[type=checkbox]:checked")]
         .map((cb) => Number(cb.value));
+      const selectedModeRadio = form.querySelector('input[name="spawnMode"]:checked');
+      const spawnMode = selectedModeRadio ? selectedModeRadio.value : "interval";
+
       const payload = {
         name: form.elements.name.value.trim(),
         map: form.elements.map.value.trim(),
         level: clamp(Number(form.elements.level.value) || 80, 1, 999),
-        respawnMinutes: clamp(Number(form.elements.respawnMinutes.value), 1, 1440),
+        spawnMode: spawnMode,
+        respawnMinutes: clamp(Number(form.elements.respawnMinutes.value) || 30, 1, 10080),
+        fixedTime: form.elements.fixedTime.value || "18:00",
         avatar: form.elements.avatar.value,
         notes: form.elements.notes.value.trim(),
         weekDays: checkedDays
       };
 
-      if (!payload.name || !payload.map || !payload.respawnMinutes) {
-        showToast("Vui lòng nhập đủ tên boss, map và thời gian hồi sinh.");
+      if (!payload.name || !payload.map) {
+        showToast("Vui lòng nhập đủ tên boss và khu vực/map.");
         return;
       }
 
@@ -3929,6 +4357,19 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       elements.adminPasswordInput.focus();
     });
 
+    document.querySelectorAll(".spawn-mode-option").forEach((opt) => {
+      opt.addEventListener("click", () => {
+        setSpawnModeInModal(opt.dataset.mode);
+      });
+    });
+
+    if (elements.soundToggleBtn) {
+      elements.soundToggleBtn.addEventListener("click", toggleSound);
+    }
+    if (elements.soundTestBtn) {
+      elements.soundTestBtn.addEventListener("click", testVoiceAlert);
+    }
+
     elements.addBossBtn.addEventListener("click", () => openModal());
     elements.resetDemoBtn.addEventListener("click", resetDemo);
     elements.clearHistoryBtn.addEventListener("click", clearHistory);
@@ -4027,9 +4468,15 @@ supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         closeModal();
       }
     });
+    elements.authModal.addEventListener("click", (event) => {
+      if (event.target === elements.authModal) {
+        enterMemberMode();
+      }
+    });
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && elements.modal.classList.contains("open")) {
-        closeModal();
+      if (event.key === "Escape") {
+        if (elements.modal.classList.contains("open")) closeModal();
+        if (elements.authModal.classList.contains("open")) enterMemberMode();
       }
     });
 
