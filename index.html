@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi">
-<head>
+<head><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Boss Timeline Pro</title>
@@ -2616,7 +2616,20 @@
   <script>
     const STORAGE_KEY = "bossTimelinePro.v1";
     const SOON_LIMIT_MS = 5 * 60 * 1000;
-
+const SUPABASE_URL = 'https://qsyomlwwnmvrbdokrac.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_VFUE46ktzV-ucjxRmHz3RA_r4BWuB-h
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabaseClient
+  .channel('realtime-bosses')
+  .on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'bosses' },
+    (payload) => {
+      console.log('Có dữ liệu Boss mới:', payload);
+      location.reload(); // Tự động làm mới trang khi máy khác cập nhật Boss
+    }
+  )
+  .subscribe();
     const elements = {
       metrics: document.getElementById("metrics"),
       nextPanel: document.getElementById("nextPanel"),
@@ -3085,30 +3098,40 @@
       };
     }
 
-    function loadState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return createDefaultState();
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed.bosses)) return createDefaultState();
-        return {
-          bosses: parsed.bosses.map(normalizeBoss),
-          history: Array.isArray(parsed.history) ? parsed.history.slice(0, 80) : []
-        };
-      } catch (error) {
-        console.warn("Không thể đọc localStorage, dùng dữ liệu mẫu.", error);
-        return createDefaultState();
-      }
+    async function loadState() {
+  try {
+    // Tải danh sách Boss từ bảng 'bosses' trên Supabase
+    const { data, error } = await supabaseClient.from('bosses').select('*');
+    
+    if (error || !data || data.length === 0) {
+      console.warn("Chưa có dữ liệu trên Supabase, dùng mặc định:", error);
+      return createDefaultState();
     }
 
-    function saveState() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch (error) {
-        console.warn("Không thể ghi localStorage.", error);
-        showToast("Trình duyệt đang chặn localStorage, dữ liệu có thể không được lưu.");
-      }
+    return {
+      bosses: data.map(normalizeBoss),
+      history: []
+    };
+  } catch (error) {
+    console.warn("Lỗi kết nối Supabase, dùng dữ liệu mẫu.", error);
+    return createDefaultState();
+  }
+ async function saveState(state) {
+  try {
+    if (!state || !state.bosses) return;
+
+    // Lưu / Cập nhật danh sách Boss trực tiếp lên Supabase
+    const { error } = await supabaseClient
+      .from('bosses')
+      .upsert(state.bosses, { onConflict: 'id' });
+
+    if (error) {
+      console.error("Lỗi lưu dữ liệu lên Supabase:", error);
     }
+  } catch (error) {
+    console.error("Lỗi kết nối khi lưu dữ liệu:", error);
+  }
+}
 
     function normalizeBoss(boss) {
       return {
