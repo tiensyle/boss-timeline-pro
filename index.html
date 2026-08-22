@@ -1498,6 +1498,71 @@
       color: var(--cyan);
     }
 
+    /* ── Schedule Day Tabs ── */
+    .schedule-day-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 10px 16px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--line);
+    }
+    .schedule-day-tab {
+      padding: 6px 13px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .schedule-day-tab:hover {
+      background: var(--surface-hover, rgba(255,255,255,0.06));
+      color: var(--text);
+      border-color: var(--line);
+    }
+    .schedule-day-tab.active {
+      background: var(--cyan-soft, rgba(6,182,212,0.18));
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* ── Language Switcher ── */
+    .lang-switcher {
+      display: inline-flex;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .lang-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .lang-btn.active {
+      background: var(--surface-hover, rgba(255,255,255,0.08));
+      color: var(--cyan);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .lang-btn:hover:not(.active) {
+      color: var(--text);
+    }
+
+
+
 
 
     .auth-modal-header {
@@ -2404,18 +2469,27 @@
             <span class="realtime-status-dot" aria-hidden="true"></span>
             <span class="realtime-status-text">Đang kết nối…</span>
           </div>
-          <h1>Dashboard theo dõi boss chết và hồi sinh</h1>
-          <p>Theo dõi nhiều boss cùng lúc, ghi nhận thời điểm chết, xem countdown hồi sinh, lọc trạng thái và lưu dữ liệu ngay trên trình duyệt.</p>
+          <h1 data-i18n="dashboardTitle">Dashboard theo dõi boss chết và hồi sinh</h1>
+          <p data-i18n="dashboardSub">Theo dõi nhiều boss cùng lúc, ghi nhận thời điểm chết, xem countdown hồi sinh, lọc trạng thái và lưu dữ liệu ngay trên trình duyệt.</p>
         </div>
         <div class="topbar-actions">
+          <div class="lang-switcher" id="langSwitcher" role="radiogroup" aria-label="Ngôn ngữ / Language">
+            <button type="button" class="lang-btn active" data-lang="vi" title="Tiếng Việt">
+              🇻🇳 VI
+            </button>
+            <button type="button" class="lang-btn" data-lang="en" title="English">
+              🇬🇧 EN
+            </button>
+          </div>
           <div class="role-switcher" role="radiogroup" aria-label="Quyền truy cập">
+
             <button type="button" class="role-btn active" data-role="admin" title="Quyền Quản trị viên (Toàn quyền)">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Admin
+              <span data-i18n="adminRole">Admin</span>
             </button>
             <button type="button" class="role-btn" data-role="member" title="Quyền Thành viên (Chỉ xem)">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Thành viên
+              <span data-i18n="memberRole">Thành viên</span>
             </button>
           </div>
           <div class="sound-switcher" id="soundSwitcher">
@@ -2429,13 +2503,14 @@
             </button>
           </div>
           <div class="clock-box" aria-live="polite">
-            <span>Giờ hệ thống</span>
+            <span data-i18n="systemClock">Giờ hệ thống</span>
             <strong id="headerClock">--:--:--</strong>
           </div>
           <button class="button-primary" type="button" id="addBossBtn">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-            Thêm boss
+            <span data-i18n="addBoss">Thêm boss</span>
           </button>
+
         </div>
       </section>
 
@@ -2469,7 +2544,19 @@
         </div>
 
         <div class="today-schedule-content" id="todayScheduleContent">
+          <div class="schedule-day-tabs" id="scheduleDayTabs">
+            <button class="schedule-day-tab active" type="button" data-day-filter="all">Tất cả (7 Ngày)</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="today">Hôm nay</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="1">Thứ 2</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="2">Thứ 3</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="3">Thứ 4</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="4">Thứ 5</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="5">Thứ 6</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="6">Thứ 7</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="0">Chủ Nhật</button>
+          </div>
           <div class="today-table-wrap">
+
             <table class="today-schedule-table">
               <thead>
                 <tr>
@@ -2597,18 +2684,16 @@
             </div>
           </div>
           <div class="form-field full" id="respawnMinutesField">
-            <label for="bossRespawn">Thời gian hồi sinh (phút hoặc bấm chọn nhanh bên dưới)</label>
-            <input id="bossRespawn" name="respawnMinutes" type="number" min="1" max="10080" placeholder="30">
-            <div class="preset-chips" id="presetRespawnChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
-              <button type="button" class="preset-chip" data-mins="30">30m</button>
-              <button type="button" class="preset-chip" data-mins="60">1h (60m)</button>
-              <button type="button" class="preset-chip" data-mins="120">2h</button>
-              <button type="button" class="preset-chip" data-mins="360">6h</button>
-              <button type="button" class="preset-chip" data-mins="720">12h</button>
-              <button type="button" class="preset-chip" data-mins="1440">24h (1 ngày)</button>
-              <button type="button" class="preset-chip" data-mins="1800">30h (1.25 ngày)</button>
-              <button type="button" class="preset-chip" data-mins="2880">48h (2 ngày)</button>
-              <button type="button" class="preset-chip" data-mins="4320">72h (3 ngày)</button>
+            <label for="bossRespawn">Thời gian hồi sinh (phút hoặc bấm chọn nhanh mốc giờ bên dưới)</label>
+            <input id="bossRespawn" name="respawnMinutes" type="number" min="1" max="10080" placeholder="Nhập số phút (ví dụ 1080 = 18h)">
+            <div class="preset-chips" id="presetRespawnChips" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+              <button type="button" class="preset-chip" data-mins="1080">18h</button>
+              <button type="button" class="preset-chip" data-mins="1740">29h</button>
+              <button type="button" class="preset-chip" data-mins="1920">32h</button>
+              <button type="button" class="preset-chip" data-mins="2100">35h</button>
+              <button type="button" class="preset-chip" data-mins="2220">37h</button>
+              <button type="button" class="preset-chip" data-mins="2880">48h</button>
+              <button type="button" class="preset-chip" data-mins="3720">62h</button>
             </div>
           </div>
 
@@ -2770,6 +2855,183 @@
   <script>
     const STORAGE_KEY = "bossTimelinePro.v1";
     const SOON_LIMIT_MS = 5 * 60 * 1000;
+    let currentLang = localStorage.getItem("bossTimelinePro.lang") || "vi";
+
+    const TRANSLATIONS = {
+      vi: {
+        sidebarSubtitle: "Respawn Control",
+        navDashboard: "Dashboard",
+        navTodaySchedule: "Lịch boss hôm nay",
+        navWeeklySchedule: "Boss Tiêu Biểu",
+        navBossList: "Boss List",
+        navTimeline: "Timeline",
+        resetMaintenance: "Reset sau bảo trì",
+        realtimeCountdown: "Realtime countdown",
+        realtimeConnected: "Realtime",
+        realtimeConnecting: "Đang kết nối…",
+        dashboardTitle: "Dashboard theo dõi boss chết và hồi sinh",
+        dashboardSub: "Theo dõi nhiều boss cùng lúc, ghi nhận thời điểm chết, xem countdown hồi sinh, lọc trạng thái và lưu dữ liệu ngay trên trình duyệt.",
+        adminRole: "Admin",
+        memberRole: "Thành viên",
+        soundOn: "Âm thanh: Bật",
+        soundOff: "Âm thanh: Tắt",
+        systemClock: "Giờ hệ thống",
+        addBoss: "Thêm boss",
+        metricTotal: "Tổng boss",
+        metricTotalDesc: "Đang theo dõi",
+        metricAlive: "Đang sống",
+        metricAliveDesc: "Boss sẵn sàng",
+        metricRespawning: "Đang hồi sinh",
+        metricRespawningDesc: "Đang countdown",
+        metricSoon: "Sắp hồi sinh",
+        metricSoonDesc: "Cần chuẩn bị",
+        nextRespawnTitle: "NEXT RESPAWN",
+        noNextBossTitle: "Không có boss nào đang chờ hồi sinh",
+        noNextBossSub: "Tất cả boss hiện đang ở trạng thái sống. Khi có boss chết, khu vực này sẽ tự động hiển thị countdown ưu tiên gần nhất.",
+        readyStatus: "READY",
+        readyHint: "Bấm \"Ghi nhận chết\" trên card boss để bắt đầu đếm ngược hồi sinh.",
+        nextWillRespawn: "sẽ hồi sinh tiếp theo",
+        estimatedRespawnAt: "Dự kiến hồi sinh lúc",
+        prepareBeforeZero: "Chuẩn bị trước khi timer về 0.",
+        diedAtLabel: "Chết lúc",
+        schedulePanelTitle: "Lịch Hồi Sinh & Dự Báo Boss (7 Ngày)",
+        scheduleSubAll: "Đầy đủ lịch đếm ngược các ngày trong tuần & chu kỳ multi-day (30h, 48h...)",
+        exportPdf: "Xuất PDF",
+        colTimeDate: "GIỜ & NGÀY HỒI SINH",
+        colLevel: "LEVEL",
+        colBoss: "BOSS",
+        colCycle: "CHU KỲ",
+        colMap: "ĐỊA ĐIỂM",
+        colNotes: "GHI CHÚ",
+        tabAll7Days: "Tất cả (7 Ngày)",
+        tabToday: "Hôm nay",
+        tabMon: "Thứ 2",
+        tabTue: "Thứ 3",
+        tabWed: "Thứ 4",
+        tabThu: "Thứ 5",
+        tabFri: "Thứ 6",
+        tabSat: "Thứ 7",
+        tabSun: "Chủ Nhật",
+        weeklyPanelTitle: "Lịch Boss Tiêu Biểu",
+        weeklyPanelSub: "Boss cố định theo ngày trong tuần · Thứ 2 → Chủ Nhật",
+        weeklyNoDataTitle: "Chưa có boss tiêu biểu",
+        weeklyNoDataSub: "Thêm boss và chọn ngày xuất hiện trong tuần để hiển thị lịch boss cố định T2–CN.",
+        searchPlaceholder: "Tìm theo tên boss, map hoặc ghi chú",
+        filterAll: "Tất cả",
+        filterAlive: "Đang sống",
+        filterRespawning: "Đang hồi sinh",
+        filterSoon: "Sắp hồi sinh",
+        recordDeathBtn: "Ghi nhận chết",
+        reviveBtn: "Hồi sinh ngay",
+        editBossBtn: "Sửa boss",
+        aliveBadge: "• ĐANG SỐNG",
+        soonBadge: "• SẮP HỒI SINH",
+        respawningBadge: "• ĐANG COUNTDOWN",
+        historyTitle: "Timeline gần đây",
+        historySub: "Lịch sử chết và hồi sinh mới nhất",
+        clearHistoryBtn: "Xóa lịch sử"
+      },
+      en: {
+        sidebarSubtitle: "Respawn Control",
+        navDashboard: "Dashboard",
+        navTodaySchedule: "Today's Schedule",
+        navWeeklySchedule: "Featured Bosses",
+        navBossList: "Boss List",
+        navTimeline: "Timeline",
+        resetMaintenance: "Reset Post-Maintenance",
+        realtimeCountdown: "Realtime countdown",
+        realtimeConnected: "Realtime",
+        realtimeConnecting: "Connecting…",
+        dashboardTitle: "Boss Death & Respawn Tracker Dashboard",
+        dashboardSub: "Track multiple bosses simultaneously, record death times, view respawn countdowns, filter status, and sync data across devices.",
+        adminRole: "Admin",
+        memberRole: "Member",
+        soundOn: "Sound: On",
+        soundOff: "Sound: Off",
+        systemClock: "System Clock",
+        addBoss: "Add Boss",
+        metricTotal: "Total Bosses",
+        metricTotalDesc: "Tracked",
+        metricAlive: "Alive",
+        metricAliveDesc: "Ready to spawn",
+        metricRespawning: "Respawning",
+        metricRespawningDesc: "Counting down",
+        metricSoon: "Spawning Soon",
+        metricSoonDesc: "Get ready",
+        nextRespawnTitle: "NEXT RESPAWN",
+        noNextBossTitle: "No bosses currently counting down",
+        noNextBossSub: "All bosses are currently ALIVE. When a boss dies, the nearest upcoming respawn countdown will automatically appear here.",
+        readyStatus: "READY",
+        readyHint: "Click \"Record Death\" on a boss card to start its respawn countdown.",
+        nextWillRespawn: "will respawn next",
+        estimatedRespawnAt: "Estimated respawn at",
+        prepareBeforeZero: "Prepare before timer hits 0.",
+        diedAtLabel: "Died at",
+        schedulePanelTitle: "Respawn & Forecast Schedule (7 Days)",
+        scheduleSubAll: "Full weekly countdown schedule & multi-day respawn cycles (30h, 48h...)",
+        exportPdf: "Export PDF",
+        colTimeDate: "TIME & DATE",
+        colLevel: "LEVEL",
+        colBoss: "BOSS",
+        colCycle: "CYCLE",
+        colMap: "LOCATION / MAP",
+        colNotes: "NOTES",
+        tabAll7Days: "All (7 Days)",
+        tabToday: "Today",
+        tabMon: "Mon",
+        tabTue: "Tue",
+        tabWed: "Wed",
+        tabThu: "Thu",
+        tabFri: "Fri",
+        tabSat: "Sat",
+        tabSun: "Sun",
+        weeklyPanelTitle: "Featured Boss Schedule",
+        weeklyPanelSub: "Fixed schedule bosses by day of week · Monday → Sunday",
+        weeklyNoDataTitle: "No featured bosses configured",
+        weeklyNoDataSub: "Add a boss and select recurring days of the week to show fixed Mon–Sun schedule.",
+        searchPlaceholder: "Search by boss name, map or notes",
+        filterAll: "All",
+        filterAlive: "Alive",
+        filterRespawning: "Respawning",
+        filterSoon: "Soon",
+        recordDeathBtn: "Record Death",
+        reviveBtn: "Revive Now",
+        editBossBtn: "Edit Boss",
+        aliveBadge: "• ALIVE",
+        soonBadge: "• SPAWNING SOON",
+        respawningBadge: "• COUNTING DOWN",
+        historyTitle: "Recent Timeline",
+        historySub: "Latest death and respawn events log",
+        clearHistoryBtn: "Clear History"
+      }
+    };
+
+    function setLanguage(lang) {
+      if (lang !== "vi" && lang !== "en") return;
+      currentLang = lang;
+      localStorage.setItem("bossTimelinePro.lang", lang);
+
+      document.querySelectorAll(".lang-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.lang === lang);
+      });
+
+      updateTranslationsUI();
+      render();
+      showToast(lang === "en" ? "Switched language to English 🇬🇧" : "Đã chuyển sang Tiếng Việt 🇻🇳");
+    }
+
+    function updateTranslationsUI() {
+      const t = TRANSLATIONS[currentLang];
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.dataset.i18n;
+        if (t[key]) el.textContent = t[key];
+      });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+        const key = el.dataset.i18nPlaceholder;
+        if (t[key]) el.placeholder = t[key];
+      });
+    }
+
 
     // ── Supabase Realtime ───────────────────────────────────────────────
     // Điền URL + anon key trong supabase-config.js để bật đồng bộ team.
@@ -3720,13 +3982,15 @@
         return acc;
       }, { total: 0, alive: 0, respawning: 0, soon: 0 });
 
+      const t = TRANSLATIONS[currentLang];
       elements.metrics.innerHTML = [
-        metricCard("Tổng boss", counts.total, "Đang theo dõi", "var(--cyan)", "var(--cyan-soft)"),
-        metricCard("Đang sống", counts.alive, statusCopy.alive.metric, "var(--green)", "var(--green-soft)"),
-        metricCard("Đang hồi sinh", counts.respawning, statusCopy.respawning.metric, "var(--cyan)", "var(--cyan-soft)"),
-        metricCard("Sắp hồi sinh", counts.soon, statusCopy.soon.metric, "var(--amber)", "var(--amber-soft)")
+        metricCard(t.metricTotal, counts.total, t.metricTotalDesc, "var(--cyan)", "var(--cyan-soft)"),
+        metricCard(t.metricAlive, counts.alive, t.metricAliveDesc, "var(--green)", "var(--green-soft)"),
+        metricCard(t.metricRespawning, counts.respawning, t.metricRespawningDesc, "var(--cyan)", "var(--cyan-soft)"),
+        metricCard(t.metricSoon, counts.soon, t.metricSoonDesc, "var(--amber)", "var(--amber-soft)")
       ].join("");
     }
+
 
     function metricCard(label, value, sub, color, soft) {
       return `
@@ -3947,13 +4211,38 @@
       return `${dayName}, ${dd}/${mm}/${yyyy} · 00:00 → 24:00 · UTC+7`;
     }
 
+    let scheduleDayFilter = "all";
+
     function renderTodayScheduleTable(now) {
       if (!elements.todayScheduleBody) return;
       if (elements.todayScheduleSubtitle) {
         elements.todayScheduleSubtitle.textContent = getTodayScheduleSubtitle(new Date(now));
       }
 
-      const totalBoss = state.bosses.length;
+      let filtered = [...state.bosses];
+      const nowDate = new Date(now);
+
+      if (scheduleDayFilter === "today") {
+        filtered = filtered.filter((boss) => {
+          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
+          if (!eventTime) return true;
+          const d = new Date(eventTime);
+          return d.getFullYear() === nowDate.getFullYear() && d.getMonth() === nowDate.getMonth() && d.getDate() === nowDate.getDate();
+        });
+      } else if (scheduleDayFilter !== "all") {
+        const targetDow = Number(scheduleDayFilter);
+        filtered = filtered.filter((boss) => {
+          if (Array.isArray(boss.weekDays) && boss.weekDays.includes(targetDow)) return true;
+          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
+          if (eventTime) {
+            const d = new Date(eventTime);
+            return d.getDay() === targetDow;
+          }
+          return false;
+        });
+      }
+
+      const totalBoss = filtered.length;
       if (elements.todayHeaderBadge) {
         elements.todayHeaderBadge.textContent = `${totalBoss} boss`;
       }
@@ -3965,19 +4254,20 @@
         elements.todayScheduleBody.innerHTML = `
           <tr>
             <td colspan="6" style="text-align:center; padding: 28px; color: var(--muted);">
-              Chưa có dữ liệu boss nào trong danh sách.
+              Không có boss nào phù hợp với bộ lọc ngày được chọn.
             </td>
           </tr>
         `;
         return;
       }
 
-      const sorted = [...state.bosses].sort((a, b) => {
-        const aTime = a.respawnsAt || a.lastRespawnAt || 0;
-        const bTime = b.respawnsAt || b.lastRespawnAt || 0;
+      const sorted = [...filtered].sort((a, b) => {
+        const aTime = a.respawnsAt || (a.spawnMode === "fixed" ? getNextFixedSpawnTime(a, now) : a.lastRespawnAt) || 0;
+        const bTime = b.respawnsAt || (b.spawnMode === "fixed" ? getNextFixedSpawnTime(b, now) : b.lastRespawnAt) || 0;
         if (aTime && bTime) return aTime - bTime;
         return a.name.localeCompare(b.name, "vi");
       });
+
 
       elements.todayScheduleBody.innerHTML = sorted.map((boss) => {
         const status = getBossStatus(boss, now);
@@ -4112,20 +4402,55 @@
 
     function exportTodaySchedulePDF() {
       const now = Date.now();
-      const dateStr = getTodayScheduleSubtitle(new Date(now));
       const clockStr = formatClock(now);
 
-      const sorted = [...state.bosses].sort((a, b) => {
-        const aTime = a.respawnsAt || a.lastRespawnAt || 0;
-        const bTime = b.respawnsAt || b.lastRespawnAt || 0;
+      let filterTitle = "BÁO CÁO LỊCH BOSS (7 NGÀY)";
+      let filterSubDate = getTodayScheduleSubtitle(new Date(now));
+
+      if (scheduleDayFilter === "today") {
+        filterTitle = "BÁO CÁO LỊCH BOSS HÔM NAY";
+      } else if (scheduleDayFilter !== "all") {
+        const dayNames = { 1: "THỨ 2", 2: "THỨ 3", 3: "THỨ 4", 4: "THỨ 5", 5: "THỨ 6", 6: "THỨ 7", 0: "CHỦ NHẬT" };
+        const dayName = dayNames[scheduleDayFilter] || "";
+        filterTitle = `BÁO CÁO LỊCH BOSS - ${dayName}`;
+        filterSubDate = `Danh sách boss xuất hiện / hồi sinh trong ${dayName}`;
+      }
+
+      let filtered = [...state.bosses];
+      const nowDate = new Date(now);
+
+      if (scheduleDayFilter === "today") {
+        filtered = filtered.filter((boss) => {
+          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
+          if (!eventTime) return true;
+          const d = new Date(eventTime);
+          return d.getFullYear() === nowDate.getFullYear() && d.getMonth() === nowDate.getMonth() && d.getDate() === nowDate.getDate();
+        });
+      } else if (scheduleDayFilter !== "all") {
+        const targetDow = Number(scheduleDayFilter);
+        filtered = filtered.filter((boss) => {
+          if (Array.isArray(boss.weekDays) && boss.weekDays.includes(targetDow)) return true;
+          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
+          if (eventTime) {
+            const d = new Date(eventTime);
+            return d.getDay() === targetDow;
+          }
+          return false;
+        });
+      }
+
+      const sorted = [...filtered].sort((a, b) => {
+        const aTime = a.respawnsAt || (a.spawnMode === "fixed" ? getNextFixedSpawnTime(a, now) : a.lastRespawnAt) || 0;
+        const bTime = b.respawnsAt || (b.spawnMode === "fixed" ? getNextFixedSpawnTime(b, now) : b.lastRespawnAt) || 0;
         if (aTime && bTime) return aTime - bTime;
         return a.name.localeCompare(b.name, "vi");
       });
 
       const rowsHtml = sorted.map((boss, idx) => {
         const status = getBossStatus(boss, now);
-        const eventTime = boss.respawnsAt || boss.lastRespawnAt || now;
-        const timeFormatted = formatClock(eventTime);
+        const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
+        const timeFormatted = formatSmartRespawnDate(eventTime, now).replace(/<[^>]*>/g, "");
+        const cycleText = formatSpawnLabel(boss);
         let statusText = "Đang sống";
         let statusBadgeClass = "status-alive";
         if (status === "soon") {
@@ -4143,6 +4468,7 @@
             <td class="time-col"><strong>${timeFormatted}</strong></td>
             <td style="text-align:center;"><span class="level-tag">Lv. ${boss.level || 80}</span></td>
             <td><strong>${escapeHtml(boss.name)}</strong></td>
+            <td style="font-weight:600; color:#475569;">${escapeHtml(cycleText)}</td>
             <td style="text-align:center;"><span class="badge ${statusBadgeClass}">${statusText}</span></td>
             <td>${escapeHtml(boss.map)}</td>
             <td style="color:#334155;">${notes}</td>
@@ -4150,7 +4476,7 @@
         `;
       }).join("");
 
-      const counts = state.bosses.reduce((acc, boss) => {
+      const counts = filtered.reduce((acc, boss) => {
         const status = getBossStatus(boss, now);
         acc.total += 1;
         acc[status] += 1;
@@ -4161,7 +4487,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Báo cáo Lịch Boss Hôm Nay - Boss Timeline Pro</title>
+  <title>${filterTitle} - Boss Timeline Pro</title>
   <style>
     @page {
       size: A4 landscape;
@@ -4314,7 +4640,7 @@
     }
     .time-col {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 13.5px;
+      font-size: 13px;
       color: #0f172a;
     }
     .level-tag {
@@ -4374,8 +4700,8 @@
 
   <div class="report-title-box">
     <div>
-      <div class="report-main-title">BÁO CÁO LỊCH BOSS HÔM NAY</div>
-      <div class="report-date">${dateStr}</div>
+      <div class="report-main-title">${filterTitle}</div>
+      <div class="report-date">${filterSubDate}</div>
     </div>
     <div style="font-weight: 800; font-size: 14px; color: #0f172a;">Tổng cộng: ${counts.total} Boss</div>
   </div>
@@ -4402,19 +4728,21 @@
   <table>
     <thead>
       <tr>
-        <th style="width: 40px; text-align: center;">STT</th>
-        <th style="width: 120px;">GIỜ HỒI SINH</th>
-        <th style="width: 75px; text-align: center;">LEVEL</th>
-        <th style="width: 170px;">TÊN BOSS</th>
-        <th style="width: 130px; text-align: center;">TRẠNG THÁI</th>
-        <th style="width: 170px;">ĐỊA ĐIỂM / MAP</th>
+        <th style="width: 35px; text-align: center;">STT</th>
+        <th style="width: 160px;">GIỜ & NGÀY HỒI SINH</th>
+        <th style="width: 65px; text-align: center;">LEVEL</th>
+        <th style="width: 150px;">TÊN BOSS</th>
+        <th style="width: 110px;">CHU KỲ</th>
+        <th style="width: 115px; text-align: center;">TRẠNG THÁI</th>
+        <th style="width: 140px;">ĐỊA ĐIỂM / MAP</th>
         <th>GHI CHÚ</th>
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml}
+      ${rowsHtml || `<tr><td colspan="8" style="text-align:center; padding: 20px; color:#94a3b8;">Không có boss nào phù hợp với bộ lọc được chọn.</td></tr>`}
     </tbody>
   </table>
+
 
   <footer class="report-footer">
     <div>Báo cáo được xuất tự động từ hệ thống Boss Timeline Pro</div>
@@ -4433,7 +4761,6 @@
 
       const printWindow = window.open("", "_blank");
       if (printWindow) {
-        printWindow.document.open();
         printWindow.document.write(printHtml);
         printWindow.document.close();
         showToast("Đã mở giao diện xuất báo cáo PDF lịch boss.");
@@ -4861,26 +5188,33 @@
       });
     });
 
-    // Preset chip click → fill respawn minutes
+    // Preset chip click → fill respawn minutes input
     document.getElementById("presetRespawnChips")?.addEventListener("click", (e) => {
       const chip = e.target.closest(".preset-chip");
       if (!chip) return;
+      e.preventDefault();
       const mins = chip.dataset.mins;
-      if (mins && elements.bossRespawn) {
-        elements.bossRespawn.value = mins;
-        elements.bossRespawn.focus();
-        // Highlight active chip
-        document.querySelectorAll(".preset-chip").forEach(c => c.style.color = "");
-        chip.style.color = "var(--cyan)";
-        chip.style.borderColor = "var(--cyan)";
-        chip.style.background = "var(--cyan-soft, rgba(6,182,212,0.12))";
-        setTimeout(() => {
-          chip.style.color = "";
-          chip.style.borderColor = "";
-          chip.style.background = "";
-        }, 1200);
+      const respawnInput = document.getElementById("bossRespawn");
+      if (mins && respawnInput) {
+        respawnInput.value = mins;
+        respawnInput.focus();
+        respawnInput.dispatchEvent(new Event("input", { bubbles: true }));
+        document.querySelectorAll(".preset-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        showToast(`Đã chọn mốc ${chip.textContent.trim()} (${mins} phút)`);
       }
     });
+
+    // Schedule Day Tabs filter (Tất cả, Hôm nay, T2 -> CN)
+    document.getElementById("scheduleDayTabs")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-day-filter]");
+      if (!btn) return;
+      scheduleDayFilter = btn.dataset.dayFilter;
+      document.querySelectorAll(".schedule-day-tab").forEach(t => t.classList.remove("active"));
+      btn.classList.add("active");
+      renderTodayScheduleTable(Date.now());
+    });
+
 
     if (elements.soundToggleBtn) {
       elements.soundToggleBtn.addEventListener("click", toggleSound);
@@ -5008,11 +5342,19 @@
     });
 
 
+    document.getElementById("langSwitcher")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".lang-btn");
+      if (!btn) return;
+      setLanguage(btn.dataset.lang);
+    });
+
+    setLanguage(currentLang);
     updateRoleUI();
     render();
     openAuthModal("choose");
     initRealtimeSync();
     window.setInterval(render, 1000);
   </script>
+
 </body>
 </html>
