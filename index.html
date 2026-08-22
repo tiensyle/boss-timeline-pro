@@ -3569,8 +3569,11 @@
     }
 
 
+    let lastLocalEditTime = 0;
+
     async function saveState() {
       // Luôn giữ local cache để app vẫn mở được khi mất mạng.
+      lastLocalEditTime = Date.now();
       saveStateLocal();
       if (!REALTIME_ENABLED || !remoteStateReady) return;
 
@@ -3618,12 +3621,17 @@
 
     function applyRemoteState(data, updatedAt) {
       if (!data || !Array.isArray(data.bosses)) return;
+      if (updatedAt) {
+        const remoteTime = new Date(updatedAt).getTime();
+        // Nếu thay đổi remote cũ hơn thao tác bấm vừa thực hiện tại máy, bỏ qua để tránh ghi đè
+        if (remoteTime && remoteTime < lastLocalEditTime - 2000) return;
+        lastRemoteUpdatedAt = remoteTime || Date.now();
+      }
       state = {
         bosses: data.bosses.map(normalizeBoss),
         history: Array.isArray(data.history) ? data.history.slice(0, 80) : []
       };
       remoteStateReady = true;
-      if (updatedAt) lastRemoteUpdatedAt = new Date(updatedAt).getTime() || Date.now();
       saveStateLocal();
       render();
     }
@@ -5364,9 +5372,14 @@
       const button = event.target.closest("[data-action]");
       if (!button) return;
       const id = button.dataset.id;
-      if (button.dataset.action === "kill") killBoss(id);
-      if (button.dataset.action === "revive") reviveBoss(id);
-      if (button.dataset.action === "edit") openModal(id);
+      const action = button.dataset.action;
+      if (action === "kill") {
+        killBoss(id);
+      } else if (action === "revive") {
+        reviveBoss(id);
+      } else if (action === "edit") {
+        openModal(id);
+      }
     });
 
     if (elements.todayScheduleToggle) {
