@@ -5049,8 +5049,9 @@
     }
 
     async function deleteActiveBoss() {
+      const isEn = currentLang === "en";
       if (!isAdmin()) {
-        showToast("Chỉ Admin mới có quyền xóa boss.");
+        showToast(isEn ? "Only Admin can delete bosses." : "Chỉ Admin mới có quyền xóa boss.");
         return;
       }
       if (!editingBossId) return;
@@ -5058,11 +5059,13 @@
       if (!boss) return;
 
       const confirmed = await showConfirmModal({
-        title: `Xóa boss ${boss.name}?`,
-        subtitle: `Hành động này sẽ xóa vĩnh viễn ${boss.name} khỏi hệ thống.`,
-        message: `Bạn có chắc chắn muốn xóa <strong>${escapeHtml(boss.name)}</strong> (Lv.${boss.level || 80} - ${escapeHtml(boss.map)}) khỏi danh sách theo dõi của team?`,
-        confirmText: "🗑️ Xóa boss",
-        cancelText: "Hủy bỏ",
+        title: isEn ? `Delete boss ${boss.name}?` : `Xóa boss ${boss.name}?`,
+        subtitle: isEn ? `This action will permanently remove ${boss.name}.` : `Hành động này sẽ xóa vĩnh viễn ${boss.name} khỏi hệ thống.`,
+        message: isEn
+          ? `Are you sure you want to delete <strong>${escapeHtml(boss.name)}</strong> (Lv.${boss.level || 80} - ${escapeHtml(boss.map)}) from the tracker?`
+          : `Bạn có chắc chắn muốn xóa <strong>${escapeHtml(boss.name)}</strong> (Lv.${boss.level || 80} - ${escapeHtml(boss.map)}) khỏi danh sách theo dõi của team?`,
+        confirmText: isEn ? "🗑️ Delete Boss" : "🗑️ Xóa boss",
+        cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
       if (!confirmed) return;
@@ -5071,21 +5074,24 @@
       saveState();
       closeModal();
       render();
-      showToast("Đã xóa boss khỏi danh sách.");
+      showToast(isEn ? "Deleted boss from tracker." : "Đã xóa boss khỏi danh sách.");
     }
 
     async function resetAllTimers() {
+      const isEn = currentLang === "en";
       if (!isAdmin()) {
-        showToast("Chỉ Admin mới có quyền reset thời gian boss sau bảo trì.");
+        showToast(isEn ? "Only Admin can reset boss timers after maintenance." : "Chỉ Admin mới có quyền reset thời gian boss sau bảo trì.");
         return;
       }
 
       const confirmed = await showConfirmModal({
-        title: "💥 BẢO TRÌ SERVER GAME XONG?",
-        subtitle: "Đặt lại toàn bộ boss về trạng thái SỐNG (Sẵn sàng xuất hiện).",
-        message: "Thao tác này sẽ chuyển <strong>TOÀN BỘ BOSS</strong> hiện tại về trạng thái <strong>SỐNG</strong> và xóa đếm ngược của tất cả boss.<br><br><span style='color:var(--green); font-weight:600;'>✓ Danh sách boss, level, map và ghi chú của bạn vẫn giữ nguyên 100%.</span>",
-        confirmText: "💥 Reset tất cả Boss",
-        cancelText: "Hủy bỏ",
+        title: isEn ? "💥 SERVER MAINTENANCE FINISHED?" : "💥 BẢO TRÌ SERVER GAME XONG?",
+        subtitle: isEn ? "Reset all bosses to ALIVE state (Ready to spawn)." : "Đặt lại toàn bộ boss về trạng thái SỐNG (Sẵn sàng xuất hiện).",
+        message: isEn
+          ? "This action will set <strong>ALL BOSSES</strong> to <strong>ALIVE</strong> state and clear all countdowns.<br><br><span style='color:var(--green); font-weight:600;'>✓ Boss list, level, map and notes remain 100% intact.</span>"
+          : "Thao tác này sẽ chuyển <strong>TOÀN BỘ BOSS</strong> hiện tại về trạng thái <strong>SỐNG</strong> và xóa đếm ngược của tất cả boss.<br><br><span style='color:var(--green); font-weight:600;'>✓ Danh sách boss, level, map và ghi chú của bạn vẫn giữ nguyên 100%.</span>",
+        confirmText: isEn ? "💥 Reset All Bosses" : "💥 Reset tất cả Boss",
+        cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
       if (!confirmed) return;
@@ -5101,30 +5107,33 @@
         id: "history_" + Math.random().toString(36).slice(2, 9),
         type: "respawn",
         bossId: "all",
-        bossName: "⚡ TẤT CẢ BOSS",
-        map: "Bảo trì Server xong",
+        bossName: isEn ? "⚡ ALL BOSSES" : "⚡ TẤT CẢ BOSS",
+        map: isEn ? "Server Maintenance Complete" : "Bảo trì Server xong",
         time: now
       });
       state.history = state.history.slice(0, 80);
 
       saveState();
       render();
-      showToast("⚡ Đã reset tất cả Boss về trạng thái SỐNG sau bảo trì!");
+      showToast(isEn ? "⚡ Reset all Bosses to ALIVE state after maintenance!" : "⚡ Đã reset tất cả Boss về trạng thái SỐNG sau bảo trì!");
     }
 
     async function clearHistory() {
+      const isEn = currentLang === "en";
       if (!isAdmin()) {
-        showToast("Chỉ Admin mới có quyền xóa lịch sử timeline.");
+        showToast(isEn ? "Only Admin can clear timeline history." : "Chỉ Admin mới có quyền xóa lịch sử timeline.");
         return;
       }
       if (!state.history.length) return;
 
       const confirmed = await showConfirmModal({
-        title: "Xóa toàn bộ lịch sử timeline?",
-        subtitle: "Lịch sử chết và hồi sinh của boss sẽ bị dọn dẹp.",
-        message: "Bạn có chắc chắn muốn xóa sạch <strong>toàn bộ nhật ký lịch sử</strong> timeline gần đây không?",
-        confirmText: "🧹 Xóa lịch sử",
-        cancelText: "Hủy bỏ",
+        title: isEn ? "Clear all timeline history?" : "Xóa toàn bộ lịch sử timeline?",
+        subtitle: isEn ? "Death and respawn event logs will be wiped." : "Lịch sử chết và hồi sinh của boss sẽ bị dọn dẹp.",
+        message: isEn
+          ? "Are you sure you want to completely wipe the <strong>recent timeline history log</strong>?"
+          : "Bạn có chắc chắn muốn xóa sạch <strong>toàn bộ nhật ký lịch sử</strong> timeline gần đây không?",
+        confirmText: isEn ? "🧹 Clear History" : "🧹 Xóa lịch sử",
+        cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
       if (!confirmed) return;
@@ -5132,7 +5141,7 @@
       state.history = [];
       saveState();
       render();
-      showToast("Đã xóa lịch sử timeline.");
+      showToast(isEn ? "Timeline history cleared." : "Đã xóa lịch sử timeline.");
     }
 
 
