@@ -1400,6 +1400,87 @@
       border-radius: var(--radius);
     }
 
+    /* ── Custom Confirmation Modal ── */
+    .confirm-modal-box {
+      width: min(480px, 100%);
+      padding: 26px 24px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #13171f;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      animation: modalIn .2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .confirm-modal-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .confirm-icon-badge {
+      width: 46px;
+      height: 46px;
+      flex-shrink: 0;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #ef4444;
+    }
+
+    .confirm-icon-badge.primary {
+      background: rgba(14, 165, 233, 0.14);
+      border: 1px solid rgba(14, 165, 233, 0.35);
+      color: #38bdf8;
+    }
+
+    .confirm-icon-badge svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .confirm-modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin: 0 0 3px 0;
+      line-height: 1.3;
+    }
+
+    .confirm-modal-sub {
+      font-size: 12.5px;
+      color: #94a3b8;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .confirm-modal-body {
+      padding: 14px 16px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      font-size: 13.5px;
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .confirm-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .confirm-modal-actions button {
+      min-width: 100px;
+      padding: 9px 18px;
+      font-weight: 600;
+      border-radius: 9px;
+    }
+
+
     .auth-modal-header {
       text-align: center;
       margin-bottom: 24px;
@@ -2624,10 +2705,28 @@
           </div>
         </form>
       </div>
+  <!-- Custom Confirmation Modal -->
+  <div class="modal-backdrop" id="customConfirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+    <div class="modal confirm-modal-box">
+      <div class="confirm-modal-header">
+        <div class="confirm-icon-badge" id="confirmModalIcon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <h3 id="confirmModalTitle" class="confirm-modal-title">Xác nhận thao tác</h3>
+          <p id="confirmModalSub" class="confirm-modal-sub">Vui lòng kiểm tra thông tin trước khi đồng ý.</p>
+        </div>
+      </div>
+      <div class="confirm-modal-body" id="confirmModalMessage"></div>
+      <div class="confirm-modal-actions">
+        <button type="button" class="button-ghost" id="confirmModalCancelBtn">Hủy bỏ</button>
+        <button type="button" class="button-danger" id="confirmModalOkBtn">Đồng ý</button>
+      </div>
     </div>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
@@ -4470,7 +4569,55 @@
       render();
     }
 
-    function deleteActiveBoss() {
+    function showConfirmModal({ title, subtitle, message, confirmText = "Đồng ý", cancelText = "Hủy bỏ", isDanger = true }) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById("customConfirmModal");
+        const titleEl = document.getElementById("confirmModalTitle");
+        const subEl = document.getElementById("confirmModalSub");
+        const msgEl = document.getElementById("confirmModalMessage");
+        const okBtn = document.getElementById("confirmModalOkBtn");
+        const cancelBtn = document.getElementById("confirmModalCancelBtn");
+        const iconBadge = document.getElementById("confirmModalIcon");
+
+        titleEl.textContent = title || "Xác nhận thao tác";
+        subEl.textContent = subtitle || "";
+        msgEl.innerHTML = message || "";
+        okBtn.textContent = confirmText;
+        cancelBtn.textContent = cancelText;
+
+        if (isDanger) {
+          okBtn.className = "button-danger";
+          iconBadge.className = "confirm-icon-badge danger";
+        } else {
+          okBtn.className = "button-primary";
+          iconBadge.className = "confirm-icon-badge primary";
+        }
+
+        modal.classList.add("open");
+        syncModalScrollLock();
+
+        const cleanup = (result) => {
+          modal.classList.remove("open");
+          syncModalScrollLock();
+          okBtn.removeEventListener("click", onOk);
+          cancelBtn.removeEventListener("click", onCancel);
+          modal.removeEventListener("click", onBackdrop);
+          resolve(result);
+        };
+
+        const onOk = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        const onBackdrop = (e) => {
+          if (e.target === modal) cleanup(false);
+        };
+
+        okBtn.addEventListener("click", onOk);
+        cancelBtn.addEventListener("click", onCancel);
+        modal.addEventListener("click", onBackdrop);
+      });
+    }
+
+    async function deleteActiveBoss() {
       if (!isAdmin()) {
         showToast("Chỉ Admin mới có quyền xóa boss.");
         return;
@@ -4478,8 +4625,17 @@
       if (!editingBossId) return;
       const boss = state.bosses.find((item) => item.id === editingBossId);
       if (!boss) return;
-      const confirmed = window.confirm(`Xóa ${boss.name} khỏi danh sách?`);
+
+      const confirmed = await showConfirmModal({
+        title: `Xóa boss ${boss.name}?`,
+        subtitle: `Hành động này sẽ xóa vĩnh viễn ${boss.name} khỏi hệ thống.`,
+        message: `Bạn có chắc chắn muốn xóa <strong>${escapeHtml(boss.name)}</strong> (Lv.${boss.level || 80} - ${escapeHtml(boss.map)}) khỏi danh sách theo dõi của team?`,
+        confirmText: "🗑️ Xóa boss",
+        cancelText: "Hủy bỏ",
+        isDanger: true
+      });
       if (!confirmed) return;
+
       state.bosses = state.bosses.filter((item) => item.id !== editingBossId);
       saveState();
       closeModal();
@@ -4487,12 +4643,20 @@
       showToast("Đã xóa boss khỏi danh sách.");
     }
 
-    function resetAllTimers() {
+    async function resetAllTimers() {
       if (!isAdmin()) {
         showToast("Chỉ Admin mới có quyền reset thời gian boss sau bảo trì.");
         return;
       }
-      const confirmed = window.confirm("💥 BẢO TRÌ SERVER GAME XONG?\n\nThao tác này sẽ chuyển TOÀN BỘ BOSS hiện tại về trạng thái SỐNG (Đang sẵn sàng xuất hiện) và xóa đếm ngược của tất cả boss.\n\nDanh sách boss và ghi chú của bạn vẫn giữ nguyên 100%. Bạn có chắc chắn muốn reset?");
+
+      const confirmed = await showConfirmModal({
+        title: "💥 BẢO TRÌ SERVER GAME XONG?",
+        subtitle: "Đặt lại toàn bộ boss về trạng thái SỐNG (Sẵn sàng xuất hiện).",
+        message: "Thao tác này sẽ chuyển <strong>TOÀN BỘ BOSS</strong> hiện tại về trạng thái <strong>SỐNG</strong> và xóa đếm ngược của tất cả boss.<br><br><span style='color:var(--green); font-weight:600;'>✓ Danh sách boss, level, map và ghi chú của bạn vẫn giữ nguyên 100%.</span>",
+        confirmText: "💥 Reset tất cả Boss",
+        cancelText: "Hủy bỏ",
+        isDanger: true
+      });
       if (!confirmed) return;
 
       const now = Date.now();
@@ -4517,19 +4681,29 @@
       showToast("⚡ Đã reset tất cả Boss về trạng thái SỐNG sau bảo trì!");
     }
 
-    function clearHistory() {
+    async function clearHistory() {
       if (!isAdmin()) {
         showToast("Chỉ Admin mới có quyền xóa lịch sử timeline.");
         return;
       }
       if (!state.history.length) return;
-      const confirmed = window.confirm("Xóa toàn bộ timeline gần đây?");
+
+      const confirmed = await showConfirmModal({
+        title: "Xóa toàn bộ lịch sử timeline?",
+        subtitle: "Lịch sử chết và hồi sinh của boss sẽ bị dọn dẹp.",
+        message: "Bạn có chắc chắn muốn xóa sạch <strong>toàn bộ nhật ký lịch sử</strong> timeline gần đây không?",
+        confirmText: "🧹 Xóa lịch sử",
+        cancelText: "Hủy bỏ",
+        isDanger: true
+      });
       if (!confirmed) return;
+
       state.history = [];
       saveState();
       render();
       showToast("Đã xóa lịch sử timeline.");
     }
+
 
     function showToast(message) {
       window.clearTimeout(toastTimer);
@@ -4729,10 +4903,16 @@
     });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
+        const customConfirmModal = document.getElementById("customConfirmModal");
+        if (customConfirmModal && customConfirmModal.classList.contains("open")) {
+          document.getElementById("confirmModalCancelBtn")?.click();
+          return;
+        }
         if (elements.modal.classList.contains("open")) closeModal();
         if (elements.authModal.classList.contains("open")) enterMemberMode();
       }
     });
+
 
     updateRoleUI();
     render();
