@@ -2420,23 +2420,23 @@
       <nav class="nav">
         <a class="nav-item active" href="#dashboard">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 13h8V3H3v10zm10 8h8V3h-8v18zM3 21h8v-6H3v6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          Dashboard
+          <span data-i18n="navDashboard">Dashboard</span>
         </a>
         <a class="nav-item" href="#boss-schedule">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Lịch boss hôm nay
+          <span data-i18n="navTodaySchedule">Lịch boss hôm nay</span>
         </a>
         <a class="nav-item" href="#weekly-boss-schedule">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Boss Tiêu Biểu
+          <span data-i18n="navWeeklySchedule">Boss Tiêu Biểu</span>
         </a>
         <a class="nav-item" href="#boss-list">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Boss List
+          <span data-i18n="navBossList">Boss List</span>
         </a>
         <a class="nav-item" href="#timeline">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h4l3 6 3-6h6M4 18h6l3-6 3 6h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Timeline
+          <span data-i18n="navTimeline">Timeline</span>
         </a>
       </nav>
 
@@ -2452,7 +2452,7 @@
         </div>
         <button class="reset-button" type="button" id="resetAllTimersBtn" title="Reset tất cả boss về trạng thái SỐNG sau khi server bảo trì xong">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Reset sau bảo trì
+          <span data-i18n="resetMaintenance">Reset sau bảo trì</span>
         </button>
 
       </div>
@@ -2526,7 +2526,7 @@
             </div>
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <h2 class="today-schedule-title">Lịch Hồi Sinh & Dự Báo Boss (7 Ngày)</h2>
+                <h2 class="today-schedule-title" data-i18n="schedulePanelTitle">Lịch Hồi Sinh & Dự Báo Boss (7 Ngày)</h2>
                 <span class="header-count-badge" id="todayHeaderBadge">6 boss</span>
               </div>
               <div class="today-schedule-subtitle" id="todayScheduleSubtitle">Đầy đủ lịch đếm ngược các ngày trong tuần & chu kỳ multi-day (30h, 48h...)</div>
@@ -2535,7 +2535,7 @@
           <div class="today-schedule-actions">
             <button class="btn-export-pdf" type="button" id="exportPdfBtn" title="Xuất báo cáo PDF lịch boss">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Xuất PDF
+              <span data-i18n="exportPdf">Xuất PDF</span>
             </button>
             <button class="today-toggle-btn" type="button" id="todayToggleIconBtn" aria-label="Thu gọn hoặc mở rộng bảng lịch">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2545,27 +2545,27 @@
 
         <div class="today-schedule-content" id="todayScheduleContent">
           <div class="schedule-day-tabs" id="scheduleDayTabs">
-            <button class="schedule-day-tab active" type="button" data-day-filter="all">Tất cả (7 Ngày)</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="today">Hôm nay</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="1">Thứ 2</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="2">Thứ 3</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="3">Thứ 4</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="4">Thứ 5</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="5">Thứ 6</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="6">Thứ 7</button>
-            <button class="schedule-day-tab" type="button" data-day-filter="0">Chủ Nhật</button>
+            <button class="schedule-day-tab active" type="button" data-day-filter="all" data-i18n="tabAll7Days">Tất cả (7 Ngày)</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="today" data-i18n="tabToday">Hôm nay</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="1" data-i18n="tabMon">Thứ 2</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="2" data-i18n="tabTue">Thứ 3</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="3" data-i18n="tabWed">Thứ 4</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="4" data-i18n="tabThu">Thứ 5</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="5" data-i18n="tabFri">Thứ 6</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="6" data-i18n="tabSat">Thứ 7</button>
+            <button class="schedule-day-tab" type="button" data-day-filter="0" data-i18n="tabSun">Chủ Nhật</button>
           </div>
           <div class="today-table-wrap">
 
             <table class="today-schedule-table">
               <thead>
                 <tr>
-                  <th scope="col" style="width: 22%; min-width: 175px;">GIỜ & NGÀY HỒI SINH</th>
-                  <th scope="col" style="width: 8%; min-width: 70px;">LEVEL</th>
-                  <th scope="col" style="width: 20%; min-width: 160px;">BOSS</th>
-                  <th scope="col" style="width: 15%; min-width: 110px;">CHU KỲ</th>
-                  <th scope="col" style="width: 18%; min-width: 140px;">ĐỊA ĐIỂM</th>
-                  <th scope="col" style="width: 17%; min-width: 120px;">GHI CHÚ</th>
+                  <th scope="col" style="width: 22%; min-width: 175px;" data-i18n="colTimeDate">GIỜ & NGÀY HỒI SINH</th>
+                  <th scope="col" style="width: 8%; min-width: 70px;" data-i18n="colLevel">LEVEL</th>
+                  <th scope="col" style="width: 20%; min-width: 160px;" data-i18n="colBoss">BOSS</th>
+                  <th scope="col" style="width: 15%; min-width: 110px;" data-i18n="colCycle">CHU KỲ</th>
+                  <th scope="col" style="width: 18%; min-width: 140px;" data-i18n="colMap">ĐỊA ĐIỂM</th>
+                  <th scope="col" style="width: 17%; min-width: 120px;" data-i18n="colNotes">GHI CHÚ</th>
                 </tr>
               </thead>
               <tbody id="todayScheduleBody">
@@ -2590,10 +2590,10 @@
               </div>
               <div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <h2 class="weekly-schedule-title">Lịch Boss Tiêu Biểu</h2>
+                  <h2 class="weekly-schedule-title" data-i18n="weeklyPanelTitle">Lịch Boss Tiêu Biểu</h2>
                   <span class="header-count-badge" id="weeklyHeaderBadge">0 boss</span>
                 </div>
-                <div class="weekly-schedule-subtitle" id="weeklyScheduleSubtitle">Boss cố định theo ngày trong tuần · Thứ 2 → Chủ Nhật</div>
+                <div class="weekly-schedule-subtitle" id="weeklyScheduleSubtitle" data-i18n="weeklyPanelSub">Boss cố định theo ngày trong tuần · Thứ 2 → Chủ Nhật</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
@@ -2615,13 +2615,13 @@
           <div class="search-wrap">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 19a8 8 0 1 1 5.66-13.66A8 8 0 0 1 11 19zm10 2-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <label class="sr-only" for="searchBoss">Tìm kiếm boss</label>
-            <input id="searchBoss" type="search" placeholder="Tìm theo tên boss, map hoặc ghi chú">
+            <input id="searchBoss" type="search" placeholder="Tìm theo tên boss, map hoặc ghi chú" data-i18n-placeholder="searchPlaceholder">
           </div>
           <div class="filter-tabs" role="tablist" aria-label="Lọc trạng thái">
-            <button class="filter-tab active" type="button" data-filter="all">Tất cả</button>
-            <button class="filter-tab" type="button" data-filter="alive">Đang sống</button>
-            <button class="filter-tab" type="button" data-filter="respawning">Đang hồi sinh</button>
-            <button class="filter-tab" type="button" data-filter="soon">Sắp hồi sinh</button>
+            <button class="filter-tab active" type="button" data-filter="all" data-i18n="filterAll">Tất cả</button>
+            <button class="filter-tab" type="button" data-filter="alive" data-i18n="filterAlive">Đang sống</button>
+            <button class="filter-tab" type="button" data-filter="respawning" data-i18n="filterRespawning">Đang hồi sinh</button>
+            <button class="filter-tab" type="button" data-filter="soon" data-i18n="filterSoon">Sắp hồi sinh</button>
           </div>
         </div>
 
@@ -2631,13 +2631,14 @@
       <section class="history-section" id="timeline">
         <div class="section-head">
           <div>
-            <h2>Timeline gần đây</h2>
-            <span>Lịch sử chết và hồi sinh mới nhất</span>
+            <h2 data-i18n="historyTitle">Timeline gần đây</h2>
+            <span data-i18n="historySub">Lịch sử chết và hồi sinh mới nhất</span>
           </div>
           <button class="button-ghost" type="button" id="clearHistoryBtn">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-1 4v8M9 10v8M5 6l1 15h12l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Xóa lịch sử
+            <span data-i18n="clearHistoryBtn">Xóa lịch sử</span>
           </button>
+
         </div>
         <div class="history-list" id="historyList"></div>
       </section>
@@ -3789,8 +3790,9 @@
 
     function getBossStatus(boss, now = Date.now()) {
       if (boss.spawnMode === "fixed") {
-        const nextTime = getNextFixedSpawnTime(boss, now);
-        if (!nextTime) return "alive";
+        if (!boss.diedAt) return "alive";
+        const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, boss.diedAt);
+        if (!nextTime || now >= nextTime) return "alive";
         const remaining = nextTime - now;
         if (remaining <= SOON_LIMIT_MS) return "soon";
         return "respawning";
@@ -3806,11 +3808,11 @@
 
     function getProgress(boss, now = Date.now()) {
       if (boss.spawnMode === "fixed") {
-        const nextTime = getNextFixedSpawnTime(boss, now);
-        if (!nextTime) return 100;
-        const total = 24 * 60 * 60 * 1000;
-        const remaining = Math.max(0, nextTime - now);
-        const elapsed = clamp(total - remaining, 0, total);
+        if (!boss.diedAt) return 100;
+        const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, boss.diedAt);
+        if (!nextTime || now >= nextTime) return 100;
+        const total = Math.max(1, nextTime - boss.diedAt);
+        const elapsed = clamp(now - boss.diedAt, 0, total);
         return Math.round((elapsed / total) * 100);
       }
       if (!boss.diedAt || !boss.respawnsAt) return 100;
@@ -3821,7 +3823,8 @@
 
     function getRemaining(boss, now = Date.now()) {
       if (boss.spawnMode === "fixed") {
-        const nextTime = getNextFixedSpawnTime(boss, now);
+        if (!boss.diedAt) return 0;
+        const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, boss.diedAt);
         if (!nextTime) return 0;
         return Math.max(0, nextTime - now);
       }
@@ -3829,9 +3832,10 @@
       return Math.max(0, boss.respawnsAt - now);
     }
 
+
     function formatSpawnLabel(boss) {
       if (boss.spawnMode === "fixed" && boss.fixedTime) {
-        return `Cố định ${boss.fixedTime}`;
+        return currentLang === "en" ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`;
       }
       return formatRespawnMinutes(boss.respawnMinutes);
     }
@@ -3854,7 +3858,7 @@
     }
 
     function formatShortDate(time) {
-      if (!time) return "Chưa có";
+      if (!time) return currentLang === "en" ? "None" : "Chưa có";
       return new Date(time).toLocaleString("vi-VN", {
         day: "2-digit",
         month: "2-digit",
@@ -3872,21 +3876,22 @@
     }
 
     function formatRespawnMinutes(minutes) {
+      const isEn = currentLang === "en";
       if (minutes >= 1440 && minutes % 1440 === 0) {
         const days = minutes / 1440;
-        return `${days} ngày (${minutes}m)`;
+        return isEn ? `${days} ${days > 1 ? 'days' : 'day'} (${minutes}m)` : `${days} ngày (${minutes}m)`;
       }
       if (minutes >= 1440) {
         const days = (minutes / 1440).toFixed(1).replace(".0", "");
         const hours = Math.floor((minutes % 1440) / 60);
-        return `${days} ngày${hours > 0 ? ' ' + hours + 'h' : ''} (${minutes}m)`;
+        return isEn ? `${days} days${hours > 0 ? ' ' + hours + 'h' : ''} (${minutes}m)` : `${days} ngày${hours > 0 ? ' ' + hours + 'h' : ''} (${minutes}m)`;
       }
       if (minutes >= 60) {
         const hours = Math.floor(minutes / 60);
         const rest = minutes % 60;
         return rest ? `${hours}h ${rest}m` : `${hours}h`;
       }
-      return `${minutes} phút`;
+      return isEn ? `${minutes} mins` : `${minutes} phút`;
     }
 
     function formatSmartRespawnDate(time, now = Date.now()) {
@@ -3900,20 +3905,27 @@
       const diffDays = Math.round((targetDateOnly - nowDateOnly) / (24 * 60 * 60 * 1000));
       const timeStr = target.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-      const daysOfWeek = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+      const isEn = currentLang === "en";
+      const daysOfWeek = isEn
+        ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        : ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
       const dd = String(target.getDate()).padStart(2, "0");
       const mm = String(target.getMonth() + 1).padStart(2, "0");
 
       if (diffDays === 0) {
-        return `<strong style="color:var(--cyan);">${timeStr}</strong> <span style="font-size:11px;color:var(--text-2);">(Hôm nay)</span>`;
+        const tag = isEn ? "(Today)" : "(Hôm nay)";
+        return `<strong style="color:var(--cyan);">${timeStr}</strong> <span style="font-size:11px;color:var(--text-2);">${tag}</span>`;
       } else if (diffDays === 1) {
-        return `<strong style="color:var(--amber);">${timeStr}</strong> <span style="font-size:11.5px;color:var(--amber); font-weight:600;">(Ngày mai ${dd}/${mm})</span>`;
+        const tag = isEn ? `(Tomorrow ${dd}/${mm})` : `(Ngày mai ${dd}/${mm})`;
+        return `<strong style="color:var(--amber);">${timeStr}</strong> <span style="font-size:11.5px;color:var(--amber); font-weight:600;">${tag}</span>`;
       } else if (diffDays === 2) {
-        return `<strong style="color:#c084fc;">${timeStr}</strong> <span style="font-size:11.5px;color:#c084fc; font-weight:600;">(Ngày kia ${dd}/${mm})</span>`;
+        const tag = isEn ? `(In 2 Days ${dd}/${mm})` : `(Ngày kia ${dd}/${mm})`;
+        return `<strong style="color:#c084fc;">${timeStr}</strong> <span style="font-size:11.5px;color:#c084fc; font-weight:600;">${tag}</span>`;
       } else {
         return `<strong>${timeStr}</strong> <span style="font-size:11.5px;color:var(--muted);">(${daysOfWeek[target.getDay()]} ${dd}/${mm})</span>`;
       }
     }
+
 
 
     function historyItem(type, boss, time = Date.now()) {
@@ -4008,6 +4020,7 @@
     }
 
     function renderNextPanel(now) {
+      const isEn = currentLang === "en";
       const nextBoss = state.bosses
         .filter((boss) => boss.diedAt && boss.respawnsAt && boss.respawnsAt > now)
         .sort((a, b) => a.respawnsAt - b.respawnsAt)[0];
@@ -4016,18 +4029,18 @@
         elements.nextPanel.innerHTML = `
           <div class="next-copy">
             <span class="section-kicker">Next respawn</span>
-            <h2 class="next-title">Không có boss nào đang chờ hồi sinh</h2>
-            <p class="next-sub">Tất cả boss hiện đang ở trạng thái sống. Khi có boss chết, khu vực này sẽ tự động hiển thị countdown ưu tiên gần nhất.</p>
+            <h2 class="next-title">${isEn ? "No bosses currently counting down" : "Không có boss nào đang chờ hồi sinh"}</h2>
+            <p class="next-sub">${isEn ? "All bosses are currently ALIVE. When a boss dies, the nearest upcoming respawn countdown will automatically appear here." : "Tất cả boss hiện đang ở trạng thái sống. Khi có boss chết, khu vực này sẽ tự động hiển thị countdown ưu tiên gần nhất."}</p>
             <div class="next-countdown">
               <div class="timer-big">READY</div>
-              <div class="timer-caption">Bấm "Ghi nhận chết" trên card boss để bắt đầu đếm ngược hồi sinh.</div>
+              <div class="timer-caption">${isEn ? 'Click "Record Death" on a boss card to start its respawn countdown.' : 'Bấm "Ghi nhận chết" trên card boss để bắt đầu đếm ngược hồi sinh.'}</div>
             </div>
             <div class="progress-track"><span style="width:100%"></span></div>
-            <div class="timeline-labels"><span>Timeline sạch</span><span>Sẵn sàng theo dõi</span></div>
+            <div class="timeline-labels"><span>${isEn ? "Clean timeline" : "Timeline sạch"}</span><span>${isEn ? "Ready to track" : "Sẵn sàng theo dõi"}</span></div>
           </div>
           <div class="map-visual">
             <img src="assets/arena-map.svg" alt="Bản đồ route respawn">
-            <div class="map-badge">${iconSvg.check} All bosses alive</div>
+            <div class="map-badge">${iconSvg.check} ${isEn ? "All bosses alive" : "Tất cả boss đang sống"}</div>
           </div>
         `;
         return;
@@ -4036,20 +4049,24 @@
       const remaining = getRemaining(nextBoss, now);
       const progress = getProgress(nextBoss, now);
       const status = getBossStatus(nextBoss, now);
+      const statusText = isEn
+        ? (status === "soon" ? "spawning soon" : "counting down")
+        : statusCopy[status].label.toLowerCase();
+
       elements.nextPanel.innerHTML = `
         <div class="next-copy">
           <span class="section-kicker">Next respawn</span>
-          <h2 class="next-title">${escapeHtml(nextBoss.name)} sẽ hồi sinh tiếp theo</h2>
-          <p class="next-sub">${escapeHtml(nextBoss.map)} · Lv. ${nextBoss.level || 80} · Respawn ${formatRespawnMinutes(nextBoss.respawnMinutes)} · Trạng thái ${statusCopy[status].label.toLowerCase()}.</p>
+          <h2 class="next-title">${escapeHtml(nextBoss.name)} ${isEn ? "will respawn next" : "sẽ hồi sinh tiếp theo"}</h2>
+          <p class="next-sub">${escapeHtml(nextBoss.map)} · Lv. ${nextBoss.level || 80} · Respawn ${formatRespawnMinutes(nextBoss.respawnMinutes)} · ${isEn ? "Status" : "Trạng thái"} ${statusText}.</p>
           <div class="next-countdown">
             <div class="timer-big">${formatCountdown(remaining)}</div>
-            <div class="timer-caption">Dự kiến hồi sinh lúc <strong>${formatShortDate(nextBoss.respawnsAt)}</strong>. Chuẩn bị trước khi timer về 0.</div>
+            <div class="timer-caption">${isEn ? "Estimated respawn at" : "Dự kiến hồi sinh lúc"} <strong>${formatShortDate(nextBoss.respawnsAt)}</strong>. ${isEn ? "Prepare before timer hits 0." : "Chuẩn bị trước khi timer về 0."}</div>
           </div>
           <div class="progress-track" aria-label="Tiến độ hồi sinh"><span style="width:${progress}%"></span></div>
           <div class="timeline-labels">
-            <span>Chết ${formatTimeOnly(nextBoss.diedAt)}</span>
+            <span>${isEn ? "Died at" : "Chết"} ${formatTimeOnly(nextBoss.diedAt)}</span>
             <span>${progress}%</span>
-            <span>Hồi sinh ${formatTimeOnly(nextBoss.respawnsAt)}</span>
+            <span>${isEn ? "Respawn at" : "Hồi sinh"} ${formatTimeOnly(nextBoss.respawnsAt)}</span>
           </div>
         </div>
         <div class="map-visual">
@@ -4079,11 +4096,12 @@
 
     function renderBossGrid(now) {
       const bosses = getVisibleBosses(now);
+      const isEn = currentLang === "en";
       if (!bosses.length) {
         elements.bossGrid.innerHTML = `
           <div class="empty-state" style="grid-column:1 / -1">
-            <strong>Không tìm thấy boss phù hợp</strong>
-            Thử đổi từ khóa tìm kiếm hoặc chọn lại bộ lọc trạng thái.
+            <strong>${isEn ? "No matching bosses found" : "Không tìm thấy boss phù hợp"}</strong>
+            ${isEn ? "Try changing search keywords or selecting a different status filter." : "Thử đổi từ khóa tìm kiếm hoặc chọn lại bộ lọc trạng thái."}
           </div>
         `;
         return;
@@ -4093,17 +4111,25 @@
     }
 
     function renderBossCard(boss, now) {
+      const isEn = currentLang === "en";
       const status = getBossStatus(boss, now);
       const remaining = getRemaining(boss, now);
       const progress = getProgress(boss, now);
       const isAlive = status === "alive";
-      const timerLabel = isAlive ? "Trạng thái" : "Còn lại";
+      const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
       const timerValue = isAlive ? "READY" : formatCountdown(remaining);
       const statusClass = `status-${status}`;
       const actionClass = isAlive ? "button-danger" : "button-primary";
       const actionIcon = isAlive ? iconSvg.skull : iconSvg.check;
-      const actionLabel = isAlive ? "Ghi nhận chết" : "Cho hồi sinh";
+      const actionLabel = isAlive
+        ? (isEn ? "Record Death" : "Ghi nhận chết")
+        : (isEn ? "Revive Now" : "Cho hồi sinh");
       const actionName = isAlive ? "kill" : "revive";
+
+      const statusBadgeText = isEn
+        ? (status === "alive" ? "• ALIVE" : (status === "soon" ? "• SPAWNING SOON" : "• COUNTING DOWN"))
+        : statusCopy[status].label;
+
       const actionsHtml = isAdmin()
         ? `
           <div class="card-actions">
@@ -4111,7 +4137,7 @@
               ${actionIcon}
               ${actionLabel}
             </button>
-            <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" aria-label="Chỉnh sửa ${escapeHtml(boss.name)}" title="Chỉnh sửa">
+            <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" aria-label="${isEn ? 'Edit' : 'Chỉnh sửa'} ${escapeHtml(boss.name)}" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
               ${iconSvg.edit}
             </button>
           </div>
@@ -4119,12 +4145,12 @@
         : `
           <div class="member-readonly-badge">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
-            Chế độ thành viên · Chỉ xem
+            ${isEn ? "Member Mode · Read Only" : "Chế độ thành viên · Chỉ xem"}
           </div>
         `;
 
-      const respawnText = boss.spawnMode === "fixed" ? `Cố định ${boss.fixedTime}` : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
-      const respawnTimeText = isAlive ? respawnText : "Hồi sinh " + formatTimeOnly(boss.respawnsAt || getNextFixedSpawnTime(boss, now));
+      const respawnText = boss.spawnMode === "fixed" ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`) : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
+      const respawnTimeText = isAlive ? respawnText : (isEn ? "Respawn " : "Hồi sinh ") + formatTimeOnly(boss.respawnsAt || getNextFixedSpawnTime(boss, now));
 
       return `
         <article class="boss-card" data-id="${escapeHtml(boss.id)}">
@@ -4134,7 +4160,7 @@
               <div class="boss-map">${escapeHtml(boss.map)} · <span class="level-badge">Lv. ${boss.level || 80}</span></div>
               <h3 class="boss-name">${escapeHtml(boss.name)}</h3>
             </div>
-            <span class="status-pill ${statusClass}">${statusCopy[status].label}</span>
+            <span class="status-pill ${statusClass}">${statusBadgeText}</span>
           </div>
 
           <div class="timer-panel">
@@ -4142,23 +4168,10 @@
               <span class="timer-label">${timerLabel}</span>
               <strong class="timer-value">${timerValue}</strong>
             </div>
-            <div class="progress-track"><span style="width:${progress}%"></span></div>
-            <div class="timeline-labels">
-              <span>${isAlive ? "Sẵn sàng" : "Chết " + formatTimeOnly(boss.diedAt)}</span>
+            <div class="progress-track" aria-label="Tiến độ hồi sinh"><span style="width:${progress}%"></span></div>
+            <div class="boss-meta">
               <span>${respawnTimeText}</span>
-            </div>
-          </div>
-
-          <div class="boss-note">${escapeHtml(boss.notes || "Chưa có ghi chú cho boss này.")}</div>
-
-          <div class="boss-meta">
-            <div class="meta-item">
-              <span>Thời gian</span>
-              <strong>${formatSpawnLabel(boss)}</strong>
-            </div>
-            <div class="meta-item">
-              <span>Level</span>
-              <strong>Lv. ${boss.level || 80}</strong>
+              <span>${progress}%</span>
             </div>
           </div>
 
@@ -4174,11 +4187,12 @@
 
     function renderHistory() {
       const history = state.history.slice(0, 8);
+      const isEn = currentLang === "en";
       if (!history.length) {
         elements.historyList.innerHTML = `
           <div class="empty-state">
-            <strong>Chưa có lịch sử</strong>
-            Khi bạn ghi nhận boss chết hoặc cho hồi sinh, timeline sẽ xuất hiện ở đây.
+            <strong>${isEn ? "No history recorded" : "Chưa có lịch sử"}</strong>
+            ${isEn ? "When you record boss death or revive a boss, timeline events will appear here." : "Khi bạn ghi nhận boss chết hoặc cho hồi sinh, timeline sẽ xuất hiện ở đây."}
           </div>
         `;
         return;
@@ -4187,8 +4201,10 @@
       elements.historyList.innerHTML = history.map((item) => {
         const isDeath = item.type === "death";
         const icon = isDeath ? iconSvg.skull : iconSvg.check;
-        const title = isDeath ? `${item.bossName} đã chết` : `${item.bossName} đã hồi sinh`;
-        const detail = `${item.map || "Chưa đặt map"} · ${isDeath ? "Bắt đầu countdown" : "Sẵn sàng xuất hiện lại"}`;
+        const title = isDeath
+          ? (isEn ? `${item.bossName} died` : `${item.bossName} đã chết`)
+          : (isEn ? `${item.bossName} respawned` : `${item.bossName} đã hồi sinh`);
+        const detail = `${item.map || (isEn ? "No map set" : "Chưa đặt map")} · ${isDeath ? (isEn ? "Countdown started" : "Bắt đầu countdown") : (isEn ? "Ready to spawn" : "Sẵn sàng xuất hiện lại")}`;
         return `
           <article class="history-item">
             <div class="history-icon" style="color:${isDeath ? "var(--red)" : "var(--green)"}">${icon}</div>
@@ -4203,7 +4219,10 @@
     }
 
     function getTodayScheduleSubtitle(now = new Date()) {
-      const days = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+      const isEn = currentLang === "en";
+      const days = isEn
+        ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        : ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
       const dayName = days[now.getDay()];
       const dd = String(now.getDate()).padStart(2, "0");
       const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -4243,18 +4262,19 @@
       }
 
       const totalBoss = filtered.length;
+      const isEn = currentLang === "en";
       if (elements.todayHeaderBadge) {
-        elements.todayHeaderBadge.textContent = `${totalBoss} boss`;
+        elements.todayHeaderBadge.textContent = `${totalBoss} ${isEn ? 'bosses' : 'boss'}`;
       }
       if (elements.todayBossCount) {
-        elements.todayBossCount.textContent = `${totalBoss} boss`;
+        elements.todayBossCount.textContent = `${totalBoss} ${isEn ? 'bosses' : 'boss'}`;
       }
 
       if (!totalBoss) {
         elements.todayScheduleBody.innerHTML = `
           <tr>
             <td colspan="6" style="text-align:center; padding: 28px; color: var(--muted);">
-              Không có boss nào phù hợp với bộ lọc ngày được chọn.
+              ${isEn ? "No bosses matching the selected day filter." : "Không có boss nào phù hợp với bộ lọc ngày được chọn."}
             </td>
           </tr>
         `;
@@ -4276,19 +4296,19 @@
         const cycleText = formatSpawnLabel(boss);
 
         let badgeClass = "badge-alive";
-        let badgeText = "• ĐANG SỐNG";
+        let badgeText = isEn ? "• ALIVE" : "• ĐANG SỐNG";
         if (status === "soon") {
           badgeClass = "badge-soon";
-          badgeText = "• SẮP HỒI SINH";
+          badgeText = isEn ? "• SPAWNING SOON" : "• SẮP HỒI SINH";
         } else if (status === "respawning") {
           badgeClass = "badge-waiting";
-          badgeText = "• ĐANG COUNTDOWN";
+          badgeText = isEn ? "• COUNTING DOWN" : "• ĐANG COUNTDOWN";
         }
 
         const notesContent = boss.notes ? escapeHtml(boss.notes) : '<span class="notes-empty">—</span>';
 
         return `
-          <tr data-boss-id="${escapeHtml(boss.id)}" style="cursor:pointer;" title="Bấm để xem ${escapeHtml(boss.name)}">
+          <tr data-boss-id="${escapeHtml(boss.id)}" style="cursor:pointer;" title="${isEn ? 'Click to view' : 'Bấm để xem'} ${escapeHtml(boss.name)}">
             <td class="today-time-cell">${timeFormatted}</td>
             <td><span class="level-badge">Lv. ${boss.level || 80}</span></td>
             <td>
@@ -4319,17 +4339,18 @@
     function renderWeeklySchedule() {
       if (!elements.weeklyGrid) return;
 
+      const isEn = currentLang === "en";
       const weeklyBosses = state.bosses.filter((b) => Array.isArray(b.weekDays) && b.weekDays.length > 0);
 
       if (elements.weeklyHeaderBadge) {
-        elements.weeklyHeaderBadge.textContent = `${weeklyBosses.length} boss`;
+        elements.weeklyHeaderBadge.textContent = `${weeklyBosses.length} ${isEn ? 'bosses' : 'boss'}`;
       }
 
       if (!weeklyBosses.length) {
         elements.weeklyGrid.innerHTML = `
           <div class="weekly-no-data" style="grid-column:1/-1">
-            <strong>Chưa có boss tiêu biểu</strong>
-            Thêm boss và chọn ngày xuất hiện trong tuần để hiển thị lịch boss cố định T2–CN.
+            <strong>${isEn ? "No featured bosses configured" : "Chưa có boss tiêu biểu"}</strong>
+            ${isEn ? "Add a boss and select recurring days of the week to show fixed Mon–Sun schedule." : "Thêm boss và chọn ngày xuất hiện trong tuần để hiển thị lịch boss cố định T2–CN."}
           </div>
         `;
         return;
@@ -4340,8 +4361,13 @@
 
       // Days order: T2(1), T3(2), T4(3), T5(4), T6(5), T7(6), CN(0)
       const dayOrder = [1, 2, 3, 4, 5, 6, 0];
-      const dayLabels = { 0: "CN", 1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7" };
-      const dayFullName = { 0: "Chủ Nhật", 1: "Thứ 2", 2: "Thứ 3", 3: "Thứ 4", 4: "Thứ 5", 5: "Thứ 6", 6: "Thứ 7" };
+      const dayLabels = isEn
+        ? { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" }
+        : { 0: "CN", 1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7" };
+      const dayFullName = isEn
+        ? { 0: "Sunday", 1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday" }
+        : { 0: "Chủ Nhật", 1: "Thứ 2", 2: "Thứ 3", 3: "Thứ 4", 4: "Thứ 5", 5: "Thứ 6", 6: "Thứ 7" };
+
 
       // Build date for each day of this week (Monday-based week)
       // Find Monday of current week
@@ -4836,12 +4862,17 @@
       if (!boss) return;
       const now = Date.now();
       boss.diedAt = now;
-      boss.respawnsAt = now + boss.respawnMinutes * 60 * 1000;
+      if (boss.spawnMode === "fixed") {
+        boss.respawnsAt = getNextFixedSpawnTime(boss, now);
+      } else {
+        boss.respawnsAt = now + boss.respawnMinutes * 60 * 1000;
+      }
       pushHistory("death", boss, now);
       saveState();
       render();
       showToast(`${boss.name} đã bắt đầu countdown hồi sinh.`);
     }
+
 
     function reviveBoss(id) {
       if (!isAdmin()) {
