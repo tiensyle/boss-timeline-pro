@@ -2285,10 +2285,11 @@
           </div>
           <span class="server-pulse" aria-hidden="true"></span>
         </div>
-        <button class="reset-button" type="button" id="resetDemoBtn">
+        <button class="reset-button" type="button" id="resetAllTimersBtn" title="Reset tất cả boss về trạng thái SỐNG sau khi server bảo trì xong">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Reset demo
+          Reset sau bảo trì
         </button>
+
       </div>
     </aside>
 
@@ -2672,8 +2673,9 @@
       weeklyHeaderBadge: document.getElementById("weeklyHeaderBadge"),
       weekdayPicker: document.getElementById("weekdayPicker"),
       addBossBtn: document.getElementById("addBossBtn"),
-      resetDemoBtn: document.getElementById("resetDemoBtn"),
+      resetAllTimersBtn: document.getElementById("resetAllTimersBtn"),
       clearHistoryBtn: document.getElementById("clearHistoryBtn"),
+
       modal: document.getElementById("bossModal"),
       bossForm: document.getElementById("bossForm"),
       modalTitle: document.getElementById("modalTitle"),
@@ -2760,10 +2762,11 @@
       if (elements.clearHistoryBtn) {
         elements.clearHistoryBtn.style.display = isAdmin() ? "inline-flex" : "none";
       }
-      if (elements.resetDemoBtn) {
-        elements.resetDemoBtn.style.display = isAdmin() ? "inline-flex" : "none";
+      if (elements.resetAllTimersBtn) {
+        elements.resetAllTimersBtn.style.display = isAdmin() ? "inline-flex" : "none";
       }
     }
+
 
     /* ── Sound & Speech Notification Engine ── */
     const STORAGE_SOUND_KEY = "bossTimelinePro.soundEnabled";
@@ -4484,19 +4487,34 @@
       showToast("Đã xóa boss khỏi danh sách.");
     }
 
-    function resetDemo() {
+    function resetAllTimers() {
       if (!isAdmin()) {
-        showToast("Chỉ Admin mới có quyền reset dữ liệu demo.");
+        showToast("Chỉ Admin mới có quyền reset thời gian boss sau bảo trì.");
         return;
       }
-      const confirmed = window.confirm("Reset toàn bộ dữ liệu demo? Dữ liệu Boss Timeline hiện tại sẽ được thay bằng dữ liệu mẫu và đồng bộ cho cả team.");
+      const confirmed = window.confirm("💥 BẢO TRÌ SERVER GAME XONG?\n\nThao tác này sẽ chuyển TOÀN BỘ BOSS hiện tại về trạng thái SỐNG (Đang sẵn sàng xuất hiện) và xóa đếm ngược của tất cả boss.\n\nDanh sách boss và ghi chú của bạn vẫn giữ nguyên 100%. Bạn có chắc chắn muốn reset?");
       if (!confirmed) return;
-      state = createDefaultState();
-      activeFilter = "all";
-      elements.searchBoss.value = "";
+
+      const now = Date.now();
+      state.bosses.forEach((boss) => {
+        boss.diedAt = null;
+        boss.respawnsAt = null;
+        boss.lastRespawnAt = now;
+      });
+
+      state.history.unshift({
+        id: "history_" + Math.random().toString(36).slice(2, 9),
+        type: "respawn",
+        bossId: "all",
+        bossName: "⚡ TẤT CẢ BOSS",
+        map: "Bảo trì Server xong",
+        time: now
+      });
+      state.history = state.history.slice(0, 80);
+
       saveState();
       render();
-      showToast("Đã reset dữ liệu demo.");
+      showToast("⚡ Đã reset tất cả Boss về trạng thái SỐNG sau bảo trì!");
     }
 
     function clearHistory() {
@@ -4604,7 +4622,10 @@
     }
 
     elements.addBossBtn.addEventListener("click", () => openModal());
-    elements.resetDemoBtn.addEventListener("click", resetDemo);
+    if (elements.resetAllTimersBtn) {
+      elements.resetAllTimersBtn.addEventListener("click", resetAllTimers);
+    }
+
     elements.clearHistoryBtn.addEventListener("click", clearHistory);
     elements.searchBoss.addEventListener("input", render);
     elements.filterTabs.addEventListener("click", (event) => {
