@@ -1265,6 +1265,10 @@
       align-items: center;
     }
 
+    .card-actions button svg, .icon-button svg, .action-main svg {
+      pointer-events: none;
+    }
+
     .action-main {
       width: 100%;
     }
@@ -3130,7 +3134,7 @@
 
     const STORAGE_ROLE_KEY = "bossTimelinePro.role";
     const ADMIN_PASSWORD = "@#123";
-    let currentRole = "member";
+    let currentRole = localStorage.getItem(STORAGE_ROLE_KEY) === "admin" ? "admin" : "member";
 
     function isAdmin() {
       return currentRole === "admin";
@@ -3144,10 +3148,11 @@
       } catch (e) {}
       updateRoleUI();
       render();
+      const isEn = currentLang === "en";
       if (isAdmin()) {
-        showToast("👑 Đã chuyển sang quyền Admin: Toàn quyền thêm, sửa, xóa boss.");
+        showToast(isEn ? "👑 Admin privileges activated: Full control to manage bosses." : "👑 Đã chuyển sang quyền Admin: Toàn quyền thêm, sửa, xóa boss.");
       } else {
-        showToast("👤 Đã chuyển sang quyền Thành viên: Chế độ chỉ xem.");
+        showToast(isEn ? "👤 Member Mode: Read-only access." : "👤 Đã chuyển sang quyền Thành viên: Chế độ chỉ xem.");
       }
     }
 
@@ -3949,19 +3954,22 @@
       let changed = false;
 
       state.bosses.forEach((boss) => {
-        if (boss.diedAt && boss.respawnsAt && boss.respawnsAt <= now) {
-          const respawnTime = boss.respawnsAt;
-          boss.lastRespawnAt = respawnTime;
-          boss.diedAt = null;
-          boss.respawnsAt = null;
-          pushHistory("respawn", boss, respawnTime);
-          changed = true;
+        if (boss.diedAt) {
+          const respawnTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, boss.diedAt) : null);
+          if (respawnTime && respawnTime <= now) {
+            boss.lastRespawnAt = respawnTime;
+            boss.diedAt = null;
+            boss.respawnsAt = null;
+            pushHistory("respawn", boss, respawnTime);
+            changed = true;
+          }
         }
       });
 
       if (changed) {
         saveState();
-        showToast("Có boss vừa hồi sinh. Timeline đã được cập nhật.");
+        const isEn = currentLang === "en";
+        showToast(isEn ? "A boss has respawned. Timeline updated." : "Có boss vừa hồi sinh. Timeline đã được cập nhật.");
       }
     }
 
@@ -4089,15 +4097,22 @@
           const aLive = getBossStatus(a, now) === "alive";
           const bLive = getBossStatus(b, now) === "alive";
           if (aLive !== bLive) return aLive ? 1 : -1;
-          if (!aLive && !bLive) return a.respawnsAt - b.respawnsAt;
+          if (!aLive && !bLive) {
+            const aRespawn = a.respawnsAt || getNextFixedSpawnTime(a, a.diedAt || now) || 0;
+            const bRespawn = b.respawnsAt || getNextFixedSpawnTime(b, b.diedAt || now) || 0;
+            return aRespawn - bRespawn;
+          }
           return a.name.localeCompare(b.name, "vi");
         });
     }
+
+    let lastRenderedGridKey = "";
 
     function renderBossGrid(now) {
       const bosses = getVisibleBosses(now);
       const isEn = currentLang === "en";
       if (!bosses.length) {
+        lastRenderedGridKey = "";
         elements.bossGrid.innerHTML = `
           <div class="empty-state" style="grid-column:1 / -1">
             <strong>${isEn ? "No matching bosses found" : "Không tìm thấy boss phù hợp"}</strong>
@@ -4107,7 +4122,70 @@
         return;
       }
 
-      elements.bossGrid.innerHTML = bosses.map((boss) => renderBossCard(boss, now)).join("");
+      const gridKey = bosses.map((b) => b.id).join(",") + "_" + currentRole + "_" + currentLang + "_" + activeFilter;
+      if (gridKey !== lastRenderedGridKey) {
+        lastRenderedGridKey = gridKey;
+        elements.bossGrid.innerHTML = bosses.map((boss) => renderBossCard(boss, now)).join("");
+      } else {
+        const existingCards = elements.bossGrid.querySelectorAll(".boss-card");
+        bosses.forEach((boss, i) => {
+          if (existingCards[i]) updateBossCardInPlace(existingCards[i], boss, now);
+        });
+      }
+    }
+
+    function updateBossCardInPlace(card, boss, now) {
+      const isEn = currentLang === "en";
+      const status = getBossStatus(boss, now);
+      const remaining = getRemaining(boss, now);
+      const progress = getProgress(boss, now);
+      const isAlive = status === "alive";
+      const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
+      const timerValue = isAlive ? "READY" : formatCountdown(remaining);
+      const statusClass = `status-${status}`;
+      const statusBadgeText = isEn
+        ? (status === "alive" ? "• ALIVE" : (status === "soon" ? "• SPAWNING SOON" : "• COUNTING DOWN"))
+        : statusCopy[status].label;
+
+      const respawnText = boss.spawnMode === "fixed"
+        ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`)
+        : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
+      const respawnTimeText = isAlive
+        ? respawnText
+        : (isEn ? "Respawn " : "Hồi sinh ") + formatTimeOnly(boss.respawnsAt || getNextFixedSpawnTime(boss, now));
+
+      const timerLabelEl = card.querySelector(".timer-label");
+      if (timerLabelEl && timerLabelEl.textContent !== timerLabel) timerLabelEl.textContent = timerLabel;
+
+      const timerValEl = card.querySelector(".timer-value");
+      if (timerValEl && timerValEl.textContent !== timerValue) timerValEl.textContent = timerValue;
+
+      const pill = card.querySelector(".status-pill");
+      if (pill) {
+        if (pill.className !== `status-pill ${statusClass}`) pill.className = `status-pill ${statusClass}`;
+        if (pill.textContent !== statusBadgeText) pill.textContent = statusBadgeText;
+      }
+
+      const progressSpan = card.querySelector(".progress-track span");
+      if (progressSpan) {
+        progressSpan.style.width = `${progress}%`;
+      }
+
+      const metaSpans = card.querySelectorAll(".boss-meta span");
+      if (metaSpans[0] && metaSpans[0].textContent !== respawnTimeText) metaSpans[0].textContent = respawnTimeText;
+      if (metaSpans[1] && metaSpans[1].textContent !== `${progress}%`) metaSpans[1].textContent = `${progress}%`;
+
+      const actionBtn = card.querySelector(".action-main");
+      if (actionBtn) {
+        const expectedAction = isAlive ? "kill" : "revive";
+        if (actionBtn.dataset.action !== expectedAction) {
+          actionBtn.dataset.action = expectedAction;
+          actionBtn.className = `${isAlive ? "button-danger" : "button-primary"} action-main`;
+          const actionIcon = isAlive ? iconSvg.skull : iconSvg.check;
+          const actionLabel = isAlive ? (isEn ? "Record Death" : "Ghi nhận chết") : (isEn ? "Revive Now" : "Cho hồi sinh");
+          actionBtn.innerHTML = `${actionIcon} ${actionLabel}`;
+        }
+      }
     }
 
     function renderBossCard(boss, now) {
@@ -4186,7 +4264,7 @@
     }
 
     function renderHistory() {
-      const history = state.history.slice(0, 8);
+      const history = state.history.slice(0, 25);
       const isEn = currentLang === "en";
       if (!history.length) {
         elements.historyList.innerHTML = `
@@ -4200,11 +4278,14 @@
 
       elements.historyList.innerHTML = history.map((item) => {
         const isDeath = item.type === "death";
+        const isAll = item.bossId === "all";
         const icon = isDeath ? iconSvg.skull : iconSvg.check;
+        const displayName = isAll ? (isEn ? "⚡ ALL BOSSES" : "⚡ TẤT CẢ BOSS") : item.bossName;
         const title = isDeath
-          ? (isEn ? `${item.bossName} died` : `${item.bossName} đã chết`)
-          : (isEn ? `${item.bossName} respawned` : `${item.bossName} đã hồi sinh`);
-        const detail = `${item.map || (isEn ? "No map set" : "Chưa đặt map")} · ${isDeath ? (isEn ? "Countdown started" : "Bắt đầu countdown") : (isEn ? "Ready to spawn" : "Sẵn sàng xuất hiện lại")}`;
+          ? (isEn ? `${displayName} died` : `${displayName} đã chết`)
+          : (isEn ? `${displayName} respawned` : `${displayName} đã hồi sinh`);
+        const mapName = isAll ? (isEn ? "Server Maintenance Complete" : "Bảo trì Server xong") : (item.map || (isEn ? "No map set" : "Chưa đặt map"));
+        const detail = `${mapName} · ${isDeath ? (isEn ? "Countdown started" : "Bắt đầu countdown") : (isEn ? "Ready to spawn" : "Sẵn sàng xuất hiện lại")}`;
         return `
           <article class="history-item">
             <div class="history-icon" style="color:${isDeath ? "var(--red)" : "var(--green)"}">${icon}</div>
@@ -4854,8 +4935,9 @@
     }
 
     function killBoss(id) {
+      const isEn = currentLang === "en";
       if (!isAdmin()) {
-        showToast("Chỉ Admin mới có quyền ghi nhận boss chết.");
+        showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
         return;
       }
       const boss = state.bosses.find((item) => item.id === id);
@@ -4870,13 +4952,14 @@
       pushHistory("death", boss, now);
       saveState();
       render();
-      showToast(`${boss.name} đã bắt đầu countdown hồi sinh.`);
+      showToast(isEn ? `${boss.name} death recorded. Respawn countdown started.` : `${boss.name} đã bắt đầu countdown hồi sinh.`);
     }
 
 
     function reviveBoss(id) {
+      const isEn = currentLang === "en";
       if (!isAdmin()) {
-        showToast("Chỉ Admin mới có quyền cho hồi sinh boss.");
+        showToast(isEn ? "Only Admin can revive bosses." : "Chỉ Admin mới có quyền cho hồi sinh boss.");
         return;
       }
       const boss = state.bosses.find((item) => item.id === id);
@@ -4888,7 +4971,7 @@
       pushHistory("respawn", boss, now);
       saveState();
       render();
-      showToast(`${boss.name} đã được chuyển sang trạng thái sống.`);
+      showToast(isEn ? `${boss.name} revived and marked as alive.` : `${boss.name} đã được chuyển sang trạng thái sống.`);
     }
 
     function openModal(id = null) {
@@ -5391,7 +5474,9 @@
     setLanguage(currentLang);
     updateRoleUI();
     render();
-    openAuthModal("choose");
+    if (!localStorage.getItem(STORAGE_ROLE_KEY)) {
+      openAuthModal("choose");
+    }
     initRealtimeSync();
     window.setInterval(render, 1000);
   </script>
