@@ -2517,6 +2517,180 @@
     .realtime-status[data-status="online"] .realtime-status-dot { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.12); }
     .realtime-status[data-status="offline"] .realtime-status-dot { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.12); }
 
+    /* Fixed Schedule Slot Manager */
+    .fixed-slots-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .fixed-slot-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-2, rgba(255,255,255,0.04));
+      border: 1px solid var(--line, rgba(255,255,255,0.1));
+      border-radius: var(--radius, 8px);
+      padding: 8px 10px;
+    }
+    .fixed-slot-row select,
+    .fixed-slot-row input[type="time"] {
+      padding: 6px 10px;
+      font-size: 13.5px;
+      border-radius: 6px;
+      border: 1px solid var(--line-soft, rgba(255,255,255,0.15));
+      background: var(--surface-1, #121824);
+      color: var(--text, #f1f5f9);
+    }
+    .fixed-slot-row select {
+      flex: 1;
+      min-width: 140px;
+    }
+    .fixed-slot-row input[type="time"] {
+      width: 120px;
+    }
+    .fixed-slot-row .btn-remove-slot {
+      background: rgba(239, 68, 68, 0.12);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      transition: background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .fixed-slot-row .btn-remove-slot:hover {
+      background: rgba(239, 68, 68, 0.25);
+    }
+    .weekly-boss-time {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--amber, #f59e0b);
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-top: 3px;
+    }
+
+    /* View Switcher Controls */
+    .view-mode-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px;
+      border-radius: var(--radius, 8px);
+      background: var(--surface-2, rgba(255,255,255,0.05));
+      border: 1px solid var(--line-soft, rgba(255,255,255,0.1));
+    }
+    .view-mode-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted, #94a3b8);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .view-mode-btn:hover {
+      color: var(--text, #f1f5f9);
+    }
+    .view-mode-btn.active {
+      background: var(--cyan, #38bdf8);
+      color: #090d16;
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Compact / List View Table */
+    .compact-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius, 12px);
+      background: var(--surface-1, #121824);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    .compact-boss-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    .compact-boss-table th {
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      background: var(--surface-2, rgba(255, 255, 255, 0.03));
+      border-bottom: 1px solid var(--line-soft);
+      white-space: nowrap;
+    }
+    .compact-boss-table td {
+      padding: 11px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    .compact-boss-table tr.compact-boss-row {
+      display: table-row !important;
+      transition: background 0.15s ease;
+    }
+    .compact-boss-table tr:last-child td {
+      border-bottom: none;
+    }
+    .compact-boss-table tr:hover td {
+      background: var(--surface-2, rgba(255, 255, 255, 0.04));
+    }
+    .compact-boss-table tr.highlighted td {
+      background: rgba(56, 189, 248, 0.18) !important;
+    }
+    .compact-boss-row .status-pill {
+      min-height: 20px !important;
+      height: 20px !important;
+      padding: 0 8px !important;
+      font-size: 10px !important;
+      font-weight: 700 !important;
+      gap: 4px !important;
+      border-radius: 999px !important;
+      line-height: 1 !important;
+      display: inline-flex !important;
+    }
+    .compact-boss-row .status-pill::before {
+      width: 5px !important;
+      height: 5px !important;
+      box-shadow: none !important;
+    }
+    .compact-action-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 220px;
+    }
+    .compact-timer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+    }
+    .compact-timer-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 800;
+      font-size: 13.5px;
+    }
+
   </style>
 </head>
 <body>
@@ -2634,8 +2808,6 @@
 
       <section class="metrics-grid" id="metrics" aria-label="Thống kê boss"></section>
 
-      <section class="next-panel" id="nextPanel" aria-live="polite"></section>
-
       <section class="today-schedule-panel open" id="boss-schedule" aria-label="Lịch boss hôm nay">
         <div class="today-schedule-header" id="todayScheduleToggle" role="button" tabindex="0" aria-expanded="true" aria-controls="todayScheduleContent">
           <div class="today-schedule-title-group">
@@ -2735,11 +2907,23 @@
             <label class="sr-only" for="searchBoss">Tìm kiếm boss</label>
             <input id="searchBoss" type="search" placeholder="Tìm theo tên boss, map hoặc ghi chú" data-i18n-placeholder="searchPlaceholder">
           </div>
-          <div class="filter-tabs" role="tablist" aria-label="Lọc trạng thái">
-            <button class="filter-tab active" type="button" data-filter="all" data-i18n="filterAll">Tất cả</button>
-            <button class="filter-tab" type="button" data-filter="alive" data-i18n="filterAlive">Đang sống</button>
-            <button class="filter-tab" type="button" data-filter="respawning" data-i18n="filterRespawning">Đang hồi sinh</button>
-            <button class="filter-tab" type="button" data-filter="soon" data-i18n="filterSoon">Sắp hồi sinh</button>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div class="view-mode-tabs" id="viewModeTabs" role="radiogroup" aria-label="Chế độ xem">
+              <button type="button" class="view-mode-btn active" data-view="compact" title="Chế độ Bảng Tinh Gọn">
+                <svg viewBox="0 0 24 24" fill="none" width="15" height="15" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                <span>Tinh gọn</span>
+              </button>
+              <button type="button" class="view-mode-btn" data-view="grid" title="Chế độ Lưới / Thẻ">
+                <svg viewBox="0 0 24 24" fill="none" width="15" height="15" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Thẻ</span>
+              </button>
+            </div>
+            <div class="filter-tabs" role="tablist" aria-label="Lọc trạng thái">
+              <button class="filter-tab active" type="button" data-filter="all" data-i18n="filterAll">Tất cả</button>
+              <button class="filter-tab" type="button" data-filter="alive" data-i18n="filterAlive">Đang sống</button>
+              <button class="filter-tab" type="button" data-filter="respawning" data-i18n="filterRespawning">Đang hồi sinh</button>
+              <button class="filter-tab" type="button" data-filter="soon" data-i18n="filterSoon">Sắp hồi sinh</button>
+            </div>
           </div>
         </div>
 
@@ -2816,10 +3000,30 @@
             </div>
           </div>
 
-          <div class="form-field" id="fixedTimeField" style="display:none;">
-            <label for="bossFixedTime">Giờ xuất hiện cố định</label>
-            <input id="bossFixedTime" name="fixedTime" type="time" value="18:00">
+          <div class="form-field full" id="fixedScheduleContainer" style="display:none;">
+            <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span>Lịch xuất hiện cố định (Ngày & Giờ)</span>
+              <span style="font-weight:400; font-size:12px; color:var(--muted-2);">Tự chọn ngày & khung giờ cho từng đợt</span>
+            </label>
+            <div class="fixed-slots-list" id="fixedSlotsList">
+              <!-- Populated dynamically with (Day, Time) rows -->
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+              <button type="button" class="button-ghost" id="addFixedSlotBtn" style="padding:6px 12px; font-size:13px;">
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16" style="margin-right:4px;"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                Thêm mốc ngày & giờ
+              </button>
+              <div class="preset-chips" id="fixedQuickPresets" style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="preset-chip" data-quick-day="2" data-quick-time="08:00">+ T3 (08:00)</button>
+                <button type="button" class="preset-chip" data-quick-day="4" data-quick-time="22:00">+ T5 (22:00)</button>
+                <button type="button" class="preset-chip" data-quick-day="all" data-quick-time="18:00">+ Hàng ngày (18:00)</button>
+              </div>
+            </div>
+            <div class="form-hint" style="margin-top:8px;">
+              Chọn ngày xuất hiện đi kèm giờ xuất hiện. Bạn có thể thêm nhiều mốc khác nhau cho 1 boss (ví dụ: Thứ 3 lúc 8:00 sáng và Thứ 5 lúc 10:00 tối).
+            </div>
           </div>
+
           <div class="form-field full">
             <label for="bossAvatar">Biểu tượng boss</label>
             <select id="bossAvatar" name="avatar">
@@ -2833,19 +3037,6 @@
           <div class="form-field full">
             <label for="bossNotes">Ghi chú</label>
             <textarea id="bossNotes" name="notes" maxlength="160" placeholder="Vị trí spawn, team phụ trách, kênh chat..."></textarea>
-          </div>
-          <div class="form-field full">
-            <label>Ngày xuất hiện trong tuần <span style="font-weight:400;color:var(--muted-2)">(Boss tiêu biểu)</span></label>
-            <div class="weekday-picker" id="weekdayPicker">
-              <label class="weekday-chip" data-day="1"><input type="checkbox" name="weekDays" value="1">T2</label>
-              <label class="weekday-chip" data-day="2"><input type="checkbox" name="weekDays" value="2">T3</label>
-              <label class="weekday-chip" data-day="3"><input type="checkbox" name="weekDays" value="3">T4</label>
-              <label class="weekday-chip" data-day="4"><input type="checkbox" name="weekDays" value="4">T5</label>
-              <label class="weekday-chip" data-day="5"><input type="checkbox" name="weekDays" value="5">T6</label>
-              <label class="weekday-chip" data-day="6"><input type="checkbox" name="weekDays" value="6">T7</label>
-              <label class="weekday-chip" data-day="0"><input type="checkbox" name="weekDays" value="0">CN</label>
-            </div>
-            <div class="form-hint">Chọn ngày boss cố định xuất hiện trong tuần. Bỏ trống nếu boss xuất hiện mỗi ngày.</div>
           </div>
         </div>
         <div class="modal-actions">
@@ -3258,7 +3449,7 @@
 
     const elements = {
       metrics: document.getElementById("metrics"),
-      nextPanel: document.getElementById("nextPanel"),
+      nextPanel: null,
       bossGrid: document.getElementById("bossGrid"),
       historyList: document.getElementById("historyList"),
       searchBoss: document.getElementById("searchBoss"),
@@ -3277,7 +3468,9 @@
       weeklyScheduleToggle: document.getElementById("weeklyScheduleToggle"),
       weeklyGrid: document.getElementById("weeklyGrid"),
       weeklyHeaderBadge: document.getElementById("weeklyHeaderBadge"),
-      weekdayPicker: document.getElementById("weekdayPicker"),
+      fixedScheduleContainer: document.getElementById("fixedScheduleContainer"),
+      fixedSlotsList: document.getElementById("fixedSlotsList"),
+      addFixedSlotBtn: document.getElementById("addFixedSlotBtn"),
       addBossBtn: document.getElementById("addBossBtn"),
       resetAllTimersBtn: document.getElementById("resetAllTimersBtn"),
       clearHistoryBtn: document.getElementById("clearHistoryBtn"),
@@ -3289,7 +3482,7 @@
       deleteBossBtn: document.getElementById("deleteBossBtn"),
       spawnModeSelector: document.getElementById("spawnModeSelector"),
       respawnMinutesField: document.getElementById("respawnMinutesField"),
-      fixedTimeField: document.getElementById("fixedTimeField"),
+      fixedTimeField: null,
       authModal: document.getElementById("authModal"),
       authStepChoose: document.getElementById("authStepChoose"),
       authStepAdminLogin: document.getElementById("authStepAdminLogin"),
@@ -3635,6 +3828,25 @@
 
     let state = loadState();
     let activeFilter = "all";
+    const STORAGE_VIEW_KEY = "bossTimelinePro.viewMode";
+    let activeView = localStorage.getItem(STORAGE_VIEW_KEY) === "compact" ? "compact" : "grid";
+
+    function setViewMode(mode) {
+      if (mode !== "grid" && mode !== "compact") return;
+      activeView = mode;
+      try {
+        localStorage.setItem(STORAGE_VIEW_KEY, mode);
+      } catch (e) {}
+      updateViewModeUI();
+      render();
+    }
+
+    function updateViewModeUI() {
+      document.querySelectorAll(".view-mode-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.view === activeView);
+      });
+    }
+
     let editingBossId = null;
     let toastTimer = null;
 
@@ -3712,6 +3924,25 @@
           lastRespawnAt: null,
           avatar: "storm",
           notes: "Cần ghi chú kênh nếu đổi server."
+        },
+        {
+          id: makeId(),
+          name: "Rồng Vàng Kanturu",
+          map: "Cổng Vàng Kanturu",
+          level: 95,
+          spawnMode: "fixed",
+          respawnMinutes: 30,
+          fixedSchedules: [
+            { day: 2, time: "08:00" },
+            { day: 4, time: "22:00" }
+          ],
+          weekDays: [2, 4],
+          fixedTime: "08:00",
+          diedAt: null,
+          respawnsAt: null,
+          lastRespawnAt: null,
+          avatar: "storm",
+          notes: "Boss cố định 2 lần/tuần: Thứ 3 (08:00) và Thứ 5 (22:00)."
         }
       ];
 
@@ -3946,6 +4177,36 @@
 
 
     function normalizeBoss(boss) {
+      let fixedSchedules = Array.isArray(boss.fixedSchedules) ? boss.fixedSchedules : [];
+
+      if (!fixedSchedules.length && (boss.fixedTime || (Array.isArray(boss.weekDays) && boss.weekDays.length))) {
+        const time = typeof boss.fixedTime === "string" && /^\d{2}:\d{2}$/.test(boss.fixedTime) ? boss.fixedTime : "18:00";
+        if (Array.isArray(boss.weekDays) && boss.weekDays.length) {
+          fixedSchedules = boss.weekDays.map(d => ({ day: Number(d), time }));
+        } else {
+          fixedSchedules = [{ day: "all", time }];
+        }
+      }
+
+      fixedSchedules = fixedSchedules.map(s => {
+        const time = typeof s.time === "string" && /^\d{2}:\d{2}$/.test(s.time) ? s.time : "18:00";
+        const day = s.day === "all" ? "all" : (Number(s.day) >= 0 && Number(s.day) <= 6 ? Number(s.day) : "all");
+        return { day, time };
+      });
+
+      if (!fixedSchedules.length) {
+        fixedSchedules = [{ day: "all", time: "18:00" }];
+      }
+
+      let weekDays = [];
+      if (fixedSchedules.some(s => s.day === "all")) {
+        weekDays = [0, 1, 2, 3, 4, 5, 6];
+      } else {
+        weekDays = Array.from(new Set(fixedSchedules.map(s => Number(s.day)).filter(d => !isNaN(d) && d >= 0 && d <= 6)));
+      }
+
+      const primaryFixedTime = fixedSchedules[0]?.time || boss.fixedTime || "18:00";
+
       return {
         id: boss.id || makeId(),
         name: String(boss.name || "Boss mới").slice(0, 44),
@@ -3953,37 +4214,44 @@
         level: clamp(Number(boss.level) || 80, 1, 999),
         spawnMode: boss.spawnMode === "fixed" ? "fixed" : "interval",
         respawnMinutes: clamp(Number(boss.respawnMinutes) || 30, 1, 10080),
-        fixedTime: typeof boss.fixedTime === "string" && /^\d{2}:\d{2}$/.test(boss.fixedTime) ? boss.fixedTime : "18:00",
+        fixedTime: primaryFixedTime,
+        fixedSchedules: fixedSchedules,
+        weekDays: weekDays,
         diedAt: Number(boss.diedAt) || null,
         respawnsAt: Number(boss.respawnsAt) || null,
         lastRespawnAt: Number(boss.lastRespawnAt) || null,
         avatar: ["ember", "frost", "void", "stone", "storm"].includes(boss.avatar) ? boss.avatar : "ember",
-        notes: String(boss.notes || "").slice(0, 160),
-        weekDays: Array.isArray(boss.weekDays)
-          ? boss.weekDays.map(Number).filter((d) => d >= 0 && d <= 6)
-          : []
+        notes: String(boss.notes || "").slice(0, 160)
       };
     }
 
     function getNextFixedSpawnTime(boss, now = Date.now()) {
-      if (boss.spawnMode !== "fixed" || !boss.fixedTime) return null;
-      const parts = boss.fixedTime.split(":").map(Number);
-      if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-      const [h, m] = parts;
-      const weekDays = Array.isArray(boss.weekDays) && boss.weekDays.length > 0
-        ? boss.weekDays
-        : [0, 1, 2, 3, 4, 5, 6];
+      if (boss.spawnMode !== "fixed") return null;
+      const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
+        ? boss.fixedSchedules
+        : [{ day: "all", time: boss.fixedTime || "18:00" }];
 
+      const candidates = [];
       const nowDate = new Date(now);
 
-      for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
-        const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + dayOffset, h, m, 0, 0);
-        const dow = d.getDay();
-        if (weekDays.includes(dow) && d.getTime() > now) {
-          return d.getTime();
+      schedules.forEach(slot => {
+        const parts = (slot.time || "18:00").split(":").map(Number);
+        if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+        const [h, m] = parts;
+
+        const targetDays = slot.day === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(slot.day)];
+
+        for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+          const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + dayOffset, h, m, 0, 0);
+          if (targetDays.includes(d.getDay()) && d.getTime() > now) {
+            candidates.push(d.getTime());
+            break;
+          }
         }
-      }
-      return null;
+      });
+
+      if (!candidates.length) return null;
+      return Math.min(...candidates);
     }
 
     function makeId() {
@@ -4050,8 +4318,23 @@
 
 
     function formatSpawnLabel(boss) {
-      if (boss.spawnMode === "fixed" && boss.fixedTime) {
-        return currentLang === "en" ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`;
+      if (boss.spawnMode === "fixed") {
+        const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
+          ? boss.fixedSchedules
+          : [{ day: "all", time: boss.fixedTime || "18:00" }];
+
+        const isEn = currentLang === "en";
+        const dayNames = isEn
+          ? { "all": "Daily", 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" }
+          : { "all": "Mỗi ngày", 0: "CN", 1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7" };
+
+        if (schedules.length === 1) {
+          const s = schedules[0];
+          return isEn ? `Fixed ${dayNames[s.day]} ${s.time}` : `Cố định ${dayNames[s.day]} ${s.time}`;
+        }
+
+        const formattedSlots = schedules.map(s => `${dayNames[s.day]} ${s.time}`).join(", ");
+        return isEn ? `Fixed (${formattedSlots})` : `Cố định (${formattedSlots})`;
       }
       return formatRespawnMinutes(boss.respawnMinutes);
     }
@@ -4192,7 +4475,6 @@
       checkBossSoundAlerts(now);
       renderClocks(now);
       renderMetrics(now);
-      renderNextPanel(now);
       renderTodayScheduleTable(now);
       renderWeeklySchedule();
       renderBossGrid(now);
@@ -4239,60 +4521,7 @@
     }
 
     function renderNextPanel(now) {
-      const isEn = currentLang === "en";
-      const nextBoss = state.bosses
-        .filter((boss) => boss.diedAt && boss.respawnsAt && boss.respawnsAt > now)
-        .sort((a, b) => a.respawnsAt - b.respawnsAt)[0];
-
-      if (!nextBoss) {
-        elements.nextPanel.innerHTML = `
-          <div class="next-copy">
-            <span class="section-kicker">Next respawn</span>
-            <h2 class="next-title">${isEn ? "No bosses currently counting down" : "Không có boss nào đang chờ hồi sinh"}</h2>
-            <p class="next-sub">${isEn ? "All bosses are currently ALIVE. When a boss dies, the nearest upcoming respawn countdown will automatically appear here." : "Tất cả boss hiện đang ở trạng thái sống. Khi có boss chết, khu vực này sẽ tự động hiển thị countdown ưu tiên gần nhất."}</p>
-            <div class="next-countdown">
-              <div class="timer-big">READY</div>
-              <div class="timer-caption">${isEn ? 'Click "Record Death" on a boss card to start its respawn countdown.' : 'Bấm "Ghi nhận chết" trên card boss để bắt đầu đếm ngược hồi sinh.'}</div>
-            </div>
-            <div class="progress-track"><span style="width:100%"></span></div>
-            <div class="timeline-labels"><span>${isEn ? "Clean timeline" : "Timeline sạch"}</span><span>${isEn ? "Ready to track" : "Sẵn sàng theo dõi"}</span></div>
-          </div>
-          <div class="map-visual">
-            <img src="assets/arena-map.svg" alt="Bản đồ route respawn">
-            <div class="map-badge">${iconSvg.check} ${isEn ? "All bosses alive" : "Tất cả boss đang sống"}</div>
-          </div>
-        `;
-        return;
-      }
-
-      const remaining = getRemaining(nextBoss, now);
-      const progress = getProgress(nextBoss, now);
-      const status = getBossStatus(nextBoss, now);
-      const statusText = isEn
-        ? (status === "soon" ? "spawning soon" : "counting down")
-        : statusCopy[status].label.toLowerCase();
-
-      elements.nextPanel.innerHTML = `
-        <div class="next-copy">
-          <span class="section-kicker">Next respawn</span>
-          <h2 class="next-title">${escapeHtml(nextBoss.name)} ${isEn ? "will respawn next" : "sẽ hồi sinh tiếp theo"}</h2>
-          <p class="next-sub">${escapeHtml(nextBoss.map)} · Lv. ${nextBoss.level || 80} · Respawn ${formatRespawnMinutes(nextBoss.respawnMinutes)} · ${isEn ? "Status" : "Trạng thái"} ${statusText}.</p>
-          <div class="next-countdown">
-            <div class="timer-big">${formatCountdown(remaining)}</div>
-            <div class="timer-caption">${isEn ? "Estimated respawn at" : "Dự kiến hồi sinh lúc"} <strong>${formatShortDate(nextBoss.respawnsAt)}</strong>. ${isEn ? "Prepare before timer hits 0." : "Chuẩn bị trước khi timer về 0."}</div>
-          </div>
-          <div class="progress-track" aria-label="Tiến độ hồi sinh"><span style="width:${progress}%"></span></div>
-          <div class="timeline-labels">
-            <span>${isEn ? "Died at" : "Chết"} ${formatTimeOnly(nextBoss.diedAt)}</span>
-            <span>${progress}%</span>
-            <span>${isEn ? "Respawn at" : "Hồi sinh"} ${formatTimeOnly(nextBoss.respawnsAt)}</span>
-          </div>
-        </div>
-        <div class="map-visual">
-          <img src="assets/arena-map.svg" alt="Bản đồ route respawn">
-          <div class="map-badge">${status === "soon" ? iconSvg.bell : iconSvg.clock} ${escapeHtml(nextBoss.map)}</div>
-        </div>
-      `;
+      if (!elements.nextPanel) return;
     }
 
     function getVisibleBosses(now) {
@@ -4319,9 +4548,169 @@
 
     let lastRenderedGridKey = "";
 
+    function renderCompactBossTable(bosses, now) {
+      const isEn = currentLang === "en";
+
+      const rowsHtml = bosses.map((boss) => {
+        const status = getBossStatus(boss, now);
+        const remaining = getRemaining(boss, now);
+        const progress = getProgress(boss, now);
+        const isAlive = status === "alive";
+
+        const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
+        const timeFormatted = formatSmartRespawnDate(eventTime, now);
+        const cycleText = formatSpawnLabel(boss);
+
+        const statusClass = `status-${status}`;
+        const statusBadgeText = isEn
+          ? (status === "alive" ? "ALIVE" : (status === "soon" ? "SPAWNING SOON" : "COUNTING DOWN"))
+          : (status === "alive" ? "Đang sống" : (status === "soon" ? "Sắp hồi sinh" : "Đang hồi sinh"));
+
+        const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
+        const timerValue = isAlive ? "READY" : formatCountdown(remaining);
+        const actionIcon = isAlive ? iconSvg.skull : iconSvg.check;
+        const actionLabel = isAlive
+          ? (isEn ? "Record Death" : "Ghi nhận chết")
+          : (isEn ? "Revive Now" : "Cho hồi sinh");
+
+        const actionBoxHtml = isAdmin()
+          ? `
+            <div class="compact-action-panel">
+              <div class="compact-timer-row">
+                <span style="font-size:11px; color:var(--muted); font-weight:700;">${timerLabel}</span>
+                <strong class="compact-timer-val" style="color:${isAlive ? "var(--green)" : "var(--cyan)"}">${timerValue}</strong>
+              </div>
+              <div class="progress-track" style="height:5px;" aria-label="Tiến độ hồi sinh"><span style="width:${progress}%"></span></div>
+              <div style="display:flex; gap:6px; margin-top:4px;">
+                ${isAlive ? `
+                  <div class="split-btn-group" style="flex:1;">
+                    <button class="button-danger action-main" type="button" data-action="kill" data-id="${escapeHtml(boss.id)}" style="padding:5px 10px; font-size:12px;" title="${isEn ? 'Record death right now' : 'Ghi nhận chết ngay bây giờ'}">
+                      ${actionIcon}
+                      <span>${actionLabel}</span>
+                    </button>
+                    <button class="split-arrow-btn" type="button" data-action="offset-menu" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Record past death time' : 'Ghi nhận chết lùi giờ'}">
+                      <svg viewBox="0 0 24 24" fill="none" width="12" height="12"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                  </div>
+                ` : `
+                  <button class="button-primary action-main" type="button" data-action="revive" data-id="${escapeHtml(boss.id)}" style="flex:1; padding:5px 10px; font-size:12px;">
+                    ${actionIcon}
+                    <span>${actionLabel}</span>
+                  </button>
+                `}
+                <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
+                  ${iconSvg.edit}
+                </button>
+              </div>
+            </div>
+          `
+          : `
+            <div class="compact-action-panel">
+              <div class="compact-timer-row">
+                <span style="font-size:11px; color:var(--muted); font-weight:700;">${timerLabel}</span>
+                <strong class="compact-timer-val" style="color:${isAlive ? "var(--green)" : "var(--cyan)"}">${timerValue}</strong>
+              </div>
+              <div class="progress-track" style="height:5px;" aria-label="Tiến độ hồi sinh"><span style="width:${progress}%"></span></div>
+              <span style="font-size:11px; color:var(--muted-2); margin-top:2px;">${isEn ? "Member Mode (Read Only)" : "Chế độ chỉ xem"}</span>
+            </div>
+          `;
+
+        const notesContent = boss.notes ? escapeHtml(boss.notes) : '<span class="notes-empty">—</span>';
+
+        return `
+          <tr class="compact-boss-row" data-id="${escapeHtml(boss.id)}">
+            <td style="white-space:nowrap;">
+              <div>${timeFormatted}</div>
+              <div style="font-size:11px; color:var(--muted-2); margin-top:3px;">${escapeHtml(cycleText)}</div>
+            </td>
+            <td>
+              <div style="font-weight:800; color:var(--text); font-size:15px; line-height:1.25;">${escapeHtml(boss.name)}</div>
+              <div style="margin-top:3px;"><span class="status-pill ${statusClass}">${statusBadgeText}</span></div>
+            </td>
+            <td style="text-align:center;"><span class="level-badge">Lv. ${boss.level || 80}</span></td>
+            <td><strong style="color:var(--text-2); font-weight:600;">${escapeHtml(boss.map)}</strong></td>
+            <td>${actionBoxHtml}</td>
+            <td style="font-size:12px; color:var(--text-2); line-height:1.4; word-break:break-word;">${notesContent}</td>
+          </tr>
+        `;
+      }).join("");
+
+      return `
+        <div class="compact-table-wrap" style="grid-column: 1 / -1;">
+          <table class="compact-boss-table">
+            <thead>
+              <tr>
+                <th scope="col" style="width:16%; min-width:140px;">${isEn ? "SPAWN TIME & DATE" : "GIỜ & NGÀY HỒI SINH"}</th>
+                <th scope="col" style="width:14%; min-width:120px;">${isEn ? "BOSS NAME" : "TÊN BOSS"}</th>
+                <th scope="col" style="width:7%; min-width:60px; text-align:center;">LEVEL</th>
+                <th scope="col" style="width:17%; min-width:140px;">${isEn ? "LOCATION / MAP" : "ĐỊA ĐIỂM"}</th>
+                <th scope="col" style="width:24%; min-width:230px;">${isEn ? "ACTION / TIMER" : "GHI NHẬN CHẾT / HỒI SINH"}</th>
+                <th scope="col" style="width:22%; min-width:180px;">${isEn ? "NOTES" : "GHI CHÚ"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function updateCompactRowInPlace(row, boss, now) {
+      const isEn = currentLang === "en";
+      const status = getBossStatus(boss, now);
+      const remaining = getRemaining(boss, now);
+      const progress = getProgress(boss, now);
+      const isAlive = status === "alive";
+
+      const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
+      const timeFormatted = formatSmartRespawnDate(eventTime, now);
+      const cycleText = formatSpawnLabel(boss);
+
+      const statusClass = `status-${status}`;
+      const statusBadgeText = isEn
+        ? (status === "alive" ? "ALIVE" : (status === "soon" ? "SPAWNING SOON" : "COUNTING DOWN"))
+        : (status === "alive" ? "Đang sống" : (status === "soon" ? "Sắp hồi sinh" : "Đang hồi sinh"));
+
+      const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
+      const timerValue = isAlive ? "READY" : formatCountdown(remaining);
+
+      // Update Column 1 (Spawn Time)
+      if (row.children[0]) {
+        const timeDiv = row.children[0].children[0];
+        const cycleDiv = row.children[0].children[1];
+        if (timeDiv && timeDiv.innerHTML !== timeFormatted) timeDiv.innerHTML = timeFormatted;
+        if (cycleDiv && cycleDiv.textContent !== cycleText) cycleDiv.textContent = cycleText;
+      }
+
+      // Update Column 2 (Status Pill)
+      const pill = row.querySelector(".status-pill");
+      if (pill) {
+        if (pill.className !== `status-pill ${statusClass}`) pill.className = `status-pill ${statusClass}`;
+        if (pill.textContent !== statusBadgeText) pill.textContent = statusBadgeText;
+      }
+
+      // Update Column 5 (Action / Timer)
+      const timerLabelEl = row.querySelector(".compact-timer-row span");
+      if (timerLabelEl && timerLabelEl.textContent !== timerLabel) timerLabelEl.textContent = timerLabel;
+
+      const timerValEl = row.querySelector(".compact-timer-val");
+      if (timerValEl) {
+        if (timerValEl.textContent !== timerValue) timerValEl.textContent = timerValue;
+        const targetColor = isAlive ? "var(--green)" : "var(--cyan)";
+        if (timerValEl.style.color !== targetColor) timerValEl.style.color = targetColor;
+      }
+
+      const progressSpan = row.querySelector(".progress-track span");
+      if (progressSpan) {
+        progressSpan.style.width = `${progress}%`;
+      }
+    }
+
     function renderBossGrid(now) {
       const bosses = getVisibleBosses(now);
       const isEn = currentLang === "en";
+      updateViewModeUI();
       if (!bosses.length) {
         lastRenderedGridKey = "";
         elements.bossGrid.innerHTML = `
@@ -4333,15 +4722,31 @@
         return;
       }
 
-      const gridKey = bosses.map((b) => `${b.id}:${getBossStatus(b, now)}`).join(",") + "_" + currentRole + "_" + currentLang + "_" + activeFilter;
+      const gridKey = bosses.map((b) => `${b.id}:${getBossStatus(b, now)}`).join(",") + "_" + currentRole + "_" + currentLang + "_" + activeFilter + "_" + activeView;
+
       if (gridKey !== lastRenderedGridKey) {
         lastRenderedGridKey = gridKey;
-        elements.bossGrid.innerHTML = bosses.map((boss) => renderBossCard(boss, now)).join("");
+        if (activeView === "compact") {
+          elements.bossGrid.style.display = "block";
+          elements.bossGrid.innerHTML = renderCompactBossTable(bosses, now);
+        } else {
+          elements.bossGrid.style.display = "grid";
+          elements.bossGrid.innerHTML = bosses.map((boss) => renderBossCard(boss, now)).join("");
+        }
       } else {
-        const existingCards = elements.bossGrid.querySelectorAll(".boss-card");
-        bosses.forEach((boss, i) => {
-          if (existingCards[i]) updateBossCardInPlace(existingCards[i], boss, now);
-        });
+        if (activeView === "compact") {
+          elements.bossGrid.style.display = "block";
+          const existingRows = elements.bossGrid.querySelectorAll(".compact-boss-row");
+          bosses.forEach((boss, i) => {
+            if (existingRows[i]) updateCompactRowInPlace(existingRows[i], boss, now);
+          });
+        } else {
+          elements.bossGrid.style.display = "grid";
+          const existingCards = elements.bossGrid.querySelectorAll(".boss-card");
+          bosses.forEach((boss, i) => {
+            if (existingCards[i]) updateBossCardInPlace(existingCards[i], boss, now);
+          });
+        }
       }
     }
 
@@ -4680,13 +5085,22 @@
         const dayBosses = weeklyBosses.filter((b) => b.weekDays.includes(dow));
 
         const bossesHtml = dayBosses.length
-          ? dayBosses.map((boss) => `
-              <div class="weekly-boss-pill" data-boss-id="${escapeHtml(boss.id)}" title="Bấm để xem ${escapeHtml(boss.name)}">
-                <div class="weekly-boss-name">${escapeHtml(boss.name)}</div>
-                <div class="weekly-boss-map">${escapeHtml(boss.map)}</div>
-                <span class="weekly-boss-lv">Lv. ${boss.level || 80}</span>
-              </div>
-            `).join("")
+          ? dayBosses.map((boss) => {
+              const slotsForDay = (boss.fixedSchedules || []).filter(s => s.day === "all" || Number(s.day) === dow);
+              const timesStr = slotsForDay.map(s => s.time).join(", ");
+              const timeBadge = timesStr ? `<span class="weekly-boss-time">⏰ ${timesStr}</span>` : "";
+
+              return `
+                <div class="weekly-boss-pill" data-boss-id="${escapeHtml(boss.id)}" title="Bấm để xem ${escapeHtml(boss.name)}">
+                  <div class="weekly-boss-name">${escapeHtml(boss.name)}</div>
+                  <div class="weekly-boss-map">${escapeHtml(boss.map)}</div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:3px; flex-wrap:wrap; gap:2px;">
+                    <span class="weekly-boss-lv">Lv. ${boss.level || 80}</span>
+                    ${timeBadge}
+                  </div>
+                </div>
+              `;
+            }).join("")
           : `<div class="weekly-empty-day">—</div>`;
 
         return `
@@ -4704,7 +5118,7 @@
       elements.weeklyGrid.querySelectorAll("[data-boss-id]").forEach((pill) => {
         pill.addEventListener("click", () => {
           const bossId = pill.dataset.bossId;
-          const card = document.querySelector(`.boss-card[data-id="${bossId}"]`);
+          const card = document.querySelector(`[data-id="${bossId}"]`);
           if (card) {
             card.scrollIntoView({ behavior: "smooth", block: "center" });
             card.classList.remove("highlighted");
@@ -5329,6 +5743,47 @@
       });
     }
 
+    function createFixedSlotRowHtml(slot = { day: "all", time: "18:00" }) {
+      const isEn = currentLang === "en";
+      const selDay = String(slot.day ?? "all");
+      const timeVal = slot.time || "18:00";
+
+      return `
+        <div class="fixed-slot-row">
+          <select class="fixed-day-select">
+            <option value="all" ${selDay === "all" ? "selected" : ""}>${isEn ? "Every Day (All Days)" : "Hàng ngày (Tất cả các ngày)"}</option>
+            <option value="1" ${selDay === "1" ? "selected" : ""}>${isEn ? "Monday (Mon)" : "Thứ 2 (Thứ Hai)"}</option>
+            <option value="2" ${selDay === "2" ? "selected" : ""}>${isEn ? "Tuesday (Tue)" : "Thứ 3 (Thứ Ba)"}</option>
+            <option value="3" ${selDay === "3" ? "selected" : ""}>${isEn ? "Wednesday (Wed)" : "Thứ 4 (Thứ Tư)"}</option>
+            <option value="4" ${selDay === "4" ? "selected" : ""}>${isEn ? "Thursday (Thu)" : "Thứ 5 (Thứ Năm)"}</option>
+            <option value="5" ${selDay === "5" ? "selected" : ""}>${isEn ? "Friday (Fri)" : "Thứ 6 (Thứ Sáu)"}</option>
+            <option value="6" ${selDay === "6" ? "selected" : ""}>${isEn ? "Saturday (Sat)" : "Thứ 7 (Thứ Bảy)"}</option>
+            <option value="0" ${selDay === "0" ? "selected" : ""}>${isEn ? "Sunday (Sun)" : "Chủ Nhật (CN)"}</option>
+          </select>
+          <input type="time" class="fixed-time-input" value="${timeVal}">
+          <button type="button" class="btn-remove-slot" title="${isEn ? "Delete slot" : "Xóa mốc giờ"}">
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14" style="margin-right:2px;"><path d="M3 6h18M8 6V4h8v2m-1 4v8M9 10v8M5 6l1 15h12l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ${isEn ? "Delete" : "Xóa"}
+          </button>
+        </div>
+      `;
+    }
+
+    function populateFixedSlotsInModal(schedules = []) {
+      const container = document.getElementById("fixedSlotsList");
+      if (!container) return;
+      const list = schedules.length ? schedules : [{ day: "all", time: "18:00" }];
+      container.innerHTML = list.map(s => createFixedSlotRowHtml(s)).join("");
+    }
+
+    function addFixedSlotRow(day = "all", time = "18:00") {
+      const container = document.getElementById("fixedSlotsList");
+      if (!container) return;
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = createFixedSlotRowHtml({ day, time });
+      container.appendChild(tempDiv.firstElementChild);
+    }
+
     function openModal(id = null) {
       if (!isAdmin()) {
         showToast("Chỉ Admin mới có quyền thêm hoặc chỉnh sửa boss.");
@@ -5345,21 +5800,11 @@
       elements.bossForm.elements.map.value = boss?.map || "";
       elements.bossForm.elements.level.value = boss ? (boss.level || 80) : 80;
       elements.bossForm.elements.respawnMinutes.value = boss?.respawnMinutes || 30;
-      elements.bossForm.elements.fixedTime.value = boss?.fixedTime || "18:00";
       elements.bossForm.elements.avatar.value = boss?.avatar || "ember";
       elements.bossForm.elements.notes.value = boss?.notes || "";
 
       setSpawnModeInModal(boss?.spawnMode || "interval");
-
-      // Load weekDays into chips
-      const activeDays = (boss?.weekDays) || [];
-      document.querySelectorAll(".weekday-chip").forEach((chip) => {
-        const val = Number(chip.dataset.day);
-        const cb = chip.querySelector("input[type=checkbox]");
-        const checked = activeDays.includes(val);
-        if (cb) cb.checked = checked;
-        chip.classList.toggle("selected", checked);
-      });
+      populateFixedSlotsInModal(boss?.fixedSchedules || []);
 
       elements.modal.classList.add("open");
       syncModalScrollLock();
@@ -5376,8 +5821,8 @@
       if (elements.respawnMinutesField) {
         elements.respawnMinutesField.style.display = mode === "interval" ? "" : "none";
       }
-      if (elements.fixedTimeField) {
-        elements.fixedTimeField.style.display = mode === "fixed" ? "" : "none";
+      if (elements.fixedScheduleContainer) {
+        elements.fixedScheduleContainer.style.display = mode === "fixed" ? "" : "none";
       }
     }
 
@@ -5394,10 +5839,18 @@
         return;
       }
       const form = elements.bossForm;
-      const checkedDays = [...document.querySelectorAll(".weekday-chip input[type=checkbox]:checked")]
-        .map((cb) => Number(cb.value));
       const selectedModeRadio = form.querySelector('input[name="spawnMode"]:checked');
       const spawnMode = selectedModeRadio ? selectedModeRadio.value : "interval";
+
+      const fixedSchedules = [];
+      document.querySelectorAll("#fixedSlotsList .fixed-slot-row").forEach((row) => {
+        const dayVal = row.querySelector(".fixed-day-select")?.value || "all";
+        const timeVal = row.querySelector(".fixed-time-input")?.value || "18:00";
+        fixedSchedules.push({
+          day: dayVal === "all" ? "all" : Number(dayVal),
+          time: timeVal
+        });
+      });
 
       const payload = {
         name: form.elements.name.value.trim(),
@@ -5405,10 +5858,9 @@
         level: clamp(Number(form.elements.level.value) || 80, 1, 999),
         spawnMode: spawnMode,
         respawnMinutes: clamp(Number(form.elements.respawnMinutes.value) || 30, 1, 10080),
-        fixedTime: form.elements.fixedTime.value || "18:00",
+        fixedSchedules: fixedSchedules.length ? fixedSchedules : [{ day: "all", time: "18:00" }],
         avatar: form.elements.avatar.value,
-        notes: form.elements.notes.value.trim(),
-        weekDays: checkedDays
+        notes: form.elements.notes.value.trim()
       };
 
       if (!payload.name || !payload.map) {
@@ -5419,17 +5871,18 @@
       if (editingBossId) {
         const boss = state.bosses.find((item) => item.id === editingBossId);
         if (boss) {
-          Object.assign(boss, payload);
+          Object.assign(boss, normalizeBoss({ ...boss, ...payload }));
           showToast("Đã cập nhật thông tin boss.");
         }
       } else {
-        state.bosses.unshift({
+        const newBoss = normalizeBoss({
           id: makeId(),
           ...payload,
           diedAt: null,
           respawnsAt: null,
           lastRespawnAt: null
         });
+        state.bosses.unshift(newBoss);
         showToast("Đã thêm boss mới.");
       }
 
@@ -5708,6 +6161,12 @@
 
     elements.clearHistoryBtn.addEventListener("click", clearHistory);
     elements.searchBoss.addEventListener("input", render);
+
+    document.getElementById("viewModeTabs")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-view]");
+      if (!btn) return;
+      setViewMode(btn.dataset.view);
+    });
     elements.filterTabs.addEventListener("click", (event) => {
       const button = event.target.closest("[data-filter]");
       if (!button) return;
@@ -5751,7 +6210,7 @@
         const row = event.target.closest("[data-boss-id]");
         if (!row) return;
         const bossId = row.dataset.bossId;
-        const card = document.querySelector(`.boss-card[data-id="${bossId}"]`);
+        const card = document.querySelector(`[data-id="${bossId}"]`);
         if (card) {
           card.scrollIntoView({ behavior: "smooth", block: "center" });
           card.classList.remove("highlighted");
@@ -5780,15 +6239,30 @@
       });
     }
 
-    // Weekday chip click → toggle selected state + checkbox
-    document.querySelectorAll(".weekday-chip").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        const cb = chip.querySelector("input[type=checkbox]");
-        if (cb) {
-          cb.checked = !cb.checked;
-          chip.classList.toggle("selected", cb.checked);
-        }
-      });
+    document.getElementById("addFixedSlotBtn")?.addEventListener("click", () => {
+      addFixedSlotRow("all", "18:00");
+    });
+
+    document.getElementById("fixedSlotsList")?.addEventListener("click", (e) => {
+      const removeBtn = e.target.closest(".btn-remove-slot");
+      if (!removeBtn) return;
+      const rows = document.querySelectorAll("#fixedSlotsList .fixed-slot-row");
+      if (rows.length <= 1) {
+        showToast("Cần giữ ít nhất 1 mốc thời gian xuất hiện.");
+        return;
+      }
+      removeBtn.closest(".fixed-slot-row")?.remove();
+    });
+
+    document.getElementById("fixedQuickPresets")?.addEventListener("click", (e) => {
+      const chip = e.target.closest(".preset-chip");
+      if (!chip) return;
+      const day = chip.dataset.quickDay;
+      const time = chip.dataset.quickTime;
+      if (day && time) {
+        addFixedSlotRow(day, time);
+        showToast(`Đã thêm mốc ${chip.textContent.trim()}`);
+      }
     });
 
     document.querySelectorAll(".nav-item").forEach((link) => {
