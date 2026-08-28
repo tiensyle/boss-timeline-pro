@@ -5,21 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Boss Timeline Pro</title>
   <style>
-    :root {
+    :root,
+    [data-theme="dark"] {
       color-scheme: dark;
       --bg: #101112;
+      --bg-grid-color: rgba(255, 255, 255, .025);
       --surface: #17191a;
       --surface-2: #202223;
       --surface-3: #282b2c;
       --line: #34383a;
       --line-soft: #282b2d;
       --text: #f2eee8;
+      --text-2: #d1cbc1;
       --muted: #aaa39a;
       --muted-2: #817b73;
       --green: #37b77a;
       --green-soft: rgba(55, 183, 122, .14);
-      --amber: #e7b84f;
-      --amber-soft: rgba(231, 184, 79, .14);
+      --amber: #f59e0b;
+      --amber-soft: rgba(245, 158, 11, .14);
       --red: #e2574c;
       --red-soft: rgba(226, 87, 76, .14);
       --cyan: #4aa3ff;
@@ -27,6 +30,62 @@
       --violet: #9b6bff;
       --shadow: 0 18px 55px rgba(0, 0, 0, .34);
       --radius: 8px;
+      --header-bg: rgba(16, 17, 18, 0.94);
+      --sidebar-bg: rgba(21, 23, 24, .96);
+      --fixed-boss-color: #f59e0b;
+
+      --btn-primary-bg: #4aa3ff;
+      --btn-primary-text: #0f172a;
+      --btn-primary-hover: #388ee6;
+      --btn-danger-bg: #e2574c;
+      --btn-danger-text: #ffffff;
+      --level-badge-bg: rgba(74, 163, 255, 0.15);
+      --level-badge-text: #60a5fa;
+      --level-badge-border: rgba(74, 163, 255, 0.3);
+      --smart-date-future-color: #a78bfa;
+      --card-panel-bg: #141617;
+      --history-item-bg: #1d1f21;
+    }
+
+    [data-theme="light"] {
+      color-scheme: light;
+      --bg: #f1f5f9;
+      --bg-grid-color: rgba(15, 23, 42, .04);
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --surface-3: #e2e8f0;
+      --line: #cbd5e1;
+      --line-soft: #e2e8f0;
+      --text: #0f172a;
+      --text-2: #334155;
+      --muted: #475569;
+      --muted-2: #64748b;
+      --green: #15803d;
+      --green-soft: rgba(21, 128, 61, .12);
+      --amber: #b45309;
+      --amber-soft: rgba(180, 83, 9, .12);
+      --red: #b91c1c;
+      --red-soft: rgba(185, 28, 28, .12);
+      --cyan: #0369a1;
+      --cyan-soft: rgba(3, 105, 161, .12);
+      --violet: #6d28d9;
+      --shadow: 0 4px 20px rgba(15, 23, 42, .08);
+      --radius: 8px;
+      --header-bg: rgba(255, 255, 255, 0.95);
+      --sidebar-bg: #ffffff;
+      --fixed-boss-color: #b45309;
+
+      --btn-primary-bg: #0284c7;
+      --btn-primary-text: #ffffff;
+      --btn-primary-hover: #0369a1;
+      --btn-danger-bg: #dc2626;
+      --btn-danger-text: #ffffff;
+      --level-badge-bg: #e0f2fe;
+      --level-badge-text: #0369a1;
+      --level-badge-border: #bae6fd;
+      --smart-date-future-color: #6d28d9;
+      --card-panel-bg: #f8fafc;
+      --history-item-bg: #ffffff;
     }
 
     * {
@@ -41,13 +100,14 @@
       min-height: 100vh;
       margin: 0;
       background:
-        linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(255, 255, 255, .025) 1px, transparent 1px),
+        linear-gradient(90deg, var(--bg-grid-color) 1px, transparent 1px),
+        linear-gradient(180deg, var(--bg-grid-color) 1px, transparent 1px),
         var(--bg);
       background-size: 72px 72px;
       color: var(--text);
       font-family: "Segoe UI", Arial, sans-serif;
       letter-spacing: 0;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
 
     body.modal-open {
@@ -84,25 +144,41 @@
       display: grid;
       grid-template-columns: 264px minmax(0, 1fr);
       min-height: 100vh;
+      transition: grid-template-columns 0.25s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: 72px minmax(0, 1fr);
     }
 
     .sidebar {
       position: sticky;
       top: 0;
       height: 100vh;
-      padding: 22px 18px;
-      background: rgba(21, 23, 24, .96);
+      padding: 22px 14px;
+      background: var(--sidebar-bg);
       border-right: 1px solid var(--line-soft);
       display: flex;
       flex-direction: column;
       gap: 24px;
+      transition: padding 0.25s ease, background-color 0.2s ease;
+      overflow-x: hidden;
     }
 
     .brand {
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-left {
+      display: flex;
+      align-items: center;
       gap: 12px;
       min-width: 0;
+      overflow: hidden;
     }
 
     .brand-mark {
@@ -125,6 +201,7 @@
 
     .brand-title {
       min-width: 0;
+      white-space: nowrap;
     }
 
     .brand-title strong {
@@ -139,6 +216,66 @@
       color: var(--muted);
       font-size: 12px;
       line-height: 1.2;
+    }
+
+    .sidebar-toggle-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex: 0 0 auto;
+      transition: all 0.2s ease;
+    }
+
+    .sidebar-toggle-btn:hover {
+      color: var(--text);
+      background: var(--surface-3);
+      border-color: var(--cyan);
+    }
+
+    .sidebar-toggle-btn svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.25s ease;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-btn svg {
+      transform: rotate(180deg);
+    }
+
+    .app-shell.sidebar-collapsed .brand-title,
+    .app-shell.sidebar-collapsed .nav-item span,
+    .app-shell.sidebar-collapsed .sidebar-status div strong,
+    .app-shell.sidebar-collapsed .sidebar-status div span,
+    .app-shell.sidebar-collapsed .reset-button span {
+      display: none !important;
+    }
+
+    .app-shell.sidebar-collapsed .brand-left {
+      gap: 0;
+    }
+
+    .app-shell.sidebar-collapsed .nav-item {
+      justify-content: center;
+      padding: 0;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-status {
+      padding: 10px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app-shell.sidebar-collapsed .reset-button {
+      padding: 8px;
+      justify-content: center;
     }
 
     .nav {
@@ -384,7 +521,7 @@
 
     .today-time-cell {
       font-weight: 700;
-      color: #ffffff;
+      color: var(--text);
       font-variant-numeric: tabular-nums;
       font-size: 15.5px;
       white-space: nowrap;
@@ -399,9 +536,9 @@
       border-radius: 4px;
       font-size: 12.5px;
       font-weight: 700;
-      color: #8ec5fc;
-      background: rgba(74, 163, 255, 0.12);
-      border: 1px solid rgba(74, 163, 255, 0.25);
+      color: var(--level-badge-text);
+      background: var(--level-badge-bg);
+      border: 1px solid var(--level-badge-border);
       font-variant-numeric: tabular-nums;
       letter-spacing: .2px;
       white-space: nowrap;
@@ -418,7 +555,7 @@
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: .4px;
-      color: #ffffff;
+      color: var(--text);
       font-size: 15px;
     }
 
@@ -436,24 +573,24 @@
     }
 
     .today-boss-badge.badge-alive {
-      color: #37b77a;
-      background: rgba(55, 183, 122, 0.18);
+      color: var(--green);
+      background: var(--green-soft);
     }
 
     .today-boss-badge.badge-soon {
-      color: #e7b84f;
-      background: rgba(231, 184, 79, 0.18);
+      color: var(--amber);
+      background: var(--amber-soft);
     }
 
     .today-boss-badge.badge-waiting,
     .today-boss-badge.badge-dead {
-      color: #e2574c;
-      background: rgba(226, 87, 76, 0.18);
+      color: var(--red);
+      background: var(--red-soft);
     }
 
     .today-boss-badge.badge-respawning {
-      color: #4aa3ff;
-      background: rgba(74, 163, 255, 0.18);
+      color: var(--cyan);
+      background: var(--cyan-soft);
     }
 
     .today-boss-dot {
@@ -464,7 +601,7 @@
     }
 
     .today-map-cell {
-      color: #ffffff;
+      color: var(--text-2);
       font-size: 15px;
       font-weight: 600;
       white-space: nowrap;
@@ -472,7 +609,7 @@
     }
 
     .today-notes-cell {
-      color: #ffffff;
+      color: var(--muted);
       font-size: 15px;
       font-weight: 400;
       line-height: 1.5;
@@ -552,11 +689,42 @@
     }
 
     .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--header-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 18px;
-      margin-bottom: 22px;
+      padding: 14px 28px;
+      margin: -24px -28px 22px -28px;
+      border-bottom: 1px solid var(--line-soft);
+      box-shadow: var(--shadow);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .theme-btn {
+      height: 44px;
+      padding: 0 14px;
+      border-radius: var(--radius);
+      background: var(--surface);
+      border: 1px solid var(--line-soft);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .theme-btn:hover {
+      background: var(--surface-2);
+      border-color: var(--line);
     }
 
     .eyebrow {
@@ -573,10 +741,11 @@
     }
 
     .topbar h1 {
-      margin: 10px 0 7px;
-      font-size: clamp(28px, 3vw, 42px);
-      line-height: 1.05;
-      font-weight: 800;
+      margin: 6px 0 0 0;
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 700;
+      color: var(--text);
     }
 
     .topbar p {
@@ -636,17 +805,19 @@
     }
 
     .role-btn.active[data-role="admin"] {
-      background: rgba(231, 184, 79, 0.16);
-      border-color: rgba(231, 184, 79, 0.4);
-      color: #f6d173;
-      box-shadow: 0 2px 8px rgba(231, 184, 79, 0.12);
+      background: var(--amber-soft);
+      border-color: var(--amber);
+      color: var(--amber);
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .role-btn.active[data-role="member"] {
-      background: rgba(74, 163, 255, 0.16);
-      border-color: rgba(74, 163, 255, 0.4);
-      color: #8ec5fc;
-      box-shadow: 0 2px 8px rgba(74, 163, 255, 0.12);
+      background: var(--cyan-soft);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .member-readonly-badge {
@@ -701,15 +872,16 @@
     }
 
     .sound-btn.active {
-      background: rgba(74, 163, 255, 0.16);
-      border-color: rgba(74, 163, 255, 0.4);
-      color: #8ec5fc;
-      box-shadow: 0 2px 8px rgba(74, 163, 255, 0.12);
+      background: var(--cyan-soft);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .sound-btn.muted {
       color: var(--muted-2);
-      background: rgba(255, 255, 255, 0.03);
+      background: var(--surface-3);
     }
 
     .sound-btn svg {
@@ -770,15 +942,15 @@
 
     .button-primary {
       padding: 0 15px;
-      background: var(--text);
-      color: #141516;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
       font-weight: 700;
-      box-shadow: 0 12px 28px rgba(242, 238, 232, .12);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
     }
 
     .button-primary:hover {
       transform: translateY(-1px);
-      background: #ffffff;
+      background: var(--btn-primary-hover);
     }
 
     .button-ghost {
@@ -796,14 +968,15 @@
 
     .button-danger {
       padding: 0 13px;
-      color: #ffe8e4;
-      background: rgba(226, 87, 76, .14);
-      border-color: rgba(226, 87, 76, .28);
+      color: var(--btn-danger-text);
+      background: var(--btn-danger-bg);
+      border-color: var(--btn-danger-bg);
+      font-weight: 700;
     }
 
     .button-danger:hover {
       transform: translateY(-1px);
-      background: rgba(226, 87, 76, .22);
+      filter: brightness(1.1);
     }
 
     .icon-button {
@@ -969,7 +1142,7 @@
       width: 100%;
       height: 9px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, .08);
+      background: var(--line);
       overflow: hidden;
     }
 
@@ -1006,7 +1179,7 @@
       min-height: 280px;
       display: block;
       object-fit: contain;
-      background: #151718;
+      background: var(--surface-2);
     }
 
     .map-badge {
@@ -1171,19 +1344,20 @@
     }
 
     .status-alive {
-      color: #78dda9;
+      color: var(--green);
       background: var(--green-soft);
+      border-color: var(--green);
       border-color: rgba(55, 183, 122, .26);
     }
 
     .status-respawning {
-      color: #89c4ff;
+      color: var(--cyan);
       background: var(--cyan-soft);
       border-color: rgba(74, 163, 255, .26);
     }
 
     .status-soon {
-      color: #f4cb6c;
+      color: var(--amber);
       background: var(--amber-soft);
       border-color: rgba(231, 184, 79, .28);
     }
@@ -1192,10 +1366,11 @@
       min-height: 104px;
       padding: 14px;
       border-radius: var(--radius);
-      background: #131516;
+      background: var(--card-panel-bg);
       border: 1px solid var(--line-soft);
       display: grid;
       gap: 12px;
+      transition: background-color 0.2s ease;
     }
 
     .timer-row {
@@ -1239,7 +1414,7 @@
       padding: 10px;
       border: 1px solid var(--line-soft);
       border-radius: var(--radius);
-      background: rgba(255, 255, 255, .025);
+      background: var(--surface-2);
     }
 
     .meta-item span {
@@ -1323,8 +1498,8 @@
       width: min(540px, 100%);
       padding: 24px 22px;
       border: 1px solid var(--line);
-      background: #17191a;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      background: var(--surface);
+      box-shadow: var(--shadow);
       border-radius: var(--radius);
     }
 
@@ -1424,7 +1599,8 @@
       padding: 10px 12px;
       border-radius: var(--radius);
       border: 1px solid var(--line-soft);
-      background: rgba(23, 25, 26, .78);
+      background: var(--history-item-bg);
+      transition: background-color 0.2s ease;
     }
 
     .history-icon {
@@ -1464,7 +1640,7 @@
       padding: 34px 18px;
       border: 1px dashed var(--line);
       border-radius: var(--radius);
-      background: rgba(23, 25, 26, .62);
+      background: var(--surface-2);
       text-align: center;
       color: var(--muted);
     }
@@ -1513,8 +1689,8 @@
       width: min(520px, 100%);
       padding: 28px 24px;
       border: 1px solid var(--line);
-      background: #17191a;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      background: var(--surface);
+      box-shadow: var(--shadow);
       border-radius: var(--radius);
     }
 
@@ -1522,8 +1698,8 @@
     .confirm-modal-box {
       width: min(480px, 100%);
       padding: 26px 24px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: #13171f;
+      border: 1px solid var(--line);
+      background: var(--surface);
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
       border-radius: 18px;
       animation: modalIn .2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -1949,7 +2125,7 @@
       justify-content: space-between;
       gap: 12px;
       padding: 18px;
-      background: rgba(23, 25, 26, .96);
+      background: var(--surface);
       border-bottom: 1px solid var(--line-soft);
     }
 
@@ -1994,7 +2170,7 @@
       width: 100%;
       border: 1px solid var(--line-soft);
       border-radius: var(--radius);
-      background: #131516;
+      background: var(--surface-2);
       color: var(--text);
     }
 
@@ -2021,7 +2197,7 @@
       gap: 12px;
       padding: 15px 18px;
       border-top: 1px solid var(--line-soft);
-      background: rgba(23, 25, 26, .96);
+      background: var(--surface);
     }
 
     .modal-actions-right {
@@ -2040,8 +2216,9 @@
       min-height: 44px;
       padding: 12px 14px;
       border-radius: var(--radius);
-      background: #f2eee8;
-      color: #111213;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--line-soft);
       box-shadow: var(--shadow);
       transform: translateY(18px);
       opacity: 0;
@@ -2669,16 +2846,17 @@
       padding: 2px 6px;
       font-size: 10px;
       font-weight: 800;
-      color: #f59e0b;
-      background: rgba(245, 158, 11, 0.15);
-      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: var(--amber);
+      background: var(--amber-soft);
+      border: 1px solid var(--amber);
       border-radius: 4px;
       margin-bottom: 3px;
       letter-spacing: 0.03em;
+      opacity: 0.9;
     }
     .fixed-time-highlight {
       font-weight: 800;
-      color: #fbbf24;
+      color: var(--amber);
     }
 
     /* Level Filter UI in Header & Toolbar */
@@ -2730,16 +2908,21 @@
   <div class="app-shell">
     <aside class="sidebar" aria-label="Điều hướng">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 3l7 4v7c0 3.2-2.1 6.2-7 7-4.9-.8-7-3.8-7-7V7l7-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            <path d="M8.5 12h7M12 8.5v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+        <div class="brand-left">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 3l7 4v7c0 3.2-2.1 6.2-7 7-4.9-.8-7-3.8-7-7V7l7-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M8.5 12h7M12 8.5v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="brand-title">
+            <strong>Boss Timeline</strong>
+            <span>Respawn Control</span>
+          </div>
         </div>
-        <div class="brand-title">
-          <strong>Boss Timeline</strong>
-          <span>Respawn Control</span>
-        </div>
+        <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Thu gọn / Mở rộng Sidebar">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       <nav class="nav">
@@ -2795,9 +2978,14 @@
             <span class="realtime-status-text">Đang kết nối…</span>
           </div>
           <h1 data-i18n="dashboardTitle">Dashboard theo dõi boss chết và hồi sinh</h1>
-          <p data-i18n="dashboardSub">Theo dõi nhiều boss cùng lúc, ghi nhận thời điểm chết, xem countdown hồi sinh, lọc trạng thái và lưu dữ liệu ngay trên trình duyệt.</p>
         </div>
         <div class="topbar-actions">
+          <div class="theme-switcher" id="themeSwitcher">
+            <button class="theme-btn" id="themeToggleBtn" type="button" title="Chuyển đổi Chế độ Sáng / Tối">
+              <span id="themeToggleIcon">🌙</span>
+              <span id="themeToggleText">Tối</span>
+            </button>
+          </div>
           <div class="lang-switcher" id="langSwitcher" role="radiogroup" aria-label="Ngôn ngữ / Language">
             <button type="button" class="lang-btn active" data-lang="vi" title="Tiếng Việt">
               🇻🇳 VI
@@ -3249,6 +3437,7 @@
 
 
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script>
@@ -3667,13 +3856,21 @@
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.0;
-        utterance.pitch = 1.0;
+        utterance.pitch = 1.25; // Pitch adjusted for clear female voice
         utterance.volume = 1.0;
 
         const voices = window.speechSynthesis.getVoices();
-        const viVoice = voices.find((v) => v.lang && (v.lang === "vi-VN" || v.lang.startsWith("vi")));
-        if (viVoice) {
-          utterance.voice = viVoice;
+        let femaleVoice = voices.find((v) => {
+          const name = (v.name || "").toLowerCase();
+          return (v.lang.startsWith("vi") || v.lang.startsWith("en")) && 
+                 (name.includes("female") || name.includes("hoaimy") || name.includes("zira") || name.includes("google") || name.includes("aria") || name.includes("jenny") || name.includes("natural") || name.includes("nhien") || name.includes("linh"));
+        });
+        if (!femaleVoice) {
+          femaleVoice = voices.find((v) => v.lang && (v.lang === "vi-VN" || v.lang.startsWith("vi"))) ||
+                        voices.find((v) => (v.name || "").toLowerCase().includes("female"));
+        }
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
         }
 
         window.speechSynthesis.speak(utterance);
@@ -3697,9 +3894,7 @@
       }
 
       showToast(toastMsg);
-      const singleMsg = "Cảnh báo Boss.";
-      const tripleMsg = `${singleMsg} ${singleMsg} ${singleMsg}`;
-      window.setTimeout(() => speakText(tripleMsg), 300);
+      window.setTimeout(() => speakText("BOSS BOSS"), 300);
     }
 
     function checkBossSoundAlerts(now) {
@@ -3808,12 +4003,10 @@
         updateSoundUI();
       }
       playChime("5m");
-      const singleMsg = "Cảnh báo Boss.";
-      const tripleMsg = `${singleMsg} ${singleMsg} ${singleMsg}`;
       window.setTimeout(() => {
-        speakText(tripleMsg);
+        speakText("BOSS BOSS");
       }, 350);
-      showToast("📢 Đang thử nghiệm giọng đọc: Cảnh báo Boss (3 lần)...");
+      showToast("📢 Đang thử giọng nữ thông báo: BOSS BOSS");
     }
 
     function syncModalScrollLock() {
@@ -4210,32 +4403,39 @@
 
 
     function normalizeBoss(boss) {
+      const isFixed = boss.spawnMode === "fixed";
       let fixedSchedules = Array.isArray(boss.fixedSchedules) ? boss.fixedSchedules : [];
 
-      if (!fixedSchedules.length && (boss.fixedTime || (Array.isArray(boss.weekDays) && boss.weekDays.length))) {
-        const time = typeof boss.fixedTime === "string" && /^\d{2}:\d{2}$/.test(boss.fixedTime) ? boss.fixedTime : "18:00";
-        if (Array.isArray(boss.weekDays) && boss.weekDays.length) {
-          fixedSchedules = boss.weekDays.map(d => ({ day: Number(d), time }));
-        } else {
-          fixedSchedules = [{ day: "all", time }];
+      if (isFixed) {
+        if (!fixedSchedules.length && (boss.fixedTime || (Array.isArray(boss.weekDays) && boss.weekDays.length))) {
+          const time = typeof boss.fixedTime === "string" && /^\d{2}:\d{2}$/.test(boss.fixedTime) ? boss.fixedTime : "18:00";
+          if (Array.isArray(boss.weekDays) && boss.weekDays.length) {
+            fixedSchedules = boss.weekDays.map(d => ({ day: Number(d), time }));
+          } else {
+            fixedSchedules = [{ day: "all", time }];
+          }
         }
-      }
 
-      fixedSchedules = fixedSchedules.map(s => {
-        const time = typeof s.time === "string" && /^\d{2}:\d{2}$/.test(s.time) ? s.time : "18:00";
-        const day = s.day === "all" ? "all" : (Number(s.day) >= 0 && Number(s.day) <= 6 ? Number(s.day) : "all");
-        return { day, time };
-      });
+        fixedSchedules = fixedSchedules.map(s => {
+          const time = typeof s.time === "string" && /^\d{2}:\d{2}$/.test(s.time) ? s.time : "18:00";
+          const day = s.day === "all" ? "all" : (Number(s.day) >= 0 && Number(s.day) <= 6 ? Number(s.day) : "all");
+          return { day, time };
+        });
 
-      if (!fixedSchedules.length) {
-        fixedSchedules = [{ day: "all", time: "18:00" }];
+        if (!fixedSchedules.length) {
+          fixedSchedules = [{ day: "all", time: "18:00" }];
+        }
+      } else {
+        fixedSchedules = [];
       }
 
       let weekDays = [];
-      if (fixedSchedules.some(s => s.day === "all")) {
-        weekDays = [0, 1, 2, 3, 4, 5, 6];
-      } else {
-        weekDays = Array.from(new Set(fixedSchedules.map(s => Number(s.day)).filter(d => !isNaN(d) && d >= 0 && d <= 6)));
+      if (isFixed && fixedSchedules.length) {
+        if (fixedSchedules.some(s => s.day === "all")) {
+          weekDays = [0, 1, 2, 3, 4, 5, 6];
+        } else {
+          weekDays = Array.from(new Set(fixedSchedules.map(s => Number(s.day)).filter(d => !isNaN(d) && d >= 0 && d <= 6)));
+        }
       }
 
       const primaryFixedTime = fixedSchedules[0]?.time || boss.fixedTime || "18:00";
@@ -4245,7 +4445,7 @@
         name: String(boss.name || "Boss mới").slice(0, 44),
         map: String(boss.map || "Chưa đặt map").slice(0, 44),
         level: clamp(Number(boss.level) || 80, 1, 999),
-        spawnMode: boss.spawnMode === "fixed" ? "fixed" : "interval",
+        spawnMode: isFixed ? "fixed" : "interval",
         respawnMinutes: clamp(Number(boss.respawnMinutes) || 30, 1, 10080),
         fixedTime: primaryFixedTime,
         fixedSchedules: fixedSchedules,
@@ -4452,7 +4652,7 @@
         return `<strong style="color:var(--amber);">${timeStr}</strong> <span style="font-size:11.5px;color:var(--amber); font-weight:600;">${tag}</span>`;
       } else if (diffDays === 2) {
         const tag = isEn ? `(In 2 Days ${dd}/${mm})` : `(Ngày kia ${dd}/${mm})`;
-        return `<strong style="color:#c084fc;">${timeStr}</strong> <span style="font-size:11.5px;color:#c084fc; font-weight:600;">${tag}</span>`;
+        return `<strong style="color:var(--smart-date-future-color);">${timeStr}</strong> <span style="font-size:11.5px;color:var(--smart-date-future-color); font-weight:600;">${tag}</span>`;
       } else {
         return `<strong>${timeStr}</strong> <span style="font-size:11.5px;color:var(--muted);">(${daysOfWeek[target.getDay()]} ${dd}/${mm})</span>`;
       }
@@ -4673,8 +4873,8 @@
             </td>
             <td>
               <div style="display:flex; align-items:center; gap:5px;">
-                ${isFixed ? `<span style="color:#f59e0b; font-size:14px;" title="Boss cố định">⭐</span>` : ''}
-                <div style="font-weight:800; color:var(--text); font-size:15px; line-height:1.25;">${escapeHtml(boss.name)}</div>
+                ${isFixed ? `<span style="color:var(--fixed-boss-color); font-size:14px;" title="Boss cố định">⭐</span>` : ''}
+                <div style="font-weight:800; color:${isFixed ? 'var(--fixed-boss-color)' : 'var(--text)'}; font-size:15px; line-height:1.25;">${escapeHtml(boss.name)}</div>
               </div>
               <div style="margin-top:3px;"><span class="status-pill ${statusClass}">${statusBadgeText}</span></div>
             </td>
@@ -4911,7 +5111,7 @@
             <img class="boss-avatar" src="${getAvatarPath(boss.avatar)}" alt="">
             <div>
               <div class="boss-map">${escapeHtml(boss.map)} · <span class="level-badge">Lv. ${boss.level || 80}</span></div>
-              <h3 class="boss-name">${escapeHtml(boss.name)}</h3>
+              <h3 class="boss-name" style="${boss.spawnMode === 'fixed' ? 'color: var(--fixed-boss-color);' : ''}">${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${escapeHtml(boss.name)}</h3>
             </div>
             <span class="status-pill ${statusClass}">${statusBadgeText}</span>
           </div>
@@ -5069,7 +5269,7 @@
             <td><span class="level-badge">Lv. ${boss.level || 80}</span></td>
             <td>
               <div class="today-boss-cell">
-                <span class="today-boss-name">${escapeHtml(boss.name)}</span>
+                <span class="today-boss-name" style="${boss.spawnMode === 'fixed' ? 'color: var(--fixed-boss-color); font-weight: 800;' : ''}">${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${escapeHtml(boss.name)}</span>
                 <span class="today-boss-badge ${badgeClass}">${badgeText}</span>
               </div>
             </td>
@@ -5096,7 +5296,7 @@
       if (!elements.weeklyGrid) return;
 
       const isEn = currentLang === "en";
-      const weeklyBosses = state.bosses.filter((b) => Array.isArray(b.weekDays) && b.weekDays.length > 0);
+      const weeklyBosses = state.bosses.filter((b) => b.spawnMode === "fixed" && Array.isArray(b.weekDays) && b.weekDays.length > 0);
 
       if (elements.weeklyHeaderBadge) {
         elements.weeklyHeaderBadge.textContent = `${weeklyBosses.length} ${isEn ? 'bosses' : 'boss'}`;
@@ -5153,7 +5353,7 @@
 
               return `
                 <div class="weekly-boss-pill" data-boss-id="${escapeHtml(boss.id)}" title="Bấm để xem ${escapeHtml(boss.name)}">
-                  <div class="weekly-boss-name">${escapeHtml(boss.name)}</div>
+                  <div class="weekly-boss-name" style="color: var(--fixed-boss-color); font-weight: 800;">⭐ ${escapeHtml(boss.name)}</div>
                   <div class="weekly-boss-map">${escapeHtml(boss.map)}</div>
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-top:3px; flex-wrap:wrap; gap:2px;">
                     <span class="weekly-boss-lv">Lv. ${boss.level || 80}</span>
@@ -5193,54 +5393,125 @@
 
     function exportTodaySchedulePDF() {
       const now = Date.now();
+      const nowDate = new Date(now);
       const clockStr = formatClock(now);
 
       let filterTitle = "BÁO CÁO LỊCH BOSS (7 NGÀY)";
-      let filterSubDate = getTodayScheduleSubtitle(new Date(now));
+      let filterSubDate = getTodayScheduleSubtitle(nowDate);
+
+      let targetDate = new Date(nowDate);
+      let isSingleDay = false;
 
       if (scheduleDayFilter === "today") {
-        filterTitle = "BÁO CÁO LỊCH BOSS HÔM NAY";
+        filterTitle = "BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)";
+        isSingleDay = true;
       } else if (scheduleDayFilter !== "all") {
         const dayNames = { 1: "THỨ 2", 2: "THỨ 3", 3: "THỨ 4", 4: "THỨ 5", 5: "THỨ 6", 6: "THỨ 7", 0: "CHỦ NHẬT" };
-        const dayName = dayNames[scheduleDayFilter] || "";
-        filterTitle = `BÁO CÁO LỊCH BOSS - ${dayName}`;
-        filterSubDate = `Danh sách boss xuất hiện / hồi sinh trong ${dayName}`;
+        const dayDow = Number(scheduleDayFilter);
+        const dayName = dayNames[dayDow] || "";
+        
+        const todayDow = nowDate.getDay();
+        const mondayOffset = (todayDow === 0 ? -6 : 1 - todayDow);
+        const monday = new Date(nowDate);
+        monday.setDate(nowDate.getDate() + mondayOffset);
+        
+        const targetDayOffset = (dayDow === 0 ? 6 : dayDow - 1);
+        targetDate = new Date(monday);
+        targetDate.setDate(monday.getDate() + targetDayOffset);
+
+        const dd = String(targetDate.getDate()).padStart(2, "0");
+        const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+        filterTitle = `BÁO CÁO LỊCH BOSS - ${dayName} (${dd}/${mm}) (00:00 - 24:00)`;
+        filterSubDate = `Danh sách lượt xuất hiện / hồi sinh trong ${dayName} từ 00h00 đến 24h00`;
+        isSingleDay = true;
       }
 
-      let filtered = [...state.bosses];
-      const nowDate = new Date(now);
+      const occurrences = [];
 
-      if (scheduleDayFilter === "today") {
-        filtered = filtered.filter((boss) => {
-          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
-          if (!eventTime) return true;
-          const d = new Date(eventTime);
-          return d.getFullYear() === nowDate.getFullYear() && d.getMonth() === nowDate.getMonth() && d.getDate() === nowDate.getDate();
-        });
-      } else if (scheduleDayFilter !== "all") {
-        const targetDow = Number(scheduleDayFilter);
-        filtered = filtered.filter((boss) => {
-          if (Array.isArray(boss.weekDays) && boss.weekDays.includes(targetDow)) return true;
-          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
-          if (eventTime) {
-            const d = new Date(eventTime);
-            return d.getDay() === targetDow;
+      if (isSingleDay) {
+        const startOfDay = new Date(targetDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(targetDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const startMs = startOfDay.getTime();
+        const endMs = endOfDay.getTime();
+        const targetDow = targetDate.getDay();
+
+        state.bosses.forEach((boss) => {
+          if (boss.spawnMode === "fixed") {
+            const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0 ? boss.fixedSchedules : [{ day: "all", time: boss.fixedTime || "18:00" }];
+            schedules.forEach((slot) => {
+              if (slot.day === "all" || Number(slot.day) === targetDow) {
+                const [hh, mm] = (slot.time || "18:00").split(":").map(Number);
+                const slotDate = new Date(targetDate);
+                slotDate.setHours(hh || 0, mm || 0, 0, 0);
+                const timeMs = slotDate.getTime();
+                
+                occurrences.push({
+                  boss,
+                  timeMs,
+                  timeFormatted: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`,
+                  dateFormatted: `${String(targetDate.getDate()).padStart(2, "0")}/${String(targetDate.getMonth() + 1).padStart(2, "0")}`,
+                  isFixed: true
+                });
+              }
+            });
+          } else {
+            const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
+            let refMs = boss.respawnsAt || (boss.diedAt ? boss.diedAt + intervalMs : null);
+            if (!refMs && boss.lastRespawnAt) refMs = boss.lastRespawnAt;
+            if (!refMs) refMs = startMs + intervalMs;
+
+            let curMs = refMs;
+            while (curMs > startMs) curMs -= intervalMs;
+            while (curMs < startMs) curMs += intervalMs;
+
+            while (curMs <= endMs) {
+              const curDate = new Date(curMs);
+              const hh = String(curDate.getHours()).padStart(2, "0");
+              const min = String(curDate.getMinutes()).padStart(2, "0");
+              const ss = String(curDate.getSeconds()).padStart(2, "0");
+
+              occurrences.push({
+                boss,
+                timeMs: curMs,
+                timeFormatted: `${hh}:${min}:${ss}`,
+                dateFormatted: `${String(curDate.getDate()).padStart(2, "0")}/${String(curDate.getMonth() + 1).padStart(2, "0")}`,
+                isFixed: false
+              });
+              curMs += intervalMs;
+            }
           }
-          return false;
         });
+
+        occurrences.sort((a, b) => a.timeMs - b.timeMs);
+      } else {
+        state.bosses.forEach((boss) => {
+          const isFixed = boss.spawnMode === "fixed";
+          const eventTime = boss.respawnsAt || (isFixed ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
+          const d = new Date(eventTime);
+          const hh = String(d.getHours()).padStart(2, "0");
+          const min = String(d.getMinutes()).padStart(2, "0");
+          const ss = String(d.getSeconds()).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+
+          occurrences.push({
+            boss,
+            timeMs: eventTime,
+            timeFormatted: `${hh}:${min}:${ss} (${dd}/${mm})`,
+            dateFormatted: `${dd}/${mm}`,
+            isFixed
+          });
+        });
+
+        occurrences.sort((a, b) => a.timeMs - b.timeMs);
       }
 
-      const sorted = [...filtered].sort((a, b) => {
-        const aTime = a.respawnsAt || (a.spawnMode === "fixed" ? getNextFixedSpawnTime(a, now) : a.lastRespawnAt) || 0;
-        const bTime = b.respawnsAt || (b.spawnMode === "fixed" ? getNextFixedSpawnTime(b, now) : b.lastRespawnAt) || 0;
-        if (aTime && bTime) return aTime - bTime;
-        return a.name.localeCompare(b.name, "vi");
-      });
-
-      const rowsHtml = sorted.map((boss, idx) => {
+      const rowsHtml = occurrences.map((item, idx) => {
+        const boss = item.boss;
         const status = getBossStatus(boss, now);
-        const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
-        const timeFormatted = formatSmartRespawnDate(eventTime, now).replace(/<[^>]*>/g, "");
         const cycleText = formatSpawnLabel(boss);
         let statusText = "Đang sống";
         let statusBadgeClass = "status-alive";
@@ -5248,17 +5519,18 @@
           statusText = "Sắp hồi sinh";
           statusBadgeClass = "status-soon";
         } else if (status === "respawning") {
-          statusText = "Đang chờ hồi sinh";
+          statusText = "Đang countdown";
           statusBadgeClass = "status-respawning";
         }
         const notes = escapeHtml(boss.notes || "—");
+        const bossNameHtml = item.isFixed ? `<strong style="color: #d97706;">⭐ ${escapeHtml(boss.name)}</strong>` : `<strong>${escapeHtml(boss.name)}</strong>`;
 
         return `
           <tr>
             <td style="text-align:center; font-weight:600; color:#64748b;">${idx + 1}</td>
-            <td class="time-col"><strong>${timeFormatted}</strong></td>
+            <td class="time-col"><strong>${item.timeFormatted}</strong></td>
             <td style="text-align:center;"><span class="level-tag">Lv. ${boss.level || 80}</span></td>
-            <td><strong>${escapeHtml(boss.name)}</strong></td>
+            <td>${bossNameHtml}</td>
             <td style="font-weight:600; color:#475569;">${escapeHtml(cycleText)}</td>
             <td style="text-align:center;"><span class="badge ${statusBadgeClass}">${statusText}</span></td>
             <td>${escapeHtml(boss.map)}</td>
@@ -5267,14 +5539,13 @@
         `;
       }).join("");
 
-      const counts = filtered.reduce((acc, boss) => {
-        const status = getBossStatus(boss, now);
-        acc.total += 1;
-        acc[status] += 1;
-        return acc;
-      }, { total: 0, alive: 0, respawning: 0, soon: 0 });
+      const counts = {
+        total: occurrences.length,
+        fixed: occurrences.filter(o => o.isFixed).length,
+        interval: occurrences.filter(o => !o.isFixed).length
+      };
 
-      const printHtml = `<!DOCTYPE html>
+      const reportHtml = `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -5282,288 +5553,176 @@
   <style>
     @page {
       size: A4 landscape;
-      margin: 12mm 10mm;
+      margin: 10mm;
     }
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     body {
       background: #ffffff;
       color: #0f172a;
       padding: 24px;
-      font-size: 13px;
+      font-size: 12.5px;
       line-height: 1.45;
     }
-    .print-actions {
-      margin-bottom: 20px;
+    .print-bar {
       display: flex;
-      gap: 10px;
-      padding-bottom: 14px;
-      border-bottom: 1px dashed #cbd5e1;
-    }
-    .print-btn {
-      padding: 9px 18px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
       background: #0f172a;
       color: #ffffff;
-      border: none;
       border-radius: 6px;
-      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    .print-btn {
+      padding: 8px 16px;
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-    }
-    .print-btn:hover {
-      background: #1e293b;
-    }
-    .close-btn {
-      padding: 9px 18px;
-      background: #e2e8f0;
-      color: #334155;
-      border: none;
-      border-radius: 6px;
       font-size: 13px;
+    }
+    .print-btn:hover { background: #1d4ed8; }
+    .close-btn {
+      padding: 8px 16px;
+      background: #334155;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
       font-weight: 600;
       cursor: pointer;
+      font-size: 13px;
     }
+    .close-btn:hover { background: #475569; }
     .report-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       border-bottom: 2px solid #0f172a;
-      padding-bottom: 14px;
-      margin-bottom: 16px;
-    }
-    .brand-title {
-      font-size: 22px;
-      font-weight: 800;
-      color: #0f172a;
-      letter-spacing: -0.4px;
-    }
-    .brand-sub {
-      font-size: 12px;
-      color: #64748b;
-      margin-top: 3px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      font-weight: 600;
-    }
-    .report-meta {
-      text-align: right;
-      font-size: 12px;
-      color: #475569;
-      line-height: 1.6;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
     }
     .report-title-box {
       margin-bottom: 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 6px;
-      padding: 12px 16px;
-    }
-    .report-main-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: #0f172a;
-      letter-spacing: -0.2px;
-    }
-    .report-date {
-      font-size: 12.5px;
-      color: #64748b;
-      margin-top: 2px;
-    }
-    .summary-grid {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .summary-card {
-      flex: 1;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
       padding: 10px 14px;
-      background: #ffffff;
-    }
-    .summary-label {
-      font-size: 11px;
-      color: #64748b;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-    }
-    .summary-val {
-      font-size: 20px;
-      font-weight: 800;
-      color: #0f172a;
-      margin-top: 2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 18px;
-      font-size: 12.5px;
+      margin-bottom: 14px;
+      font-size: 11.5px;
     }
     th {
       background: #0f172a;
       color: #ffffff;
-      padding: 10px 12px;
+      padding: 8px 10px;
       text-align: left;
       font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
       font-weight: 700;
+      letter-spacing: 0.3px;
     }
     td {
-      padding: 9px 12px;
+      padding: 7px 10px;
       border-bottom: 1px solid #e2e8f0;
       color: #1e293b;
       vertical-align: middle;
     }
-    tr:nth-child(even) td {
-      background: #f8fafc;
-    }
-    .time-col {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 13px;
-      color: #0f172a;
-    }
-    .level-tag {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      background: #e0f2fe;
-      color: #0369a1;
-      border: 1px solid #bae6fd;
-    }
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 999px;
-      font-size: 10.5px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .time-col { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; color: #0f172a; text-align: center; }
+    .level-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
     .status-alive { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
     .status-soon { background: #fef9c3; color: #a16207; border: 1px solid #fef08a; }
     .status-respawning { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .report-footer {
       border-top: 1px solid #e2e8f0;
-      padding-top: 12px;
+      padding-top: 10px;
       display: flex;
       justify-content: space-between;
-      font-size: 11.5px;
+      font-size: 10px;
       color: #94a3b8;
     }
     @media print {
-      .print-actions { display: none !important; }
+      .print-bar { display: none !important; }
       body { padding: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="print-actions">
-    <button class="print-btn" onclick="window.print()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-      In / Lưu file PDF
-    </button>
-    <button class="close-btn" onclick="window.close()">Đóng cửa sổ</button>
+  <div class="print-bar">
+    <div><strong>📄 BÁO CÁO LỊCH BOSS TIMELINE PRO</strong></div>
+    <div style="display:flex; gap:10px;">
+      <button class="print-btn" onclick="window.print()">🖨️ In / Lưu file PDF</button>
+      <button class="close-btn" onclick="window.close()">❌ Đóng cửa sổ</button>
+    </div>
   </div>
 
-  <header class="report-header">
+  <div class="report-header">
     <div>
-      <div class="brand-title">BOSS TIMELINE PRO</div>
-      <div class="brand-sub">Hệ thống theo dõi & quản lý hồi sinh boss</div>
+      <div style="font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.4px;">BOSS TIMELINE PRO</div>
+      <div style="font-size:11px; color:#64748b; margin-top:2px;">Hệ thống theo dõi & quản lý lịch xuất hiện Boss</div>
     </div>
-    <div class="report-meta">
-      <div><strong>Giờ hệ thống:</strong> ${clockStr}</div>
-      <div><strong>Trạng thái:</strong> Đồng bộ dữ liệu Live Sync</div>
+    <div style="text-align:right; font-size:11px; color:#475569; line-height:1.6;">
+      <div><strong>Giờ xuất báo cáo:</strong> ${clockStr}</div>
+      <div><strong>Phạm vi dữ liệu:</strong> ${isSingleDay ? "Lịch theo ngày (00h-24h)" : "Toàn bộ lịch boss"}</div>
     </div>
-  </header>
+  </div>
 
   <div class="report-title-box">
     <div>
-      <div class="report-main-title">${filterTitle}</div>
-      <div class="report-date">${filterSubDate}</div>
+      <div style="font-size:15px; font-weight:800; color:#0f172a;">${filterTitle}</div>
+      <div style="font-size:11.5px; color:#64748b; margin-top:2px;">${filterSubDate}</div>
     </div>
-    <div style="font-weight: 800; font-size: 14px; color: #0f172a;">Tổng cộng: ${counts.total} Boss</div>
-  </div>
-
-  <div class="summary-grid">
-    <div class="summary-card">
-      <div class="summary-label">Tổng Boss Theo Dõi</div>
-      <div class="summary-val">${counts.total}</div>
-    </div>
-    <div class="summary-card">
-      <div class="summary-label" style="color:#15803d;">Đang Sống</div>
-      <div class="summary-val" style="color:#15803d;">${counts.alive}</div>
-    </div>
-    <div class="summary-card">
-      <div class="summary-label" style="color:#b91c1c;">Đang Hồi Sinh</div>
-      <div class="summary-val" style="color:#b91c1c;">${counts.respawning}</div>
-    </div>
-    <div class="summary-card">
-      <div class="summary-label" style="color:#a16207;">Sắp Hồi Sinh</div>
-      <div class="summary-val" style="color:#a16207;">${counts.soon}</div>
-    </div>
+    <div style="font-weight:800; font-size:13px; color:#0f172a;">Tổng lượt xuất hiện: ${counts.total}</div>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th style="width: 35px; text-align: center;">STT</th>
-        <th style="width: 160px;">GIỜ & NGÀY HỒI SINH</th>
-        <th style="width: 65px; text-align: center;">LEVEL</th>
-        <th style="width: 150px;">TÊN BOSS</th>
-        <th style="width: 110px;">CHU KỲ</th>
-        <th style="width: 115px; text-align: center;">TRẠNG THÁI</th>
-        <th style="width: 140px;">ĐỊA ĐIỂM / MAP</th>
-        <th>GHI CHÚ</th>
+        <th style="width:5%; text-align:center;">STT</th>
+        <th style="width:15%; text-align:center;">GIỜ HỒI SINH</th>
+        <th style="width:10%; text-align:center;">LEVEL</th>
+        <th style="width:20%; text-align:left;">TÊN BOSS</th>
+        <th style="width:15%; text-align:left;">CHU KỲ</th>
+        <th style="width:15%; text-align:center;">TRẠNG THÁI</th>
+        <th style="width:20%; text-align:left;">ĐỊA ĐIỂM / MAP</th>
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml || `<tr><td colspan="8" style="text-align:center; padding: 20px; color:#94a3b8;">Không có boss nào phù hợp với bộ lọc được chọn.</td></tr>`}
+      ${rowsHtml || `<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Không có lượt boss nào xuất hiện trong khoảng thời gian được chọn.</td></tr>`}
     </tbody>
   </table>
 
-
-  <footer class="report-footer">
-    <div>Báo cáo được xuất tự động từ hệ thống Boss Timeline Pro</div>
-    <div>Định dạng xuất: PDF Document · Trang 1/1</div>
-  </footer>
-
-  <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        window.print();
-      }, 350);
-    });
-  <\/script>
+  <div class="report-footer">
+    <div>Xuất tự động từ hệ thống Boss Timeline Pro</div>
+    <div>Báo cáo dữ liệu chi tiết 1 trang A4 Landscape</div>
+  </div>
 </body>
 </html>`;
 
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.write(printHtml);
-        printWindow.document.close();
-        showToast("Đã mở giao diện xuất báo cáo PDF lịch boss.");
+      const reportWin = window.open("", "_blank");
+      if (reportWin) {
+        reportWin.document.write(reportHtml);
+        reportWin.document.close();
+        showToast("📄 Đã mở trang báo cáo lịch boss.");
       } else {
-        const blob = new Blob([printHtml], { type: "text/html;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.target = "_blank";
-        link.click();
-        URL.revokeObjectURL(url);
-        showToast("Đã tạo file báo cáo PDF.");
+        showToast("⚠️ Vui lòng cho phép trình duyệt mở tab mới để xem báo cáo.");
       }
     }
 
@@ -6375,6 +6534,57 @@
       }
     });
 
+
+    const STORAGE_SIDEBAR_KEY = "bossTimelinePro.sidebarCollapsed";
+    let isSidebarCollapsed = localStorage.getItem(STORAGE_SIDEBAR_KEY) === "true";
+
+    function updateSidebarState() {
+      const appShell = document.querySelector(".app-shell");
+      if (appShell) {
+        appShell.classList.toggle("sidebar-collapsed", isSidebarCollapsed);
+      }
+    }
+
+    document.getElementById("sidebarToggleBtn")?.addEventListener("click", () => {
+      isSidebarCollapsed = !isSidebarCollapsed;
+      try {
+        localStorage.setItem(STORAGE_SIDEBAR_KEY, isSidebarCollapsed ? "true" : "false");
+      } catch (e) {}
+      updateSidebarState();
+    });
+
+    updateSidebarState();
+
+    const STORAGE_THEME_KEY = "bossTimelinePro.theme";
+    let currentTheme = localStorage.getItem(STORAGE_THEME_KEY) || "dark";
+
+    function applyTheme(theme) {
+      currentTheme = theme;
+      document.documentElement.setAttribute("data-theme", theme);
+      try {
+        localStorage.setItem(STORAGE_THEME_KEY, theme);
+      } catch (e) {}
+
+      const iconEl = document.getElementById("themeToggleIcon");
+      const textEl = document.getElementById("themeToggleText");
+      if (iconEl && textEl) {
+        if (theme === "light") {
+          iconEl.textContent = "☀️";
+          textEl.textContent = "Sáng";
+        } else {
+          iconEl.textContent = "🌙";
+          textEl.textContent = "Tối";
+        }
+      }
+    }
+
+    document.getElementById("themeToggleBtn")?.addEventListener("click", () => {
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+      applyTheme(nextTheme);
+      showToast(nextTheme === "light" ? "☀️ Đã chuyển sang Chế độ Sáng." : "🌙 Đã chuyển sang Chế độ Tối.");
+    });
+
+    applyTheme(currentTheme);
 
     document.getElementById("langSwitcher")?.addEventListener("click", (e) => {
       const btn = e.target.closest(".lang-btn");
