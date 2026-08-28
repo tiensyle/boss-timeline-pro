@@ -6770,6 +6770,43 @@
       const keyStatusBadge = document.getElementById("elKeyStatus");
       const dot = document.getElementById("elevenLabsDot");
 
+      async function fetchUserVoices(apiKey) {
+        if (!apiKey) return;
+        try {
+          const res = await fetch("https://api.elevenlabs.io/v1/voices", {
+            headers: { "xi-api-key": apiKey }
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data && data.voices && data.voices.length > 0) {
+            const currentSelected = voiceSelect.value || elevenLabsVoiceId;
+            voiceSelect.innerHTML = "";
+            const grp = document.createElement("optgroup");
+            grp.label = "✨ Giọng hỗ trợ trong tài khoản của bạn";
+            data.voices.forEach(v => {
+              const opt = document.createElement("option");
+              opt.value = v.voice_id;
+              const g = v.labels && v.labels.gender ? ` (${v.labels.gender})` : "";
+              opt.textContent = `${v.name}${g} — ${v.category || "Voice"}`;
+              grp.appendChild(opt);
+            });
+            voiceSelect.appendChild(grp);
+            const customGrp = document.createElement("optgroup");
+            customGrp.label = "🌍 Custom Voice ID";
+            customGrp.innerHTML = '<option value="custom">Nhập Voice ID thủ công...</option>';
+            voiceSelect.appendChild(customGrp);
+
+            const hasCurrent = [...voiceSelect.options].some(o => o.value === currentSelected);
+            if (hasCurrent) {
+              voiceSelect.value = currentSelected;
+            } else if (data.voices[0]) {
+              voiceSelect.value = data.voices[0].voice_id;
+            }
+            customVoiceField.style.display = voiceSelect.value === "custom" ? "" : "none";
+          }
+        } catch(e) {}
+      }
+
       function showELModal() {
         // Populate current values
         apiKeyInput.value = elevenLabsApiKey ? "•".repeat(Math.min(elevenLabsApiKey.length, 32)) : "";
@@ -6787,6 +6824,10 @@
         updateKeyBadge();
         statusMsg.style.display = "none";
         modal.classList.add("open");
+
+        if (elevenLabsApiKey) {
+          fetchUserVoices(elevenLabsApiKey);
+        }
       }
 
       function hideELModal() { modal.classList.remove("open"); }
@@ -6832,7 +6873,10 @@
       });
       apiKeyInput.addEventListener("blur", () => {
         const val = apiKeyInput.value.trim();
-        if (val && !val.includes("•")) apiKeyInput.dataset.real = val;
+        if (val && !val.includes("•")) {
+          apiKeyInput.dataset.real = val;
+          fetchUserVoices(val);
+        }
         apiKeyInput.type = "password";
       });
 
