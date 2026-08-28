@@ -3952,13 +3952,15 @@
     }
 
     // ── ElevenLabs TTS via fetch ──
-    async function speakWithElevenLabs(text) {
-      if (!elevenLabsApiKey) return false;
+    async function speakWithElevenLabs(text, apiKey = elevenLabsApiKey, voiceId = elevenLabsVoiceId) {
+      const activeKey = (apiKey || "").trim();
+      const activeVoice = (voiceId || "21m00Tcm4TlvDq8ikWAM").trim();
+      if (!activeKey) return { success: false, error: "Chưa nhập API Key" };
       try {
-        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${elevenLabsVoiceId}`, {
+        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${activeVoice}`, {
           method: "POST",
           headers: {
-            "xi-api-key": elevenLabsApiKey,
+            "xi-api-key": activeKey,
             "Content-Type": "application/json",
             "Accept": "audio/mpeg"
           },
@@ -3969,8 +3971,16 @@
           })
         });
         if (!res.ok) {
-          console.warn("ElevenLabs API error:", res.status, await res.text());
-          return false;
+          const errText = await res.text();
+          console.warn("ElevenLabs API error:", res.status, errText);
+          let errDetail = `HTTP ${res.status}`;
+          try {
+            const parsed = JSON.parse(errText);
+            if (parsed.detail && parsed.detail.message) {
+              errDetail = parsed.detail.message;
+            }
+          } catch(e){}
+          return { success: false, error: errDetail };
         }
         const arrayBuffer = await res.arrayBuffer();
         const ctx = getAudioContext() || new (window.AudioContext || window.webkitAudioContext)();
@@ -3979,10 +3989,10 @@
         source.buffer = decoded;
         source.connect(ctx.destination);
         source.start(0);
-        return true;
+        return { success: true };
       } catch (e) {
         console.warn("ElevenLabs speak error:", e);
-        return false;
+        return { success: false, error: e.message || "Lỗi kết nối mạng" };
       }
     }
 
@@ -4015,8 +4025,8 @@
     function speakText(text) {
       if (!isSoundEnabled) return;
       if (elevenLabsApiKey) {
-        speakWithElevenLabs(text).then(ok => {
-          if (!ok) speakWithBrowser(text); // fallback
+        speakWithElevenLabs(text).then(res => {
+          if (!res || !res.success) speakWithBrowser(text);
         });
       } else {
         speakWithBrowser(text);
@@ -6823,6 +6833,14 @@
         apiKeyInput.type = "password";
       });
 
+      function getEnteredKey() {
+        const raw = apiKeyInput.value.trim();
+        if (raw && !raw.includes("•")) {
+          return raw;
+        }
+        return (apiKeyInput.dataset.real || elevenLabsApiKey || "").trim();
+      }
+
       // Voice select change
       voiceSelect?.addEventListener("change", () => {
         customVoiceField.style.display = voiceSelect.value === "custom" ? "" : "none";
@@ -6830,34 +6848,32 @@
 
       // Test voice
       document.getElementById("elTestVoiceBtn")?.addEventListener("click", async () => {
-        const key = (apiKeyInput.dataset.real || apiKeyInput.value).trim();
+        const key = getEnteredKey();
         const voice = voiceSelect.value === "custom" ? customVoiceInput.value.trim() : voiceSelect.value;
         const text = testTextInput.value.trim() || "BOSS BOSS";
         if (!key) { showStatus("❌ Vui lòng nhập API Key trước.", "err"); return; }
         if (!voice) { showStatus("❌ Chọn hoặc nhập Voice ID.", "err"); return; }
         showStatus("⏳ Đang kết nối ElevenLabs...", "info");
-        const oldKey = elevenLabsApiKey;
-        const oldVoice = elevenLabsVoiceId;
-        elevenLabsApiKey = key;
-        elevenLabsVoiceId = voice;
-        const ok = await speakWithElevenLabs(text);
-        elevenLabsApiKey = oldKey;
-        elevenLabsVoiceId = oldVoice;
-        if (ok) {
+        
+        const res = await speakWithElevenLabs(text, key, voice);
+        if (res.success) {
           showStatus("✅ Kết nối thành công! Đang phát giọng thử...", "ok");
         } else {
-          showStatus("❌ Lỗi! Kiểm tra lại API Key hoặc Voice ID. (Xem console để biết chi tiết)", "err");
+          showStatus(`❌ Lỗi ElevenLabs: ${res.error || "Không thể kết nối"}`, "err");
         }
       });
 
       // Save
       document.getElementById("elSaveBtn")?.addEventListener("click", () => {
-        const key = (apiKeyInput.dataset.real || apiKeyInput.value).trim();
+        const key = getEnteredKey();
         const voice = voiceSelect.value === "custom" ? customVoiceInput.value.trim() : voiceSelect.value;
         if (!key) { showStatus("❌ API Key không được để trống.", "err"); return; }
         if (!voice || voice === "custom") { showStatus("❌ Vui lòng nhập Voice ID.", "err"); return; }
         elevenLabsApiKey = key;
         elevenLabsVoiceId = voice;
+        apiKeyInput.dataset.real = key;
+        apiKeyInput.value = "•".repeat(Math.min(key.length, 32));
+        apiKeyInput.type = "password";
         try {
           localStorage.setItem(STORAGE_ELEVENLABS_KEY, key);
           localStorage.setItem(STORAGE_ELEVENLABS_VOICE, voice);
