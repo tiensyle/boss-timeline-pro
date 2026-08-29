@@ -34,9 +34,9 @@
       --sidebar-bg: rgba(21, 23, 24, .96);
       --fixed-boss-color: #f59e0b;
 
-      --btn-primary-bg: #4aa3ff;
-      --btn-primary-text: #0f172a;
-      --btn-primary-hover: #388ee6;
+      --btn-primary-bg: #2563eb;
+      --btn-primary-text: #ffffff;
+      --btn-primary-hover: #1d4ed8;
       --btn-danger-bg: #e2574c;
       --btn-danger-text: #ffffff;
       --level-badge-bg: rgba(74, 163, 255, 0.15);
@@ -943,9 +943,9 @@
     .button-primary {
       padding: 0 15px;
       background: var(--btn-primary-bg);
-      color: var(--btn-primary-text);
-      font-weight: 700;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
+      color: #ffffff !important;
+      font-weight: 800;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, .28);
     }
 
     .button-primary:hover {
@@ -2111,9 +2111,10 @@
     }
 
     .spawn-mode-option.selected {
-      background: rgba(74, 163, 255, 0.16);
-      border-color: rgba(74, 163, 255, 0.4);
-      color: #8ec5fc;
+      background: var(--btn-primary-bg);
+      border-color: var(--btn-primary-bg);
+      color: #ffffff !important;
+      font-weight: 800;
     }
 
     .modal-head {
@@ -2783,10 +2784,10 @@
       color: var(--text, #f1f5f9);
     }
     .view-mode-btn.active {
-      background: var(--cyan, #38bdf8);
-      color: #090d16;
-      font-weight: 700;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      background: var(--btn-primary-bg);
+      color: #ffffff !important;
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
     }
 
     /* Compact / List View Table */
@@ -3402,7 +3403,7 @@
           <span data-i18n="offsetCustomLabel">Hoặc nhập chính xác giờ chết:</span>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <input type="time" id="offsetCustomTimeInput" step="1" style="flex:1; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:600;">
+          <input type="text" id="offsetCustomTimeInput" placeholder="17:54:04 (Giờ 24h)" maxlength="8" style="flex:1; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:700; font-family:monospace;">
           <button type="button" class="button-ghost" id="offsetSetNowBtn" style="white-space:nowrap; padding:9px 14px;" data-i18n="offsetNowBtn">Giờ hiện tại</button>
         </div>
       </div>
@@ -4574,7 +4575,13 @@
         }
 
         fixedSchedules = fixedSchedules.map(s => {
-          const time = typeof s.time === "string" && /^\d{2}:\d{2}$/.test(s.time) ? s.time : "18:00";
+          let time = typeof s.time === "string" && /^\d{2}:\d{2}$/.test(s.time) ? s.time : "18:00";
+          let [hStr, mStr] = time.split(":");
+          let hNum = Number(hStr);
+          let mNum = Number(mStr);
+          if (hNum >= 24) hStr = String(hNum === 24 ? 0 : Math.min(23, hNum)).padStart(2, "0");
+          if (mNum > 59) mStr = "59";
+          time = `${hStr}:${mStr}`;
           const day = s.day === "all" ? "all" : (Number(s.day) >= 0 && Number(s.day) <= 6 ? Number(s.day) : "all");
           return { day, time };
         });
@@ -6028,12 +6035,26 @@
       _offsetMinutes = 0;
     }
 
+    function format24hTime(d) {
+      const date = new Date(d);
+      const h = String(date.getHours()).padStart(2, "0");
+      const m = String(date.getMinutes()).padStart(2, "0");
+      const s = String(date.getSeconds()).padStart(2, "0");
+      return `${h}:${m}:${s}`;
+    }
+
     function getOffsetDiedAt() {
-      const timeInput = document.getElementById("offsetCustomTimeInput").value;
-      if (!timeInput) return Date.now() - _offsetMinutes * 60 * 1000;
-      const [h, m, s] = timeInput.split(":").map(Number);
+      const raw = document.getElementById("offsetCustomTimeInput").value.trim();
+      if (!raw) return Date.now() - _offsetMinutes * 60 * 1000;
+      const parts = raw.split(":").map(Number);
+      if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+        return Date.now() - _offsetMinutes * 60 * 1000;
+      }
+      const h = Math.min(23, Math.max(0, parts[0]));
+      const m = Math.min(59, Math.max(0, parts[1]));
+      const s = Math.min(59, Math.max(0, parts[2] || 0));
       const d = new Date();
-      d.setHours(h, m, s || 0, 0);
+      d.setHours(h, m, s, 0);
       if (d.getTime() > Date.now() + 60000) d.setDate(d.getDate() - 1);
       return d.getTime();
     }
@@ -6050,8 +6071,8 @@
         respawnsAt = diedAt + boss.respawnMinutes * 60 * 1000;
       }
       const remainingMs = respawnsAt - Date.now();
-      const diedStr = new Date(diedAt).toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
-      const respawnStr = new Date(respawnsAt).toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
+      const diedStr = format24hTime(diedAt);
+      const respawnStr = format24hTime(respawnsAt);
       const remainingStr = remainingMs <= 0
         ? (isEn ? "⚠️ Already respawned!" : "⚠️ Đã hồi sinh rồi!")
         : formatCountdown(remainingMs);
@@ -6075,32 +6096,95 @@
       saveState();
       closeOffsetModal();
       render();
-      const diedStr = new Date(diedAt).toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" });
+      const diedStr = format24hTime(diedAt);
       showToast(isEn
         ? `${boss.name} recorded as dead at ${diedStr}. Countdown started!`
         : `${boss.name} đã ghi nhận chết lúc ${diedStr}. Bắt đầu đếm ngược!`);
     }
 
+    function attachTimeInputMask(input, includeSeconds = false) {
+      if (!input || input.dataset.maskAttached) return;
+      input.dataset.maskAttached = "true";
+
+      input.addEventListener("input", (e) => {
+        if (e.inputType === "deleteContentBackward") return;
+
+        let val = input.value;
+        let digits = val.replace(/\D/g, "");
+
+        let maxDigits = includeSeconds ? 6 : 4;
+        if (digits.length > maxDigits) digits = digits.slice(0, maxDigits);
+
+        let h = digits.slice(0, 2);
+        let m = digits.slice(2, 4);
+        let s = digits.slice(4, 6);
+
+        if (h.length === 2) {
+          let numH = Number(h);
+          if (numH === 24) h = "00";
+          else if (numH > 23) h = "23";
+        }
+
+        if (m.length === 2 && Number(m) > 59) m = "59";
+        if (s.length === 2 && Number(s) > 59) s = "59";
+
+        let formatted = "";
+        if (digits.length === 0) {
+          formatted = "";
+        } else if (digits.length < 2) {
+          formatted = h;
+        } else if (digits.length === 2) {
+          formatted = h + ":";
+        } else if (digits.length < 4) {
+          formatted = `${h}:${m}`;
+        } else if (digits.length === 4) {
+          formatted = `${h}:${m}` + (includeSeconds ? ":" : "");
+        } else {
+          formatted = `${h}:${m}:${s}`;
+        }
+
+        input.value = formatted;
+      });
+
+      input.addEventListener("blur", () => {
+        let val = input.value.trim();
+        if (!val) return;
+        let parts = val.split(":").filter(Boolean);
+        let numH = Number(parts[0]) || 0;
+        let h = String(numH === 24 ? 0 : Math.min(23, Math.max(0, numH))).padStart(2, "0");
+        let m = String(Math.min(59, Math.max(0, Number(parts[1]) || 0))).padStart(2, "0");
+        if (includeSeconds) {
+          let s = String(Math.min(59, Math.max(0, Number(parts[2]) || 0))).padStart(2, "0");
+          input.value = `${h}:${m}:${s}`;
+        } else {
+          input.value = `${h}:${m}`;
+        }
+      });
+    }
+
     function initOffsetModal() {
+      const offsetInput = document.getElementById("offsetCustomTimeInput");
+      attachTimeInputMask(offsetInput, true);
+
       document.getElementById("offsetPresetGrid").addEventListener("click", (e) => {
         const chip = e.target.closest(".offset-preset-chip");
         if (!chip) return;
         _offsetMinutes = Number(chip.dataset.offset);
         const d = new Date(Date.now() - _offsetMinutes * 60 * 1000);
-        document.getElementById("offsetCustomTimeInput").value =
+        offsetInput.value =
           `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.toggle("active-chip", c === chip));
         updateOffsetPreview();
       });
 
-      document.getElementById("offsetCustomTimeInput").addEventListener("input", () => {
+      offsetInput.addEventListener("input", () => {
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.remove("active-chip"));
         updateOffsetPreview();
       });
 
       document.getElementById("offsetSetNowBtn").addEventListener("click", () => {
         const d = new Date();
-        document.getElementById("offsetCustomTimeInput").value =
+        offsetInput.value =
           `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.toggle("active-chip", Number(c.dataset.offset) === 0));
         _offsetMinutes = 0;
@@ -6137,7 +6221,7 @@
             <option value="6" ${selDay === "6" ? "selected" : ""}>${isEn ? "Saturday (Sat)" : "Thứ 7 (Thứ Bảy)"}</option>
             <option value="0" ${selDay === "0" ? "selected" : ""}>${isEn ? "Sunday (Sun)" : "Chủ Nhật (CN)"}</option>
           </select>
-          <input type="time" class="fixed-time-input" value="${timeVal}">
+          <input type="text" class="fixed-time-input" value="${timeVal}" placeholder="18:00 (24h)" maxlength="5" style="width:110px; font-weight:700; font-family:monospace; text-align:center;">
           <button type="button" class="btn-remove-slot" title="${isEn ? "Delete slot" : "Xóa mốc giờ"}">
             <svg viewBox="0 0 24 24" fill="none" width="14" height="14" style="margin-right:2px;"><path d="M3 6h18M8 6V4h8v2m-1 4v8M9 10v8M5 6l1 15h12l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             ${isEn ? "Delete" : "Xóa"}
@@ -6151,6 +6235,7 @@
       if (!container) return;
       const list = schedules.length ? schedules : [{ day: "all", time: "18:00" }];
       container.innerHTML = list.map(s => createFixedSlotRowHtml(s)).join("");
+      container.querySelectorAll(".fixed-time-input").forEach(inp => attachTimeInputMask(inp, false));
     }
 
     function addFixedSlotRow(day = "all", time = "18:00") {
@@ -6158,7 +6243,10 @@
       if (!container) return;
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = createFixedSlotRowHtml({ day, time });
-      container.appendChild(tempDiv.firstElementChild);
+      const newRow = tempDiv.firstElementChild;
+      container.appendChild(newRow);
+      const inp = newRow.querySelector(".fixed-time-input");
+      if (inp) attachTimeInputMask(inp, false);
     }
 
     function openModal(id = null) {
