@@ -3396,27 +3396,11 @@
 
       <div class="offset-custom-section" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft);">
         <div style="font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">
-          <span>Hoặc nhập chính xác ngày & giờ chết:</span>
+          <span data-i18n="offsetCustomLabel">Hoặc nhập chính xác giờ chết:</span>
         </div>
-        
-        <!-- Day Presets: Hôm nay | Hôm qua | 2 ngày trước | 3 ngày trước -->
-        <div class="preset-chips" id="offsetDayPresets" style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
-          <button type="button" class="preset-chip active-chip" id="offsetDayTodayBtn" data-days-ago="0">📅 Hôm nay</button>
-          <button type="button" class="preset-chip" id="offsetDayYesterdayBtn" data-days-ago="1">📅 Hôm qua (-1 ngày)</button>
-          <button type="button" class="preset-chip" id="offsetDay2DaysAgoBtn" data-days-ago="2">📅 2 ngày trước (-2 ngày)</button>
-          <button type="button" class="preset-chip" id="offsetDay3DaysAgoBtn" data-days-ago="3">📅 3 ngày trước (-3 ngày)</button>
-        </div>
-
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:140px;">
-            <span style="font-size:11px; color:var(--muted); font-weight:600;">CHỌN NGÀY:</span>
-            <input type="date" id="offsetCustomDateInput" style="padding:8px 10px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:13px; font-weight:700;">
-          </div>
-          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:140px;">
-            <span style="font-size:11px; color:var(--muted); font-weight:600;">GIỜ CHẾT (24H):</span>
-            <input type="text" id="offsetCustomTimeInput" placeholder="15:06:38" maxlength="8" style="padding:8px 10px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:700; font-family:monospace;">
-          </div>
-          <button type="button" class="button-ghost" id="offsetSetNowBtn" style="white-space:nowrap; padding:8px 12px; margin-top:16px;" data-i18n="offsetNowBtn">Giờ hiện tại</button>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="text" id="offsetCustomTimeInput" placeholder="17:54:04 (Giờ 24h)" maxlength="8" style="flex:1; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:700; font-family:monospace;">
+          <button type="button" class="button-ghost" id="offsetSetNowBtn" style="white-space:nowrap; padding:9px 14px;" data-i18n="offsetNowBtn">Giờ hiện tại</button>
         </div>
       </div>
 
@@ -3808,7 +3792,6 @@
 
 
     /* ── Sound & Speech Notification Engine ── */
-    const STORAGE_SOUND_KEY = "bossTimelinePro.soundEnabled";
     let isSoundEnabled = localStorage.getItem(STORAGE_SOUND_KEY) !== "false";
     let audioCtx = null;
     const activeSoundNotified = {};
@@ -3865,6 +3848,34 @@
         }
       } catch (e) {
         console.warn("AudioContext error:", e);
+      }
+    }
+
+
+
+    // ── Web Speech API fallback ──
+    function speakWithBrowser(text) {
+      if (!("speechSynthesis" in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.25;
+        utterance.volume = 1.0;
+        const voices = window.speechSynthesis.getVoices();
+        let femaleVoice = voices.find((v) => {
+          const name = (v.name || "").toLowerCase();
+          return (v.lang.startsWith("vi") || v.lang.startsWith("en")) &&
+                 (name.includes("female") || name.includes("hoaimy") || name.includes("zira") || name.includes("google") || name.includes("aria") || name.includes("jenny") || name.includes("natural") || name.includes("nhien") || name.includes("linh"));
+        });
+        if (!femaleVoice) {
+          femaleVoice = voices.find((v) => v.lang && (v.lang === "vi-VN" || v.lang.startsWith("vi"))) ||
+                        voices.find((v) => (v.name || "").toLowerCase().includes("female"));
+        }
+        if (femaleVoice) utterance.voice = femaleVoice;
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn("SpeechSynthesis error:", e);
       }
     }
 
@@ -4069,34 +4080,83 @@
       openAuthModal("admin");
     }
 
-    let state = loadState();
-    let activeFilter = "all";
-    let activeLevelFilter = "all";
-    const STORAGE_VIEW_KEY = "bossTimelinePro.viewMode";
-    let activeView = localStorage.getItem(STORAGE_VIEW_KEY) === "compact" ? "compact" : "grid";
-
-    function setViewMode(mode) {
-      if (mode !== "grid" && mode !== "compact") return;
-      activeView = mode;
-      try {
-        localStorage.setItem(STORAGE_VIEW_KEY, mode);
-      } catch (e) {}
-      updateViewModeUI();
-      render();
-    }
-
-    function updateViewModeUI() {
-      document.querySelectorAll(".view-mode-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.view === activeView);
-      });
-    }
-
-    let editingBossId = null;
-    let toastTimer = null;
-
     function createDefaultState() {
       const now = Date.now();
       const bosses = [
+        {
+          id: makeId(),
+          name: "Milavy",
+          map: "Lăng Mộ Tyriosa B3",
+          level: 90,
+          spawnMode: "interval",
+          respawnMinutes: 1800,
+          diedAt: null,
+          respawnsAt: null,
+          lastRespawnAt: null,
+          avatar: "ember",
+          notes: "Lăng Mộ Tyriosa B3"
+        },
+        {
+          id: makeId(),
+          name: "Sy Le",
+          map: "Cánh đồng cỏ lau",
+          level: 80,
+          spawnMode: "fixed",
+          fixedSchedules: [{ day: "all", time: "00:30" }],
+          weekDays: [0, 1, 2, 3, 4, 5, 6],
+          fixedTime: "00:30",
+          diedAt: null,
+          respawnsAt: null,
+          lastRespawnAt: null,
+          avatar: "ember",
+          notes: "Cố định 00:30 mỗi ngày"
+        },
+        {
+          id: makeId(),
+          name: "RINGOR",
+          map: "Torchilight Hiighway",
+          level: 95,
+          spawnMode: "fixed",
+          fixedSchedules: [{ day: 6, time: "16:00" }],
+          weekDays: [6],
+          fixedTime: "16:00",
+          diedAt: null,
+          respawnsAt: null,
+          lastRespawnAt: null,
+          avatar: "ember",
+          notes: "Cố định Thứ 7 (16:00)"
+        },
+        {
+          id: makeId(),
+          name: "SAPHIRUS",
+          map: "Moonlight Shakle",
+          level: 80,
+          spawnMode: "fixed",
+          fixedSchedules: [
+            { day: 0, time: "16:00" },
+            { day: 2, time: "10:30" }
+          ],
+          weekDays: [0, 2],
+          fixedTime: "16:00",
+          diedAt: null,
+          respawnsAt: null,
+          lastRespawnAt: null,
+          avatar: "ember",
+          notes: "Cố định Chủ Nhật (16:00) & Thứ 3 (10:30)"
+        },
+        {
+          id: makeId(),
+          name: "Tướng Aquileus",
+          map: "Lăng Mộ Tyriosa B2",
+          level: 90,
+          spawnMode: "interval",
+          respawnMinutes: 1740,
+          diedAt: null,
+          respawnsAt: null,
+          lastRespawnAt: null,
+          avatar: "ember",
+          notes: "Respawn 1.2 ngày 5h (1740m)"
+        },
         {
           id: makeId(),
           name: "VIOLET",
@@ -4192,28 +4252,32 @@
 
       return {
         bosses,
-        history: [
-          historyItem("death", bosses[1], now - 41 * 60 * 1000),
-          historyItem("death", bosses[4], now - 22 * 60 * 1000),
-          historyItem("death", bosses[0], now - 12 * 60 * 1000),
-          historyItem("respawn", bosses[3], now - 38 * 60 * 1000),
-          historyItem("respawn", bosses[2], now - 2 * 60 * 60 * 1000)
-        ]
+        history: []
       };
     }
 
     function loadState() {
       try {
+        const defaultState = createDefaultState();
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return createDefaultState();
+        if (!raw) return defaultState;
         const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed.bosses)) return createDefaultState();
+        if (!Array.isArray(parsed.bosses) || parsed.bosses.length === 0) return defaultState;
+
+        const savedBosses = parsed.bosses.map(normalizeBoss);
+        const defaultBosses = defaultState.bosses;
+
+        const savedNames = new Set(savedBosses.map(b => (b.name || "").trim().toLowerCase()));
+        const missingDefaults = defaultBosses.filter(b => !savedNames.has((b.name || "").trim().toLowerCase()));
+
+        const mergedBosses = [...savedBosses, ...missingDefaults];
+
         return {
-          bosses: parsed.bosses.map(normalizeBoss),
+          bosses: mergedBosses,
           history: Array.isArray(parsed.history) ? parsed.history.slice(0, 80) : []
         };
       } catch (error) {
-        console.warn("Không thể đọc localStorage, dùng dữ liệu mẫu.", error);
+        console.warn("Không thể đọc localStorage, dùng dữ liệu mặc định.", error);
         return createDefaultState();
       }
     }
@@ -4462,14 +4526,7 @@
         }
       }
 
-      let respawnsAt = Number(boss.respawnsAt) || null;
-      if (isFixed && respawnsAt) {
-        const respawnDay = new Date(respawnsAt).getDay();
-        const isValidDay = fixedSchedules.some(s => s.day === "all" || Number(s.day) === respawnDay);
-        if (!isValidDay) {
-          respawnsAt = null;
-        }
-      }
+      const primaryFixedTime = fixedSchedules[0]?.time || boss.fixedTime || "18:00";
 
       return {
         id: boss.id || makeId(),
@@ -4482,7 +4539,7 @@
         fixedSchedules: fixedSchedules,
         weekDays: weekDays,
         diedAt: Number(boss.diedAt) || null,
-        respawnsAt: respawnsAt,
+        respawnsAt: Number(boss.respawnsAt) || null,
         lastRespawnAt: Number(boss.lastRespawnAt) || null,
         avatar: ["ember", "frost", "void", "stone", "storm"].includes(boss.avatar) ? boss.avatar : "ember",
         notes: String(boss.notes || "").slice(0, 160)
@@ -5903,16 +5960,8 @@
       });
 
       const now = new Date();
-      if (document.getElementById("offsetCustomDateInput")) {
-        document.getElementById("offsetCustomDateInput").value = formatYMD(now);
-      }
-      if (document.getElementById("offsetCustomTimeInput")) {
-        document.getElementById("offsetCustomTimeInput").value =
-          `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-      }
-      document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(chip => {
-        chip.classList.toggle("active-chip", chip.id === "offsetDayTodayBtn");
-      });
+      document.getElementById("offsetCustomTimeInput").value =
+        `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
 
       updateOffsetPreview();
       document.getElementById("offsetDeathModal").classList.add("open");
@@ -5924,50 +5973,27 @@
       _offsetMinutes = 0;
     }
 
-    function formatYMD(d) {
+    function format24hTime(d) {
       const date = new Date(d);
-      const yy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, "0");
-      const dd = String(date.getDate()).padStart(2, "0");
-      return `${yy}-${mm}-${dd}`;
-    }
-
-    function format24hDateTime(d) {
-      const date = new Date(d);
-      const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-      const dayName = days[date.getDay()];
-      const dd = String(date.getDate()).padStart(2, "0");
-      const mm = String(date.getMonth() + 1).padStart(2, "0");
-      const yy = date.getFullYear();
       const h = String(date.getHours()).padStart(2, "0");
       const m = String(date.getMinutes()).padStart(2, "0");
       const s = String(date.getSeconds()).padStart(2, "0");
-      return `${dayName} ${dd}/${mm}/${yy} ${h}:${m}:${s}`;
+      return `${h}:${m}:${s}`;
     }
 
     function getOffsetDiedAt() {
-      const dateVal = document.getElementById("offsetCustomDateInput")?.value;
-      const timeVal = document.getElementById("offsetCustomTimeInput")?.value.trim();
-
-      const d = new Date();
-
-      if (dateVal) {
-        const [yy, mm, dd] = dateVal.split("-").map(Number);
-        if (yy && mm && dd) {
-          d.setFullYear(yy, mm - 1, dd);
-        }
-      }
-
-      if (timeVal) {
-        const parts = timeVal.split(":").map(Number);
-        const h = Math.min(23, Math.max(0, parts[0] || 0));
-        const m = Math.min(59, Math.max(0, parts[1] || 0));
-        const s = Math.min(59, Math.max(0, parts[2] || 0));
-        d.setHours(h, m, s, 0);
-      } else if (_offsetMinutes > 0) {
+      const raw = document.getElementById("offsetCustomTimeInput").value.trim();
+      if (!raw) return Date.now() - _offsetMinutes * 60 * 1000;
+      const parts = raw.split(":").map(Number);
+      if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
         return Date.now() - _offsetMinutes * 60 * 1000;
       }
-
+      const h = Math.min(23, Math.max(0, parts[0]));
+      const m = Math.min(59, Math.max(0, parts[1]));
+      const s = Math.min(59, Math.max(0, parts[2] || 0));
+      const d = new Date();
+      d.setHours(h, m, s, 0);
+      if (d.getTime() > Date.now() + 60000) d.setDate(d.getDate() - 1);
       return d.getTime();
     }
 
@@ -5983,8 +6009,8 @@
         respawnsAt = diedAt + boss.respawnMinutes * 60 * 1000;
       }
       const remainingMs = respawnsAt - Date.now();
-      const diedStr = format24hDateTime(diedAt);
-      const respawnStr = format24hDateTime(respawnsAt);
+      const diedStr = format24hTime(diedAt);
+      const respawnStr = format24hTime(respawnsAt);
       const remainingStr = remainingMs <= 0
         ? (isEn ? "⚠️ Already respawned!" : "⚠️ Đã hồi sinh rồi!")
         : formatCountdown(remainingMs);
@@ -6008,7 +6034,7 @@
       saveState();
       closeOffsetModal();
       render();
-      const diedStr = format24hDateTime(diedAt);
+      const diedStr = format24hTime(diedAt);
       showToast(isEn
         ? `${boss.name} recorded as dead at ${diedStr}. Countdown started!`
         : `${boss.name} đã ghi nhận chết lúc ${diedStr}. Bắt đầu đếm ngược!`);
@@ -6076,68 +6102,43 @@
 
     function initOffsetModal() {
       const offsetInput = document.getElementById("offsetCustomTimeInput");
-      const dateInput = document.getElementById("offsetCustomDateInput");
       attachTimeInputMask(offsetInput, true);
 
-      document.getElementById("offsetPresetGrid")?.addEventListener("click", (e) => {
+      document.getElementById("offsetPresetGrid").addEventListener("click", (e) => {
         const chip = e.target.closest(".offset-preset-chip");
         if (!chip) return;
         _offsetMinutes = Number(chip.dataset.offset);
         const d = new Date(Date.now() - _offsetMinutes * 60 * 1000);
-        if (dateInput) dateInput.value = formatYMD(d);
-        if (offsetInput) {
-          offsetInput.value =
-            `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
-        }
+        offsetInput.value =
+          `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.toggle("active-chip", c === chip));
-        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.toggle("active-chip", c.id === "offsetDayTodayBtn"));
         updateOffsetPreview();
       });
 
-      document.getElementById("offsetDayPresets")?.addEventListener("click", (e) => {
-        const chip = e.target.closest(".preset-chip");
-        if (!chip) return;
-        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.remove("active-chip"));
-        chip.classList.add("active-chip");
-        const daysAgo = Number(chip.dataset.daysAgo || 0);
-        const targetDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-        if (dateInput) dateInput.value = formatYMD(targetDate);
-        updateOffsetPreview();
-      });
-
-      dateInput?.addEventListener("change", () => {
-        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.remove("active-chip"));
-        updateOffsetPreview();
-      });
-
-      offsetInput?.addEventListener("input", () => {
+      offsetInput.addEventListener("input", () => {
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.remove("active-chip"));
         updateOffsetPreview();
       });
 
-      document.getElementById("offsetSetNowBtn")?.addEventListener("click", () => {
+      document.getElementById("offsetSetNowBtn").addEventListener("click", () => {
         const d = new Date();
-        if (dateInput) dateInput.value = formatYMD(d);
-        if (offsetInput) {
-          offsetInput.value =
-            `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
-        }
+        offsetInput.value =
+          `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.toggle("active-chip", Number(c.dataset.offset) === 0));
-        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.toggle("active-chip", c.id === "offsetDayTodayBtn"));
         _offsetMinutes = 0;
         updateOffsetPreview();
       });
 
-      document.getElementById("offsetConfirmBtn")?.addEventListener("click", confirmOffsetDeath);
-      document.getElementById("offsetCancelBtn")?.addEventListener("click", closeOffsetModal);
-      document.getElementById("closeOffsetModalBtn")?.addEventListener("click", closeOffsetModal);
+      document.getElementById("offsetConfirmBtn").addEventListener("click", confirmOffsetDeath);
+      document.getElementById("offsetCancelBtn").addEventListener("click", closeOffsetModal);
+      document.getElementById("closeOffsetModalBtn").addEventListener("click", closeOffsetModal);
 
-      document.getElementById("offsetDeathModal")?.addEventListener("click", (e) => {
+      document.getElementById("offsetDeathModal").addEventListener("click", (e) => {
         if (e.target === document.getElementById("offsetDeathModal")) closeOffsetModal();
       });
 
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && document.getElementById("offsetDeathModal")?.classList.contains("open")) closeOffsetModal();
+        if (e.key === "Escape" && document.getElementById("offsetDeathModal").classList.contains("open")) closeOffsetModal();
       });
     }
 
