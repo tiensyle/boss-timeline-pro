@@ -3012,12 +3012,8 @@
               <svg viewBox="0 0 24 24" fill="none" class="sound-icon-off" style="display:none;"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span id="soundToggleText">Âm thanh: Bật</span>
             </button>
-            <button class="icon-button sound-test-btn" id="soundTestBtn" type="button" title="Thử giọng đọc" aria-label="Thử giọng đọc">
+            <button class="icon-button sound-test-btn" id="soundTestBtn" type="button" title="Thử giọng đọc tiếng Việt" aria-label="Thử giọng đọc tiếng Việt">
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" stroke="currentColor" stroke-width="2"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-            <button class="icon-button sound-test-btn" id="elevenLabsSettingsBtn" type="button" title="Cài đặt giọng ElevenLabs (Anime)" aria-label="Cài đặt ElevenLabs" style="position:relative;">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/></svg>
-              <span id="elevenLabsDot" style="display:none; position:absolute; top:4px; right:4px; width:7px; height:7px; border-radius:50%; background:var(--green); border:1.5px solid var(--surface);"></span>
             </button>
           </div>
           <div class="clock-box" aria-live="polite">
@@ -3400,11 +3396,27 @@
 
       <div class="offset-custom-section" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft);">
         <div style="font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">
-          <span data-i18n="offsetCustomLabel">Hoặc nhập chính xác giờ chết:</span>
+          <span>Hoặc nhập chính xác ngày & giờ chết:</span>
         </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <input type="text" id="offsetCustomTimeInput" placeholder="17:54:04 (Giờ 24h)" maxlength="8" style="flex:1; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:700; font-family:monospace;">
-          <button type="button" class="button-ghost" id="offsetSetNowBtn" style="white-space:nowrap; padding:9px 14px;" data-i18n="offsetNowBtn">Giờ hiện tại</button>
+        
+        <!-- Day Presets: Hôm nay | Hôm qua | 2 ngày trước | 3 ngày trước -->
+        <div class="preset-chips" id="offsetDayPresets" style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+          <button type="button" class="preset-chip active-chip" id="offsetDayTodayBtn" data-days-ago="0">📅 Hôm nay</button>
+          <button type="button" class="preset-chip" id="offsetDayYesterdayBtn" data-days-ago="1">📅 Hôm qua (-1 ngày)</button>
+          <button type="button" class="preset-chip" id="offsetDay2DaysAgoBtn" data-days-ago="2">📅 2 ngày trước (-2 ngày)</button>
+          <button type="button" class="preset-chip" id="offsetDay3DaysAgoBtn" data-days-ago="3">📅 3 ngày trước (-3 ngày)</button>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:140px;">
+            <span style="font-size:11px; color:var(--muted); font-weight:600;">CHỌN NGÀY:</span>
+            <input type="date" id="offsetCustomDateInput" style="padding:8px 10px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:13px; font-weight:700;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:140px;">
+            <span style="font-size:11px; color:var(--muted); font-weight:600;">GIỜ CHẾT (24H):</span>
+            <input type="text" id="offsetCustomTimeInput" placeholder="15:06:38" maxlength="8" style="padding:8px 10px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:700; font-family:monospace;">
+          </div>
+          <button type="button" class="button-ghost" id="offsetSetNowBtn" style="white-space:nowrap; padding:8px 12px; margin-top:16px;" data-i18n="offsetNowBtn">Giờ hiện tại</button>
         </div>
       </div>
 
@@ -3435,101 +3447,6 @@
         <button type="button" class="button-ghost" id="confirmModalCancelBtn">Hủy bỏ</button>
         <button type="button" class="button-danger" id="confirmModalOkBtn">Đồng ý</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ElevenLabs Voice Settings Modal -->
-  <div class="modal-backdrop" id="elevenLabsModal" role="dialog" aria-modal="true" aria-labelledby="elModalTitle" style="z-index: 9998;">
-    <div class="auth-modal-box" style="max-width:520px; padding:28px 24px;">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-        <div style="width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#7c3aed,#a855f7); display:grid; place-items:center; flex-shrink:0;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" stroke="#fff" stroke-width="2"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
-        </div>
-        <div>
-          <h2 id="elModalTitle" style="margin:0; font-size:17px;">🎌 Giọng Anime — ElevenLabs</h2>
-          <p style="margin:4px 0 0; font-size:12.5px; color:var(--muted);">Tích hợp giọng đọc AI chất lượng cao. Miễn phí 10.000 ký tự/tháng.</p>
-        </div>
-        <button type="button" class="icon-button" id="elModalCloseBtn" style="margin-left:auto; width:32px; height:32px; border-radius:8px;" aria-label="Đóng">
-          <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-
-      <!-- Step guide -->
-      <div style="background:var(--surface-2); border:1px solid var(--line-soft); border-radius:var(--radius); padding:14px 16px; margin-bottom:18px; font-size:12.5px; color:var(--text-2); line-height:1.65;">
-        <strong style="color:var(--text); display:block; margin-bottom:6px;">📋 Cách lấy API Key miễn phí:</strong>
-        <ol style="margin:0; padding-left:18px;">
-          <li>Truy cập <a href="https://elevenlabs.io" target="_blank" style="color:var(--cyan); text-decoration:none; font-weight:700;">elevenlabs.io</a> → Sign Up (miễn phí)</li>
-          <li>Vào <strong>Profile → API Keys</strong> → nhấn <strong>+ Create Key</strong></li>
-          <li>Copy key và dán vào ô bên dưới</li>
-        </ol>
-      </div>
-
-      <!-- API Key input -->
-      <div class="form-field" style="margin-bottom:14px;">
-        <label for="elApiKeyInput" style="display:flex; align-items:center; gap:6px;">
-          🔑 API Key ElevenLabs
-          <span id="elKeyStatus" style="font-size:11px; padding:2px 7px; border-radius:99px; background:var(--surface-3); color:var(--muted); margin-left:4px;">Chưa cài</span>
-        </label>
-        <div style="display:flex; gap:8px;">
-          <input type="password" id="elApiKeyInput" placeholder="Dán API Key vào đây (ví dụ: sk_...)" style="flex:1; font-family:monospace; font-size:12.5px;">
-          <button type="button" id="elToggleKeyVisibility" class="icon-button" style="width:44px; height:44px; border-radius:var(--radius); border:1px solid var(--line-soft); background:var(--surface-2);" title="Hiện/Ẩn key">
-            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Voice selector -->
-      <div class="form-field" style="margin-bottom:18px;">
-        <label for="elVoiceSelect">🎭 Chọn giọng anime</label>
-        <select id="elVoiceSelect">
-          <optgroup label="🎌 Giọng Nữ (Hỗ trợ Free Account API)">
-            <option value="21m00Tcm4TlvDq8ikWAM">Rachel — Nữ, chuẩn, điềm tĩnh</option>
-            <option value="EXAVITQu4vr4xnSDxMaL">Bella / Sarah — Nữ, dịu dàng, anime-style</option>
-            <option value="AZnzlk1XvdvUeBnXmlld">Domi — Nữ, mạnh mẽ, tự tin</option>
-            <option value="Xb7hH8MSUJpSbSDYk0k2">Alice — Nữ, nhẹ nhàng, trong trẻo</option>
-            <option value="pFZP5JQG7Bwyj374nWGe">Lily — Nữ, tươi trẻ, tự nhiên</option>
-            <option value="XB0fDUnXU5powWmWrXFU">Charlotte — Nữ, truyền cảm</option>
-          </optgroup>
-          <optgroup label="♂️ Giọng Nam (Hỗ trợ Free Account API)">
-            <option value="TxGEqnHWrfWFTfGW9XjX">Josh — Nam, trẻ, hoạt bát</option>
-            <option value="ErXwobaYiN019PkySvjV">Antoni — Nam, ấm áp, rõ lời</option>
-            <option value="pNInz6obpgDQGcFmaJgB">Adam — Nam, trầm, uy quyền</option>
-          </optgroup>
-          <optgroup label="🌍 Custom Voice ID">
-            <option value="custom">Nhập Voice ID thủ công...</option>
-          </optgroup>
-        </select>
-      </div>
-
-      <!-- Custom voice ID input (hidden by default) -->
-      <div class="form-field" id="elCustomVoiceField" style="display:none; margin-bottom:18px;">
-        <label for="elCustomVoiceInput">Voice ID (từ ElevenLabs Voice Library)</label>
-        <input type="text" id="elCustomVoiceInput" placeholder="Ví dụ: 21m00Tcm4TlvDq8ikWAM">
-      </div>
-
-      <!-- Text to test -->
-      <div class="form-field" style="margin-bottom:18px;">
-        <label for="elTestTextInput">📝 Đoạn test</label>
-        <input type="text" id="elTestTextInput" value="BOSS BOSS" placeholder="Nhập câu muốn thử giọng...">
-      </div>
-
-      <!-- Actions -->
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button type="button" id="elTestVoiceBtn" class="button-ghost" style="flex:1; min-width:120px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="margin-right:5px;"><path d="M5 3l14 9-14 9V3z" fill="currentColor"/></svg>
-          Thử giọng
-        </button>
-        <button type="button" id="elSaveBtn" class="button-primary" style="flex:1; min-width:140px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="margin-right:5px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" stroke-width="2"/><polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" stroke-width="2"/><polyline points="7 3 7 8 15 8" stroke="currentColor" stroke-width="2"/></svg>
-          Lưu cài đặt
-        </button>
-        <button type="button" id="elClearBtn" class="button-danger" style="min-width:48px;" title="Xóa API Key">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-
-      <!-- Status message area -->
-      <div id="elStatusMsg" style="display:none; margin-top:14px; padding:10px 14px; border-radius:var(--radius); font-size:13px;"></div>
     </div>
   </div>
 
@@ -3892,11 +3809,7 @@
 
     /* ── Sound & Speech Notification Engine ── */
     const STORAGE_SOUND_KEY = "bossTimelinePro.soundEnabled";
-    const STORAGE_ELEVENLABS_KEY = "bossTimelinePro.elevenLabsKey";
-    const STORAGE_ELEVENLABS_VOICE = "bossTimelinePro.elevenLabsVoice";
     let isSoundEnabled = localStorage.getItem(STORAGE_SOUND_KEY) !== "false";
-    let elevenLabsApiKey = localStorage.getItem(STORAGE_ELEVENLABS_KEY) || "";
-    let elevenLabsVoiceId = localStorage.getItem(STORAGE_ELEVENLABS_VOICE) || "21m00Tcm4TlvDq8ikWAM"; // Default: Rachel
     let audioCtx = null;
     const activeSoundNotified = {};
 
@@ -3955,60 +3868,15 @@
       }
     }
 
-    // ── ElevenLabs TTS via fetch ──
-    async function speakWithElevenLabs(text, apiKey = elevenLabsApiKey, voiceId = elevenLabsVoiceId) {
-      const activeKey = (apiKey || "").trim();
-      const activeVoice = (voiceId || "21m00Tcm4TlvDq8ikWAM").trim();
-      if (!activeKey) return { success: false, error: "Chưa nhập API Key" };
-      try {
-        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${activeVoice}`, {
-          method: "POST",
-          headers: {
-            "xi-api-key": activeKey,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg"
-          },
-          body: JSON.stringify({
-            text: text,
-            model_id: "eleven_multilingual_v2",
-            voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.5, use_speaker_boost: true }
-          })
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          console.warn("ElevenLabs API error:", res.status, errText);
-          let errDetail = `HTTP ${res.status}`;
-          try {
-            const parsed = JSON.parse(errText);
-            if (parsed.detail && parsed.detail.message) {
-              errDetail = parsed.detail.message;
-            }
-          } catch(e){}
-          return { success: false, error: errDetail };
-        }
-        const arrayBuffer = await res.arrayBuffer();
-        const ctx = getAudioContext() || new (window.AudioContext || window.webkitAudioContext)();
-        const decoded = await ctx.decodeAudioData(arrayBuffer);
-        const source = ctx.createBufferSource();
-        source.buffer = decoded;
-        source.connect(ctx.destination);
-        source.start(0);
-        return { success: true };
-      } catch (e) {
-        console.warn("ElevenLabs speak error:", e);
-        return { success: false, error: e.message || "Lỗi kết nối mạng" };
-      }
-    }
-
-    // ── Web Speech API fallback ──
-    function speakWithBrowser(text) {
-      if (!("speechSynthesis" in window)) return;
+    function speakText(text) {
+      if (!isSoundEnabled || !("speechSynthesis" in window)) return;
       try {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.0;
         utterance.pitch = 1.25;
         utterance.volume = 1.0;
+
         const voices = window.speechSynthesis.getVoices();
         let femaleVoice = voices.find((v) => {
           const name = (v.name || "").toLowerCase();
@@ -4019,21 +3887,13 @@
           femaleVoice = voices.find((v) => v.lang && (v.lang === "vi-VN" || v.lang.startsWith("vi"))) ||
                         voices.find((v) => (v.name || "").toLowerCase().includes("female"));
         }
-        if (femaleVoice) utterance.voice = femaleVoice;
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
+        }
+
         window.speechSynthesis.speak(utterance);
       } catch (e) {
         console.warn("SpeechSynthesis error:", e);
-      }
-    }
-
-    function speakText(text) {
-      if (!isSoundEnabled) return;
-      if (elevenLabsApiKey) {
-        speakWithElevenLabs(text).then(res => {
-          if (!res || !res.success) speakWithBrowser(text);
-        });
-      } else {
-        speakWithBrowser(text);
       }
     }
 
@@ -4602,7 +4462,14 @@
         }
       }
 
-      const primaryFixedTime = fixedSchedules[0]?.time || boss.fixedTime || "18:00";
+      let respawnsAt = Number(boss.respawnsAt) || null;
+      if (isFixed && respawnsAt) {
+        const respawnDay = new Date(respawnsAt).getDay();
+        const isValidDay = fixedSchedules.some(s => s.day === "all" || Number(s.day) === respawnDay);
+        if (!isValidDay) {
+          respawnsAt = null;
+        }
+      }
 
       return {
         id: boss.id || makeId(),
@@ -4615,7 +4482,7 @@
         fixedSchedules: fixedSchedules,
         weekDays: weekDays,
         diedAt: Number(boss.diedAt) || null,
-        respawnsAt: Number(boss.respawnsAt) || null,
+        respawnsAt: respawnsAt,
         lastRespawnAt: Number(boss.lastRespawnAt) || null,
         avatar: ["ember", "frost", "void", "stone", "storm"].includes(boss.avatar) ? boss.avatar : "ember",
         notes: String(boss.notes || "").slice(0, 160)
@@ -5363,16 +5230,30 @@
 
       if (scheduleDayFilter === "today") {
         filtered = filtered.filter((boss) => {
-          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
+          if (boss.spawnMode === "fixed") {
+            const schedules = Array.isArray(boss.fixedSchedules) ? boss.fixedSchedules : [];
+            const todayDow = nowDate.getDay();
+            const isTodayScheduled = schedules.some(s => s.day === "all" || Number(s.day) === todayDow);
+            const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, now);
+            const isNextSpawnToday = nextTime ? (new Date(nextTime).toDateString() === nowDate.toDateString()) : false;
+            return isTodayScheduled || isNextSpawnToday;
+          }
+          const eventTime = boss.respawnsAt || boss.lastRespawnAt;
           if (!eventTime) return true;
           const d = new Date(eventTime);
-          return d.getFullYear() === nowDate.getFullYear() && d.getMonth() === nowDate.getMonth() && d.getDate() === nowDate.getDate();
+          return d.toDateString() === nowDate.toDateString();
         });
       } else if (scheduleDayFilter !== "all") {
         const targetDow = Number(scheduleDayFilter);
         filtered = filtered.filter((boss) => {
-          if (Array.isArray(boss.weekDays) && boss.weekDays.includes(targetDow)) return true;
-          const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : boss.lastRespawnAt);
+          if (boss.spawnMode === "fixed") {
+            const schedules = Array.isArray(boss.fixedSchedules) ? boss.fixedSchedules : [];
+            const isMatchSchedule = schedules.some(s => s.day === "all" || Number(s.day) === targetDow);
+            const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, now);
+            const isMatchNextSpawn = nextTime ? new Date(nextTime).getDay() === targetDow : false;
+            return isMatchSchedule || isMatchNextSpawn;
+          }
+          const eventTime = boss.respawnsAt || boss.lastRespawnAt;
           if (eventTime) {
             const d = new Date(eventTime);
             return d.getDay() === targetDow;
@@ -6022,8 +5903,16 @@
       });
 
       const now = new Date();
-      document.getElementById("offsetCustomTimeInput").value =
-        `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+      if (document.getElementById("offsetCustomDateInput")) {
+        document.getElementById("offsetCustomDateInput").value = formatYMD(now);
+      }
+      if (document.getElementById("offsetCustomTimeInput")) {
+        document.getElementById("offsetCustomTimeInput").value =
+          `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+      }
+      document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(chip => {
+        chip.classList.toggle("active-chip", chip.id === "offsetDayTodayBtn");
+      });
 
       updateOffsetPreview();
       document.getElementById("offsetDeathModal").classList.add("open");
@@ -6035,27 +5924,50 @@
       _offsetMinutes = 0;
     }
 
-    function format24hTime(d) {
+    function formatYMD(d) {
       const date = new Date(d);
+      const yy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yy}-${mm}-${dd}`;
+    }
+
+    function format24hDateTime(d) {
+      const date = new Date(d);
+      const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+      const dayName = days[date.getDay()];
+      const dd = String(date.getDate()).padStart(2, "0");
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const yy = date.getFullYear();
       const h = String(date.getHours()).padStart(2, "0");
       const m = String(date.getMinutes()).padStart(2, "0");
       const s = String(date.getSeconds()).padStart(2, "0");
-      return `${h}:${m}:${s}`;
+      return `${dayName} ${dd}/${mm}/${yy} ${h}:${m}:${s}`;
     }
 
     function getOffsetDiedAt() {
-      const raw = document.getElementById("offsetCustomTimeInput").value.trim();
-      if (!raw) return Date.now() - _offsetMinutes * 60 * 1000;
-      const parts = raw.split(":").map(Number);
-      if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+      const dateVal = document.getElementById("offsetCustomDateInput")?.value;
+      const timeVal = document.getElementById("offsetCustomTimeInput")?.value.trim();
+
+      const d = new Date();
+
+      if (dateVal) {
+        const [yy, mm, dd] = dateVal.split("-").map(Number);
+        if (yy && mm && dd) {
+          d.setFullYear(yy, mm - 1, dd);
+        }
+      }
+
+      if (timeVal) {
+        const parts = timeVal.split(":").map(Number);
+        const h = Math.min(23, Math.max(0, parts[0] || 0));
+        const m = Math.min(59, Math.max(0, parts[1] || 0));
+        const s = Math.min(59, Math.max(0, parts[2] || 0));
+        d.setHours(h, m, s, 0);
+      } else if (_offsetMinutes > 0) {
         return Date.now() - _offsetMinutes * 60 * 1000;
       }
-      const h = Math.min(23, Math.max(0, parts[0]));
-      const m = Math.min(59, Math.max(0, parts[1]));
-      const s = Math.min(59, Math.max(0, parts[2] || 0));
-      const d = new Date();
-      d.setHours(h, m, s, 0);
-      if (d.getTime() > Date.now() + 60000) d.setDate(d.getDate() - 1);
+
       return d.getTime();
     }
 
@@ -6071,8 +5983,8 @@
         respawnsAt = diedAt + boss.respawnMinutes * 60 * 1000;
       }
       const remainingMs = respawnsAt - Date.now();
-      const diedStr = format24hTime(diedAt);
-      const respawnStr = format24hTime(respawnsAt);
+      const diedStr = format24hDateTime(diedAt);
+      const respawnStr = format24hDateTime(respawnsAt);
       const remainingStr = remainingMs <= 0
         ? (isEn ? "⚠️ Already respawned!" : "⚠️ Đã hồi sinh rồi!")
         : formatCountdown(remainingMs);
@@ -6096,7 +6008,7 @@
       saveState();
       closeOffsetModal();
       render();
-      const diedStr = format24hTime(diedAt);
+      const diedStr = format24hDateTime(diedAt);
       showToast(isEn
         ? `${boss.name} recorded as dead at ${diedStr}. Countdown started!`
         : `${boss.name} đã ghi nhận chết lúc ${diedStr}. Bắt đầu đếm ngược!`);
@@ -6164,43 +6076,68 @@
 
     function initOffsetModal() {
       const offsetInput = document.getElementById("offsetCustomTimeInput");
+      const dateInput = document.getElementById("offsetCustomDateInput");
       attachTimeInputMask(offsetInput, true);
 
-      document.getElementById("offsetPresetGrid").addEventListener("click", (e) => {
+      document.getElementById("offsetPresetGrid")?.addEventListener("click", (e) => {
         const chip = e.target.closest(".offset-preset-chip");
         if (!chip) return;
         _offsetMinutes = Number(chip.dataset.offset);
         const d = new Date(Date.now() - _offsetMinutes * 60 * 1000);
-        offsetInput.value =
-          `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+        if (dateInput) dateInput.value = formatYMD(d);
+        if (offsetInput) {
+          offsetInput.value =
+            `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+        }
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.toggle("active-chip", c === chip));
+        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.toggle("active-chip", c.id === "offsetDayTodayBtn"));
         updateOffsetPreview();
       });
 
-      offsetInput.addEventListener("input", () => {
+      document.getElementById("offsetDayPresets")?.addEventListener("click", (e) => {
+        const chip = e.target.closest(".preset-chip");
+        if (!chip) return;
+        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.remove("active-chip"));
+        chip.classList.add("active-chip");
+        const daysAgo = Number(chip.dataset.daysAgo || 0);
+        const targetDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+        if (dateInput) dateInput.value = formatYMD(targetDate);
+        updateOffsetPreview();
+      });
+
+      dateInput?.addEventListener("change", () => {
+        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.remove("active-chip"));
+        updateOffsetPreview();
+      });
+
+      offsetInput?.addEventListener("input", () => {
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.remove("active-chip"));
         updateOffsetPreview();
       });
 
-      document.getElementById("offsetSetNowBtn").addEventListener("click", () => {
+      document.getElementById("offsetSetNowBtn")?.addEventListener("click", () => {
         const d = new Date();
-        offsetInput.value =
-          `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+        if (dateInput) dateInput.value = formatYMD(d);
+        if (offsetInput) {
+          offsetInput.value =
+            `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+        }
         document.querySelectorAll("#offsetPresetGrid .offset-preset-chip").forEach(c => c.classList.toggle("active-chip", Number(c.dataset.offset) === 0));
+        document.querySelectorAll("#offsetDayPresets .preset-chip").forEach(c => c.classList.toggle("active-chip", c.id === "offsetDayTodayBtn"));
         _offsetMinutes = 0;
         updateOffsetPreview();
       });
 
-      document.getElementById("offsetConfirmBtn").addEventListener("click", confirmOffsetDeath);
-      document.getElementById("offsetCancelBtn").addEventListener("click", closeOffsetModal);
-      document.getElementById("closeOffsetModalBtn").addEventListener("click", closeOffsetModal);
+      document.getElementById("offsetConfirmBtn")?.addEventListener("click", confirmOffsetDeath);
+      document.getElementById("offsetCancelBtn")?.addEventListener("click", closeOffsetModal);
+      document.getElementById("closeOffsetModalBtn")?.addEventListener("click", closeOffsetModal);
 
-      document.getElementById("offsetDeathModal").addEventListener("click", (e) => {
+      document.getElementById("offsetDeathModal")?.addEventListener("click", (e) => {
         if (e.target === document.getElementById("offsetDeathModal")) closeOffsetModal();
       });
 
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && document.getElementById("offsetDeathModal").classList.contains("open")) closeOffsetModal();
+        if (e.key === "Escape" && document.getElementById("offsetDeathModal")?.classList.contains("open")) closeOffsetModal();
       });
     }
 
@@ -6846,198 +6783,6 @@
     initRealtimeSync();
     window.setInterval(render, 1000);
 
-    // ── ElevenLabs Modal Logic ──
-    (function initElevenLabsModal() {
-      const modal = document.getElementById("elevenLabsModal");
-      const apiKeyInput = document.getElementById("elApiKeyInput");
-      const voiceSelect = document.getElementById("elVoiceSelect");
-      const customVoiceField = document.getElementById("elCustomVoiceField");
-      const customVoiceInput = document.getElementById("elCustomVoiceInput");
-      const testTextInput = document.getElementById("elTestTextInput");
-      const statusMsg = document.getElementById("elStatusMsg");
-      const keyStatusBadge = document.getElementById("elKeyStatus");
-      const dot = document.getElementById("elevenLabsDot");
-
-      async function fetchUserVoices(apiKey) {
-        if (!apiKey) return;
-        try {
-          const res = await fetch("https://api.elevenlabs.io/v1/voices", {
-            headers: { "xi-api-key": apiKey }
-          });
-          if (!res.ok) return;
-          const data = await res.json();
-          if (data && data.voices && data.voices.length > 0) {
-            const currentSelected = voiceSelect.value || elevenLabsVoiceId;
-            voiceSelect.innerHTML = "";
-            const grp = document.createElement("optgroup");
-            grp.label = "✨ Giọng hỗ trợ trong tài khoản của bạn";
-            data.voices.forEach(v => {
-              const opt = document.createElement("option");
-              opt.value = v.voice_id;
-              const g = v.labels && v.labels.gender ? ` (${v.labels.gender})` : "";
-              opt.textContent = `${v.name}${g} — ${v.category || "Voice"}`;
-              grp.appendChild(opt);
-            });
-            voiceSelect.appendChild(grp);
-            const customGrp = document.createElement("optgroup");
-            customGrp.label = "🌍 Custom Voice ID";
-            customGrp.innerHTML = '<option value="custom">Nhập Voice ID thủ công...</option>';
-            voiceSelect.appendChild(customGrp);
-
-            const hasCurrent = [...voiceSelect.options].some(o => o.value === currentSelected);
-            if (hasCurrent) {
-              voiceSelect.value = currentSelected;
-            } else if (data.voices[0]) {
-              voiceSelect.value = data.voices[0].voice_id;
-            }
-            customVoiceField.style.display = voiceSelect.value === "custom" ? "" : "none";
-          }
-        } catch(e) {}
-      }
-
-      function showELModal() {
-        // Populate current values
-        apiKeyInput.value = elevenLabsApiKey ? "•".repeat(Math.min(elevenLabsApiKey.length, 32)) : "";
-        apiKeyInput.dataset.real = elevenLabsApiKey;
-        apiKeyInput.type = "password";
-        // Select current voice or custom
-        const knownVoice = [...voiceSelect.options].find(o => o.value === elevenLabsVoiceId);
-        voiceSelect.value = knownVoice ? elevenLabsVoiceId : "custom";
-        if (!knownVoice) {
-          customVoiceField.style.display = "";
-          customVoiceInput.value = elevenLabsVoiceId;
-        } else {
-          customVoiceField.style.display = "none";
-        }
-        updateKeyBadge();
-        statusMsg.style.display = "none";
-        modal.classList.add("open");
-
-        if (elevenLabsApiKey) {
-          fetchUserVoices(elevenLabsApiKey);
-        }
-      }
-
-      function hideELModal() { modal.classList.remove("open"); }
-
-      function updateKeyBadge() {
-        const hasKey = !!elevenLabsApiKey;
-        keyStatusBadge.textContent = hasKey ? "✓ Đã cài" : "Chưa cài";
-        keyStatusBadge.style.background = hasKey ? "var(--green-soft)" : "var(--surface-3)";
-        keyStatusBadge.style.color = hasKey ? "var(--green)" : "var(--muted)";
-        if (dot) dot.style.display = hasKey ? "block" : "none";
-      }
-
-      function showStatus(msg, type) {
-        statusMsg.style.display = "block";
-        statusMsg.style.background = type === "ok" ? "var(--green-soft)" : type === "err" ? "rgba(239,68,68,0.12)" : "var(--surface-2)";
-        statusMsg.style.border = type === "ok" ? "1px solid var(--green)" : type === "err" ? "1px solid rgba(239,68,68,0.35)" : "1px solid var(--line-soft)";
-        statusMsg.style.color = type === "ok" ? "var(--green)" : type === "err" ? "var(--red)" : "var(--text)";
-        statusMsg.innerHTML = msg;
-      }
-
-      // Open button
-      document.getElementById("elevenLabsSettingsBtn")?.addEventListener("click", showELModal);
-
-      // Close button
-      document.getElementById("elModalCloseBtn")?.addEventListener("click", hideELModal);
-      modal?.addEventListener("click", e => { if (e.target === modal) hideELModal(); });
-
-      // Toggle key visibility
-      document.getElementById("elToggleKeyVisibility")?.addEventListener("click", () => {
-        if (apiKeyInput.type === "password") {
-          apiKeyInput.type = "text";
-          apiKeyInput.value = apiKeyInput.dataset.real || "";
-        } else {
-          apiKeyInput.type = "password";
-          apiKeyInput.value = apiKeyInput.dataset.real ? "•".repeat(Math.min(apiKeyInput.dataset.real.length, 32)) : "";
-        }
-      });
-
-      // Focus → show real value
-      apiKeyInput.addEventListener("focus", () => {
-        apiKeyInput.type = "text";
-        if (apiKeyInput.value.includes("•")) apiKeyInput.value = apiKeyInput.dataset.real || "";
-      });
-      apiKeyInput.addEventListener("blur", () => {
-        const val = apiKeyInput.value.trim();
-        if (val && !val.includes("•")) {
-          apiKeyInput.dataset.real = val;
-          fetchUserVoices(val);
-        }
-        apiKeyInput.type = "password";
-      });
-
-      function getEnteredKey() {
-        const raw = apiKeyInput.value.trim();
-        if (raw && !raw.includes("•")) {
-          return raw;
-        }
-        return (apiKeyInput.dataset.real || elevenLabsApiKey || "").trim();
-      }
-
-      // Voice select change
-      voiceSelect?.addEventListener("change", () => {
-        customVoiceField.style.display = voiceSelect.value === "custom" ? "" : "none";
-      });
-
-      // Test voice
-      document.getElementById("elTestVoiceBtn")?.addEventListener("click", async () => {
-        const key = getEnteredKey();
-        const voice = voiceSelect.value === "custom" ? customVoiceInput.value.trim() : voiceSelect.value;
-        const text = testTextInput.value.trim() || "BOSS BOSS";
-        if (!key) { showStatus("❌ Vui lòng nhập API Key trước.", "err"); return; }
-        if (!voice) { showStatus("❌ Chọn hoặc nhập Voice ID.", "err"); return; }
-        showStatus("⏳ Đang kết nối ElevenLabs...", "info");
-        
-        const res = await speakWithElevenLabs(text, key, voice);
-        if (res.success) {
-          showStatus("✅ Kết nối thành công! Đang phát giọng thử...", "ok");
-        } else {
-          showStatus(`❌ Lỗi ElevenLabs: ${res.error || "Không thể kết nối"}`, "err");
-        }
-      });
-
-      // Save
-      document.getElementById("elSaveBtn")?.addEventListener("click", () => {
-        const key = getEnteredKey();
-        const voice = voiceSelect.value === "custom" ? customVoiceInput.value.trim() : voiceSelect.value;
-        if (!key) { showStatus("❌ API Key không được để trống.", "err"); return; }
-        if (!voice || voice === "custom") { showStatus("❌ Vui lòng nhập Voice ID.", "err"); return; }
-        elevenLabsApiKey = key;
-        elevenLabsVoiceId = voice;
-        apiKeyInput.dataset.real = key;
-        apiKeyInput.value = "•".repeat(Math.min(key.length, 32));
-        apiKeyInput.type = "password";
-        try {
-          localStorage.setItem(STORAGE_ELEVENLABS_KEY, key);
-          localStorage.setItem(STORAGE_ELEVENLABS_VOICE, voice);
-        } catch(e) {}
-        updateKeyBadge();
-        showStatus("✅ Đã lưu! Từ nay thông báo sẽ dùng giọng ElevenLabs.", "ok");
-        showToast("🎌 Đã bật giọng ElevenLabs Anime!");
-      });
-
-      // Clear
-      document.getElementById("elClearBtn")?.addEventListener("click", () => {
-        elevenLabsApiKey = "";
-        elevenLabsVoiceId = "21m00Tcm4TlvDq8ikWAM";
-        try {
-          localStorage.removeItem(STORAGE_ELEVENLABS_KEY);
-          localStorage.removeItem(STORAGE_ELEVENLABS_VOICE);
-        } catch(e) {}
-        apiKeyInput.value = "";
-        apiKeyInput.dataset.real = "";
-        voiceSelect.value = "21m00Tcm4TlvDq8ikWAM";
-        customVoiceField.style.display = "none";
-        updateKeyBadge();
-        showStatus("🗑️ Đã xóa API Key. Sẽ dùng lại giọng hệ thống.", "info");
-        showToast("🔇 Đã xóa ElevenLabs — dùng giọng hệ thống.");
-      });
-
-      // Init dot on load
-      updateKeyBadge();
-    })();
   </script>
 
 </body>
