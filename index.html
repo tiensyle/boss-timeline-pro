@@ -4581,49 +4581,44 @@
     }
 
     function getBossStatus(boss, now = Date.now()) {
-      if (boss.spawnMode === "fixed") {
-        if (!boss.diedAt) return "alive";
-        const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, boss.diedAt);
-        if (!nextTime || now >= nextTime) return "alive";
-        const remaining = nextTime - now;
-        if (remaining <= SOON_LIMIT_MS) return "soon";
-        return "respawning";
-      }
-      if (boss.diedAt && boss.respawnsAt) {
-        const remaining = boss.respawnsAt - now;
-        if (remaining <= 0) return "alive";
-        if (remaining <= SOON_LIMIT_MS) return "soon";
-        return "respawning";
-      }
-      return "alive";
+      const nextTime = getNextBossEventTime(boss, now);
+      if (!nextTime || now >= nextTime) return "alive";
+      const remaining = nextTime - now;
+      if (remaining <= SOON_LIMIT_MS) return "soon";
+      return "respawning";
     }
 
     function getProgress(boss, now = Date.now()) {
-      if (boss.spawnMode === "fixed") {
-        if (!boss.diedAt) return 100;
-        const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, boss.diedAt);
-        if (!nextTime || now >= nextTime) return 100;
-        const total = Math.max(1, nextTime - boss.diedAt);
-        const elapsed = clamp(now - boss.diedAt, 0, total);
-        return Math.round((elapsed / total) * 100);
-      }
-      if (!boss.diedAt || !boss.respawnsAt) return 100;
-      const total = Math.max(1, boss.respawnsAt - boss.diedAt);
-      const elapsed = clamp(now - boss.diedAt, 0, total);
-      return Math.round((elapsed / total) * 100);
+      const nextTime = getNextBossEventTime(boss, now);
+      if (!nextTime || now >= nextTime) return 100;
+      const intervalMs = boss.spawnMode === "fixed" ? 24 * 60 * 60 * 1000 : (boss.respawnMinutes || 30) * 60 * 1000;
+      const remaining = nextTime - now;
+      const elapsed = Math.max(0, intervalMs - remaining);
+      return clamp(Math.round((elapsed / intervalMs) * 100), 0, 100);
     }
 
     function getRemaining(boss, now = Date.now()) {
-      if (boss.spawnMode === "fixed") {
-        if (!boss.diedAt) return 0;
-        const nextTime = boss.respawnsAt || getNextFixedSpawnTime(boss, boss.diedAt);
-        if (!nextTime) return 0;
-        return Math.max(0, nextTime - now);
-      }
-      if (!boss.respawnsAt) return 0;
-      return Math.max(0, boss.respawnsAt - now);
+      const nextTime = getNextBossEventTime(boss, now);
+      if (!nextTime || now >= nextTime) return 0;
+      return Math.max(0, nextTime - now);
     }
 
+    function getNextBossEventTime(boss, now = Date.now()) {
+      if (boss.spawnMode === "fixed") {
+        return getNextFixedSpawnTime(boss, now);
+      }
+      if (boss.diedAt && boss.respawnsAt && boss.respawnsAt > now) {
+        return boss.respawnsAt;
+      }
+      const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
+      let ref = boss.respawnsAt || (boss.diedAt ? boss.diedAt + intervalMs : (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : now));
+      if (ref < now) {
+        const diff = now - ref;
+        const steps = Math.ceil(diff / intervalMs);
+        ref += steps * intervalMs;
+      }
+      return ref;
+    }
 
     function formatSpawnLabel(boss) {
       if (boss.spawnMode === "fixed") {
@@ -4649,10 +4644,14 @@
 
     function formatCountdown(ms) {
       const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-      const hours = Math.floor(totalSeconds / 3600);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       const pad = (value) => String(value).padStart(2, "0");
+      if (days > 0) {
+        return `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+      }
       return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
     }
 
@@ -4871,13 +4870,10 @@
       }
 
       return filtered.sort((a, b) => {
-        const aLive = getBossStatus(a, now) === "alive";
-        const bLive = getBossStatus(b, now) === "alive";
-        if (aLive !== bLive) return aLive ? 1 : -1;
-        if (!aLive && !bLive) {
-          const aRespawn = a.respawnsAt || getNextFixedSpawnTime(a, a.diedAt || now) || 0;
-          const bRespawn = b.respawnsAt || getNextFixedSpawnTime(b, b.diedAt || now) || 0;
-          return aRespawn - bRespawn;
+        const aTime = getNextBossEventTime(a, now);
+        const bTime = getNextBossEventTime(b, now);
+        if (aTime && bTime && aTime !== bTime) {
+          return aTime - bTime;
         }
         return a.name.localeCompare(b.name, "vi");
       });
@@ -4895,7 +4891,7 @@
         const isAlive = status === "alive";
         const isFixed = boss.spawnMode === "fixed";
 
-        const eventTime = boss.respawnsAt || (isFixed ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
+        const eventTime = getNextBossEventTime(boss, now);
         const timeFormatted = formatSmartRespawnDate(eventTime, now);
         const cycleText = formatSpawnLabel(boss);
 
@@ -5015,7 +5011,7 @@
       const progress = getProgress(boss, now);
       const isAlive = status === "alive";
 
-      const eventTime = boss.respawnsAt || (boss.spawnMode === "fixed" ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
+      const eventTime = getNextBossEventTime(boss, now);
       const timeFormatted = formatSmartRespawnDate(eventTime, now);
       const cycleText = formatSpawnLabel(boss);
 
@@ -5118,9 +5114,10 @@
       const respawnText = boss.spawnMode === "fixed"
         ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`)
         : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
+      const eventTime = getNextBossEventTime(boss, now);
       const respawnTimeText = isAlive
         ? respawnText
-        : (isEn ? "Respawn " : "Hồi sinh ") + formatTimeOnly(boss.respawnsAt || getNextFixedSpawnTime(boss, now));
+        : (isEn ? "Respawn " : "Hồi sinh ") + formatTimeOnly(eventTime);
 
       const timerLabelEl = card.querySelector(".timer-label");
       if (timerLabelEl && timerLabelEl.textContent !== timerLabel) timerLabelEl.textContent = timerLabel;
@@ -5194,7 +5191,8 @@
         `;
 
       const respawnText = boss.spawnMode === "fixed" ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`) : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
-      const respawnTimeText = isAlive ? respawnText : (isEn ? "Respawn " : "Hồi sinh ") + formatTimeOnly(boss.respawnsAt || getNextFixedSpawnTime(boss, now));
+      const eventTime = getNextBossEventTime(boss, now);
+      const respawnTimeText = isAlive ? respawnText : (isEn ? "Respawn " : "Hồi sinh ") + formatTimeOnly(eventTime);
 
       return `
         <article class="boss-card" data-id="${escapeHtml(boss.id)}">
@@ -5331,33 +5329,42 @@
     function getBossScheduleEventTime(boss, now, dayFilter) {
       const isFixed = boss.spawnMode === "fixed";
       const nowDate = new Date(now);
-      const todayDow = nowDate.getDay();
+
+      if (dayFilter === "all") {
+        if (isFixed) {
+          return boss.respawnsAt || getNextFixedSpawnTime(boss, now);
+        } else {
+          const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
+          let nextRespawn = boss.respawnsAt;
+          if (!nextRespawn && boss.lastRespawnAt) nextRespawn = boss.lastRespawnAt + intervalMs;
+          if (!nextRespawn && boss.diedAt) nextRespawn = boss.diedAt + intervalMs;
+          if (!nextRespawn) nextRespawn = now;
+          if (nextRespawn < now) {
+            const diff = now - nextRespawn;
+            const steps = Math.ceil(diff / intervalMs);
+            nextRespawn += steps * intervalMs;
+          }
+          return nextRespawn;
+        }
+      }
+
+      // Specific day filter: today, 1 (T2), 2 (T3), 3 (T4), 4 (T5), 5 (T6), 6 (T7), 0 (CN)
+      const targetDate = getTargetDateForFilter(nowDate, dayFilter);
+      const startDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0).getTime();
+      const endDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999).getTime();
+      const targetDow = targetDate.getDay();
 
       if (isFixed) {
         const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
           ? boss.fixedSchedules
           : [{ day: "all", time: boss.fixedTime || "18:00" }];
 
-        if (dayFilter === "today") {
-          const matchingSlots = schedules.filter(s => s.day === "all" || Number(s.day) === todayDow);
-          if (!matchingSlots.length) return null;
-          const [h, m] = (matchingSlots[0].time || "18:00").split(":").map(Number);
-          const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), h || 0, m || 0, 0, 0);
-          return d.getTime();
-        }
-
-        if (dayFilter !== "all") {
-          const targetDow = Number(dayFilter);
-          const matchingSlots = schedules.filter(s => s.day === "all" || Number(s.day) === targetDow);
-          if (!matchingSlots.length) return null;
-          
-          const targetDate = getTargetDateForFilter(nowDate, dayFilter);
-          const [h, m] = (matchingSlots[0].time || "18:00").split(":").map(Number);
-          targetDate.setHours(h || 0, m || 0, 0, 0);
-          return targetDate.getTime();
-        }
-
-        return boss.respawnsAt || getNextFixedSpawnTime(boss, now);
+        const matchingSlots = schedules.filter(s => s.day === "all" || Number(s.day) === targetDow);
+        if (!matchingSlots.length) return null;
+        
+        const [h, m] = (matchingSlots[0].time || "18:00").split(":").map(Number);
+        const slotDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), h || 0, m || 0, 0, 0);
+        return slotDate.getTime();
       } else {
         const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
         let baseTime = boss.respawnsAt;
@@ -5365,41 +5372,17 @@
         if (!baseTime && boss.lastRespawnAt) baseTime = boss.lastRespawnAt + intervalMs;
         if (!baseTime) baseTime = now;
 
-        if (dayFilter === "today" || dayFilter !== "all") {
-          const targetDate = getTargetDateForFilter(nowDate, dayFilter);
-          const isTargetToday = (dayFilter === "today") || (targetDate.getDate() === nowDate.getDate() && targetDate.getMonth() === nowDate.getMonth() && targetDate.getFullYear() === nowDate.getFullYear());
-          const startDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0).getTime();
-          const endDay = startDay + 24 * 60 * 60 * 1000 - 1;
-          
-          let cur = baseTime;
-          if (isTargetToday && cur < now) {
-            const diff = now - cur;
-            const steps = Math.ceil(diff / intervalMs);
-            cur += steps * intervalMs;
-          } else if (!isTargetToday) {
-            if (cur < startDay) {
-              const diff = startDay - cur;
-              const steps = Math.ceil(diff / intervalMs);
-              cur += steps * intervalMs;
-            } else if (cur > endDay) {
-              const diff = cur - endDay;
-              const steps = Math.ceil(diff / intervalMs);
-              cur -= steps * intervalMs;
-            }
-          }
-          return (cur >= startDay && cur <= endDay) ? cur : (isTargetToday && cur <= endDay + intervalMs ? cur : null);
-        }
-
-        // dayFilter === "all" -> next upcoming respawn time within the 7-day window
-        let nextRespawn = boss.respawnsAt;
-        if (!nextRespawn && boss.lastRespawnAt) nextRespawn = boss.lastRespawnAt + intervalMs;
-        if (!nextRespawn) nextRespawn = now;
-        if (nextRespawn < now) {
-          const diff = now - nextRespawn;
+        let cur = baseTime;
+        if (cur < startDay) {
+          const diff = startDay - cur;
           const steps = Math.ceil(diff / intervalMs);
-          nextRespawn += steps * intervalMs;
+          cur += steps * intervalMs;
+        } else if (cur > endDay) {
+          const diff = cur - endDay;
+          const steps = Math.ceil(diff / intervalMs);
+          cur -= steps * intervalMs;
         }
-        return nextRespawn;
+        return (cur >= startDay && cur <= endDay) ? cur : null;
       }
     }
 
@@ -5918,28 +5901,35 @@
     function exportTodayScheduleCSV() {
       const now = Date.now();
       const rows = [
-        ["GIỜ HỒI SINH", "LEVEL", "BOSS", "TRẠNG THÁI", "ĐỊA ĐIỂM", "GHI CHÚ"]
+        ["GIỜ & NGÀY HỒI SINH", "LEVEL", "BOSS", "CHU KỲ", "TRẠNG THÁI", "ĐỊA ĐIỂM", "GHI CHÚ"]
       ];
 
-      const sorted = [...state.bosses].sort((a, b) => {
-        const aTime = a.respawnsAt || a.lastRespawnAt || 0;
-        const bTime = b.respawnsAt || b.lastRespawnAt || 0;
-        if (aTime && bTime) return aTime - bTime;
-        return a.name.localeCompare(b.name, "vi");
+      const items = [];
+      state.bosses.forEach((boss) => {
+        const eventTime = getBossScheduleEventTime(boss, now, scheduleDayFilter);
+        if (eventTime !== null) {
+          items.push({ boss, eventTime });
+        }
       });
 
-      sorted.forEach((boss) => {
-        const status = getBossStatus(boss, now);
-        const eventTime = boss.respawnsAt || boss.lastRespawnAt || now;
-        const timeStr = formatClock(eventTime);
-        let statusText = "HỒI SINH";
-        if (status === "soon") statusText = "SẮP HỒI SINH";
-        else if (status === "respawning") statusText = "ĐANG CHỜ HỒI SINH";
+      items.sort((a, b) => {
+        if (a.eventTime && b.eventTime) return a.eventTime - b.eventTime;
+        return a.boss.name.localeCompare(b.boss.name, "vi");
+      });
+
+      items.forEach(({ boss, eventTime }) => {
+        const remaining = eventTime - now;
+        const timeFormatted = formatSmartRespawnDate(eventTime, now).replace(/<[^>]*>/g, "");
+        const cycleText = formatSpawnLabel(boss);
+        let statusText = "Đang sống";
+        if (remaining > SOON_LIMIT_MS) statusText = "Đang countdown";
+        else if (remaining > 0) statusText = "Sắp hồi sinh";
 
         rows.push([
-          `"${timeStr}"`,
+          `"${timeFormatted}"`,
           `"Lv. ${boss.level || 80}"`,
-          `"${boss.name}"`,
+          `"${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${boss.name}"`,
+          `"${cycleText}"`,
           `"${statusText}"`,
           `"${boss.map}"`,
           `"${(boss.notes || "").replace(/"/g, '""')}"`
@@ -5952,12 +5942,12 @@
       const link = document.createElement("a");
       const dateIso = new Date().toISOString().slice(0, 10);
       link.setAttribute("href", url);
-      link.setAttribute("download", `lich_boss_${dateIso}.csv`);
+      link.setAttribute("download", `lich_boss_${scheduleDayFilter}_${dateIso}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showToast("Đã xuất file CSV lịch boss hôm nay thành công.");
+      showToast("Đã xuất file CSV lịch boss thành công.");
     }
 
     function updateFilterState() {
