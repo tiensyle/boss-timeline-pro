@@ -3737,6 +3737,9 @@
         const key = el.dataset.i18nPlaceholder;
         if (t[key]) el.placeholder = t[key];
       });
+      if (typeof updateScheduleDayTabs === "function") {
+        updateScheduleDayTabs(new Date());
+      }
     }
 
 
@@ -5262,24 +5265,60 @@
       }).join("");
     }
 
+    function getTargetDateForFilter(nowDate = new Date(), dayFilter = scheduleDayFilter) {
+      const targetDate = new Date(nowDate);
+      if (dayFilter === "all" || dayFilter === "today") {
+        return targetDate;
+      }
+      const targetDow = Number(dayFilter);
+      const todayDow = nowDate.getDay();
+      const diffDays = (targetDow - todayDow + 7) % 7;
+      targetDate.setDate(nowDate.getDate() + diffDays);
+      return targetDate;
+    }
+
+    function updateScheduleDayTabs(now = new Date()) {
+      const isEn = currentLang === "en";
+      const dayNames = isEn
+        ? { "all": "All (7 Days)", "today": "Today", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 0: "Sun" }
+        : { "all": "Tất cả (7 Ngày)", "today": "Hôm nay", 1: "Thứ 2", 2: "Thứ 3", 3: "Thứ 4", 4: "Thứ 5", 5: "Thứ 6", 6: "Thứ 7", 0: "Chủ Nhật" };
+
+      document.querySelectorAll(".schedule-day-tab").forEach(tab => {
+        const filter = tab.dataset.dayFilter;
+        if (filter === "all") {
+          tab.textContent = dayNames["all"];
+        } else if (filter === "today") {
+          const dd = String(now.getDate()).padStart(2, "0");
+          const mm = String(now.getMonth() + 1).padStart(2, "0");
+          tab.textContent = `${dayNames["today"]} (${dd}/${mm})`;
+        } else {
+          const targetDow = Number(filter);
+          const targetDate = getTargetDateForFilter(now, filter);
+          const dd = String(targetDate.getDate()).padStart(2, "0");
+          const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+          tab.textContent = `${dayNames[targetDow]} (${dd}/${mm})`;
+        }
+      });
+    }
+
     function getTodayScheduleSubtitle(now = new Date(), dayFilter = scheduleDayFilter) {
       const isEn = currentLang === "en";
       const days = isEn
         ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
         : ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
-      let targetDate = new Date(now);
-      if (dayFilter !== "all" && dayFilter !== "today") {
-        const targetDow = Number(dayFilter);
-        const todayDow = now.getDay();
-        const mondayOffset = (todayDow === 0 ? -6 : 1 - todayDow);
-        const monday = new Date(now);
-        monday.setDate(now.getDate() + mondayOffset);
-        const targetOffset = (targetDow === 0 ? 6 : targetDow - 1);
-        targetDate = new Date(monday);
-        targetDate.setDate(monday.getDate() + targetOffset);
+      if (dayFilter === "all") {
+        const startD = new Date(now);
+        const endD = new Date(now);
+        endD.setDate(now.getDate() + 6);
+        const startStr = `${String(startD.getDate()).padStart(2, "0")}/${String(startD.getMonth() + 1).padStart(2, "0")}`;
+        const endStr = `${String(endD.getDate()).padStart(2, "0")}/${String(endD.getMonth() + 1).padStart(2, "0")}`;
+        return isEn
+          ? `Full weekly countdown schedule & multi-day respawn cycles · ${startStr} → ${endStr} · UTC+7`
+          : `Đầy đủ lịch đếm ngược 7 ngày tới & chu kỳ multi-day · ${startStr} → ${endStr} · UTC+7`;
       }
 
+      const targetDate = getTargetDateForFilter(now, dayFilter);
       const dayName = days[targetDate.getDay()];
       const dd = String(targetDate.getDate()).padStart(2, "0");
       const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
@@ -5291,9 +5330,10 @@
 
     function getBossScheduleEventTime(boss, now, dayFilter) {
       const isFixed = boss.spawnMode === "fixed";
+      const nowDate = new Date(now);
+      const todayDow = nowDate.getDay();
+
       if (isFixed) {
-        const nowDate = new Date(now);
-        const todayDow = nowDate.getDay();
         const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
           ? boss.fixedSchedules
           : [{ day: "all", time: boss.fixedTime || "18:00" }];
@@ -5311,12 +5351,7 @@
           const matchingSlots = schedules.filter(s => s.day === "all" || Number(s.day) === targetDow);
           if (!matchingSlots.length) return null;
           
-          const mondayOffset = (todayDow === 0 ? -6 : 1 - todayDow);
-          const monday = new Date(nowDate);
-          monday.setDate(nowDate.getDate() + mondayOffset);
-          const targetOffset = (targetDow === 0 ? 6 : targetDow - 1);
-          const targetDate = new Date(monday);
-          targetDate.setDate(monday.getDate() + targetOffset);
+          const targetDate = getTargetDateForFilter(nowDate, dayFilter);
           const [h, m] = (matchingSlots[0].time || "18:00").split(":").map(Number);
           targetDate.setHours(h || 0, m || 0, 0, 0);
           return targetDate.getTime();
@@ -5330,39 +5365,47 @@
         if (!baseTime && boss.lastRespawnAt) baseTime = boss.lastRespawnAt + intervalMs;
         if (!baseTime) baseTime = now;
 
-        const nowDate = new Date(now);
-        if (dayFilter === "today") {
-          const startToday = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), 0, 0, 0, 0).getTime();
-          const endToday = startToday + 24 * 60 * 60 * 1000 - 1;
-          let cur = baseTime;
-          while (cur > startToday) cur -= intervalMs;
-          while (cur < startToday) cur += intervalMs;
-          return (cur <= endToday) ? cur : null;
-        }
-
-        if (dayFilter !== "all") {
-          const targetDow = Number(dayFilter);
-          const todayDow = nowDate.getDay();
-          const mondayOffset = (todayDow === 0 ? -6 : 1 - todayDow);
-          const monday = new Date(nowDate);
-          monday.setDate(nowDate.getDate() + mondayOffset);
-          const targetOffset = (targetDow === 0 ? 6 : targetDow - 1);
-          const targetDate = new Date(monday);
-          targetDate.setDate(monday.getDate() + targetOffset);
+        if (dayFilter === "today" || dayFilter !== "all") {
+          const targetDate = getTargetDateForFilter(nowDate, dayFilter);
+          const isTargetToday = (dayFilter === "today") || (targetDate.getDate() === nowDate.getDate() && targetDate.getMonth() === nowDate.getMonth() && targetDate.getFullYear() === nowDate.getFullYear());
           const startDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0).getTime();
           const endDay = startDay + 24 * 60 * 60 * 1000 - 1;
+          
           let cur = baseTime;
-          while (cur > startDay) cur -= intervalMs;
-          while (cur < startDay) cur += intervalMs;
-          return (cur <= endDay) ? cur : null;
+          if (isTargetToday && cur < now) {
+            const diff = now - cur;
+            const steps = Math.ceil(diff / intervalMs);
+            cur += steps * intervalMs;
+          } else if (!isTargetToday) {
+            if (cur < startDay) {
+              const diff = startDay - cur;
+              const steps = Math.ceil(diff / intervalMs);
+              cur += steps * intervalMs;
+            } else if (cur > endDay) {
+              const diff = cur - endDay;
+              const steps = Math.ceil(diff / intervalMs);
+              cur -= steps * intervalMs;
+            }
+          }
+          return (cur >= startDay && cur <= endDay) ? cur : (isTargetToday && cur <= endDay + intervalMs ? cur : null);
         }
 
-        return boss.respawnsAt || (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : now);
+        // dayFilter === "all" -> next upcoming respawn time within the 7-day window
+        let nextRespawn = boss.respawnsAt;
+        if (!nextRespawn && boss.lastRespawnAt) nextRespawn = boss.lastRespawnAt + intervalMs;
+        if (!nextRespawn) nextRespawn = now;
+        if (nextRespawn < now) {
+          const diff = now - nextRespawn;
+          const steps = Math.ceil(diff / intervalMs);
+          nextRespawn += steps * intervalMs;
+        }
+        return nextRespawn;
       }
     }
 
     function renderTodayScheduleTable(now) {
       if (!elements.todayScheduleBody) return;
+      updateScheduleDayTabs(new Date(now));
       if (elements.todayScheduleSubtitle) {
         elements.todayScheduleSubtitle.textContent = getTodayScheduleSubtitle(new Date(now));
       }
@@ -5401,18 +5444,18 @@
       });
 
       elements.todayScheduleBody.innerHTML = items.map(({ boss, eventTime }) => {
-        const status = getBossStatus(boss, now);
+        const remaining = eventTime - now;
         const timeFormatted = formatSmartRespawnDate(eventTime, now);
         const cycleText = formatSpawnLabel(boss);
 
         let badgeClass = "badge-alive";
         let badgeText = isEn ? "• ALIVE" : "• ĐANG SỐNG";
-        if (status === "soon") {
-          badgeClass = "badge-soon";
-          badgeText = isEn ? "• SPAWNING SOON" : "• SẮP HỒI SINH";
-        } else if (status === "respawning") {
+        if (remaining > SOON_LIMIT_MS) {
           badgeClass = "badge-waiting";
           badgeText = isEn ? "• COUNTING DOWN" : "• ĐANG COUNTDOWN";
+        } else if (remaining > 0) {
+          badgeClass = "badge-soon";
+          badgeText = isEn ? "• SPAWNING SOON" : "• SẮP HỒI SINH";
         }
 
         const notesContent = boss.notes ? escapeHtml(boss.notes) : '<span class="notes-empty">—</span>';
@@ -5478,17 +5521,11 @@
         ? { 0: "Sunday", 1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday" }
         : { 0: "Chủ Nhật", 1: "Thứ 2", 2: "Thứ 3", 3: "Thứ 4", 4: "Thứ 5", 5: "Thứ 6", 6: "Thứ 7" };
 
-
-      // Build date for each day of this week (Monday-based week)
-      // Find Monday of current week
-      const mondayOffset = (todayDow === 0 ? -6 : 1 - todayDow);
-      const monday = new Date(today);
-      monday.setDate(today.getDate() + mondayOffset);
-
       const dateForDow = {};
-      dayOrder.forEach((dow, idx) => {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + (dow === 0 ? 6 : dow - 1));
+      dayOrder.forEach((dow) => {
+        const diff = (dow - todayDow + 7) % 7;
+        const d = new Date(today);
+        d.setDate(today.getDate() + diff);
         dateForDow[dow] = d;
       });
 
@@ -5551,7 +5588,7 @@
       const clockStr = formatClock(now);
 
       let filterTitle = "BÁO CÁO LỊCH BOSS (7 NGÀY)";
-      let filterSubDate = getTodayScheduleSubtitle(nowDate);
+      let filterSubDate = getTodayScheduleSubtitle(nowDate, scheduleDayFilter);
 
       let targetDate = new Date(nowDate);
       let isSingleDay = false;
@@ -5564,29 +5601,20 @@
         const dayDow = Number(scheduleDayFilter);
         const dayName = dayNames[dayDow] || "";
         
-        const todayDow = nowDate.getDay();
-        const mondayOffset = (todayDow === 0 ? -6 : 1 - todayDow);
-        const monday = new Date(nowDate);
-        monday.setDate(nowDate.getDate() + mondayOffset);
-        
-        const targetDayOffset = (dayDow === 0 ? 6 : dayDow - 1);
-        targetDate = new Date(monday);
-        targetDate.setDate(monday.getDate() + targetDayOffset);
+        targetDate = getTargetDateForFilter(nowDate, scheduleDayFilter);
 
         const dd = String(targetDate.getDate()).padStart(2, "0");
         const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
         filterTitle = `BÁO CÁO LỊCH BOSS - ${dayName} (${dd}/${mm}) (00:00 - 24:00)`;
-        filterSubDate = `Danh sách lượt xuất hiện / hồi sinh trong ${dayName} từ 00h00 đến 24h00`;
+        filterSubDate = `Danh sách lượt xuất hiện / hồi sinh trong ${dayName} (${dd}/${mm}) từ 00h00 đến 24h00`;
         isSingleDay = true;
       }
 
       const occurrences = [];
 
       if (isSingleDay) {
-        const startOfDay = new Date(targetDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(targetDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
+        const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
 
         const startMs = startOfDay.getTime();
         const endMs = endOfDay.getTime();
@@ -5598,8 +5626,7 @@
             schedules.forEach((slot) => {
               if (slot.day === "all" || Number(slot.day) === targetDow) {
                 const [hh, mm] = (slot.time || "18:00").split(":").map(Number);
-                const slotDate = new Date(targetDate);
-                slotDate.setHours(hh || 0, mm || 0, 0, 0);
+                const slotDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), hh || 0, mm || 0, 0, 0);
                 const timeMs = slotDate.getTime();
                 
                 occurrences.push({
@@ -5617,24 +5644,31 @@
             if (!refMs && boss.lastRespawnAt) refMs = boss.lastRespawnAt;
             if (!refMs) refMs = startMs + intervalMs;
 
-            let curMs = refMs;
-            while (curMs > startMs) curMs -= intervalMs;
-            while (curMs < startMs) curMs += intervalMs;
+            let cur = refMs;
+            if (cur < startMs) {
+              const diff = startMs - cur;
+              const steps = Math.ceil(diff / intervalMs);
+              cur += steps * intervalMs;
+            } else if (cur > endMs) {
+              const diff = cur - endMs;
+              const steps = Math.ceil(diff / intervalMs);
+              cur -= steps * intervalMs;
+            }
 
-            while (curMs <= endMs) {
-              const curDate = new Date(curMs);
+            while (cur <= endMs) {
+              const curDate = new Date(cur);
               const hh = String(curDate.getHours()).padStart(2, "0");
               const min = String(curDate.getMinutes()).padStart(2, "0");
               const ss = String(curDate.getSeconds()).padStart(2, "0");
 
               occurrences.push({
                 boss,
-                timeMs: curMs,
+                timeMs: cur,
                 timeFormatted: `${hh}:${min}:${ss}`,
                 dateFormatted: `${String(curDate.getDate()).padStart(2, "0")}/${String(curDate.getMonth() + 1).padStart(2, "0")}`,
                 isFixed: false
               });
-              curMs += intervalMs;
+              cur += intervalMs;
             }
           }
         });
@@ -5643,7 +5677,8 @@
       } else {
         state.bosses.forEach((boss) => {
           const isFixed = boss.spawnMode === "fixed";
-          const eventTime = boss.respawnsAt || (isFixed ? getNextFixedSpawnTime(boss, now) : (boss.lastRespawnAt || now));
+          const eventTime = getBossScheduleEventTime(boss, now, "all");
+          if (!eventTime) return;
           const d = new Date(eventTime);
           const hh = String(d.getHours()).padStart(2, "0");
           const min = String(d.getMinutes()).padStart(2, "0");
@@ -5665,16 +5700,16 @@
 
       const rowsHtml = occurrences.map((item, idx) => {
         const boss = item.boss;
-        const status = getBossStatus(boss, now);
+        const remaining = item.timeMs - now;
         const cycleText = formatSpawnLabel(boss);
         let statusText = "Đang sống";
         let statusBadgeClass = "status-alive";
-        if (status === "soon") {
-          statusText = "Sắp hồi sinh";
-          statusBadgeClass = "status-soon";
-        } else if (status === "respawning") {
+        if (remaining > SOON_LIMIT_MS) {
           statusText = "Đang countdown";
           statusBadgeClass = "status-respawning";
+        } else if (remaining > 0) {
+          statusText = "Sắp hồi sinh";
+          statusBadgeClass = "status-soon";
         }
         const notes = escapeHtml(boss.notes || "—");
         const bossNameHtml = item.isFixed ? `<strong style="color: #d97706;">⭐ ${escapeHtml(boss.name)}</strong>` : `<strong>${escapeHtml(boss.name)}</strong>`;
