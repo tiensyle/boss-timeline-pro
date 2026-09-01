@@ -3606,6 +3606,74 @@
     </div>
   </div>
 
+  <!-- ── Revive Confirm Popup ── -->
+  <div class="modal-backdrop" id="reviveConfirmModal" role="dialog" aria-modal="true" aria-labelledby="reviveConfirmTitle" style="z-index:10001;">
+    <div class="modal" style="max-width:420px; padding:0; overflow:hidden;">
+      <div style="background:var(--cyan-soft); border-bottom:1px solid rgba(74,163,255,0.3); padding:18px 22px; display:flex; align-items:center; gap:14px;">
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(74,163,255,0.15);border:1.5px solid rgba(74,163,255,0.5);display:grid;place-items:center;color:var(--cyan);flex:0 0 auto;">
+          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <h3 id="reviveConfirmTitle" style="margin:0;font-size:16px;font-weight:700;color:var(--cyan);">Xác nhận cho hồi sinh boss</h3>
+          <p style="margin:3px 0 0;font-size:12px;color:var(--muted);">Chuyển boss về trạng thái SỐNG (READY 100%) ngay lập tức.</p>
+        </div>
+      </div>
+      <div style="padding:18px 22px;">
+        <div style="background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Boss</span>
+            <span id="reviveConfirmBossName" style="font-size:15px;font-weight:800;color:var(--text);text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Trạng thái mới</span>
+            <span style="font-size:13px;font-weight:700;color:var(--green);">• ĐANG SỐNG (READY 100%)</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Admin</span>
+            <span id="reviveConfirmAdmin" style="font-size:13px;font-weight:700;color:var(--violet);"></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="button-ghost" id="reviveConfirmCancelBtn">Hủy bỏ</button>
+          <button type="button" class="button-primary" id="reviveConfirmOkBtn" style="display:inline-flex;align-items:center;gap:8px;">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Xác nhận cho hồi sinh
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Super Admin Authorization Modal ── -->
+  <div class="modal-backdrop" id="superAdminAuthModal" role="dialog" aria-modal="true" aria-labelledby="saAuthTitle" style="z-index:10003;">
+    <div class="modal" style="max-width:400px; padding:0; overflow:hidden;">
+      <div style="background:var(--surface-2); border-bottom:1px solid var(--line-soft); padding:18px 22px; display:flex; align-items:center; gap:12px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.4);display:grid;place-items:center;color:var(--amber);flex:0 0 auto;">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M12 15v2m0 4h.01M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <h3 id="saAuthTitle" style="margin:0;font-size:16px;font-weight:700;">Xác thực Super Admin</h3>
+          <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Nhập mật khẩu gốc Super Admin để truy cập Quản lý tài khoản</p>
+        </div>
+      </div>
+      <form id="saAuthForm" style="padding:20px 22px;">
+        <div style="margin-bottom:14px;">
+          <label for="saPasswordInput" style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:6px;">Mật khẩu Super Admin</label>
+          <input type="password" id="saPasswordInput" placeholder="Nhập mật khẩu Super Admin..." required
+            style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
+          <div id="saAuthError" style="display:none;margin-top:8px;font-size:12px;color:var(--red);font-weight:600;">Mật khẩu Super Admin không đúng!</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="button-ghost" id="saAuthCancelBtn">Hủy bỏ</button>
+          <button type="submit" class="button-primary" style="display:inline-flex;align-items:center;gap:6px;">
+            <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Xác nhận
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ── Admin Account Manager Modal ── -->
   <div class="modal-backdrop" id="adminAccountModal" role="dialog" aria-modal="true" aria-labelledby="adminAccTitle" style="z-index:10002;">
     <div class="modal" style="max-width:540px;padding:0;overflow:hidden;">
@@ -6264,6 +6332,8 @@
     }
 
 
+    let _pendingReviveBossId = null;
+
     function reviveBoss(id) {
       const isEn = currentLang === "en";
       if (!isAdmin()) {
@@ -6272,6 +6342,32 @@
       }
       const boss = state.bosses.find((item) => item.id === id);
       if (!boss) return;
+      openReviveConfirmPopup(boss);
+    }
+
+    function openReviveConfirmPopup(boss) {
+      _pendingReviveBossId = boss.id;
+      const nameEl = document.getElementById("reviveConfirmBossName");
+      const adminEl = document.getElementById("reviveConfirmAdmin");
+      if (nameEl) nameEl.textContent = boss.name;
+      if (adminEl) adminEl.textContent = currentAdminName;
+
+      const modal = document.getElementById("reviveConfirmModal");
+      if (modal) modal.classList.add("open");
+      syncModalScrollLock();
+      document.getElementById("reviveConfirmOkBtn")?.focus();
+    }
+
+    function reviveBossConfirmed() {
+      const id = _pendingReviveBossId;
+      _pendingReviveBossId = null;
+      const modal = document.getElementById("reviveConfirmModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+      if (!id) return;
+      const boss = state.bosses.find((item) => item.id === id);
+      if (!boss) return;
+      const isEn = currentLang === "en";
       const now = getNow();
       boss.lastRespawnAt = now;
       boss.diedAt = null;
@@ -7071,6 +7167,17 @@
       _pendingKillBossId = null;
     });
 
+    // ── Revive Confirm Modal Listeners ──
+    document.getElementById("reviveConfirmOkBtn")?.addEventListener("click", () => {
+      reviveBossConfirmed();
+    });
+    document.getElementById("reviveConfirmCancelBtn")?.addEventListener("click", () => {
+      const modal = document.getElementById("reviveConfirmModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+      _pendingReviveBossId = null;
+    });
+
     // ── Admin Account Manager Logic ──
     function renderAdminAccList() {
       const containerActive = document.getElementById("adminAccList");
@@ -7148,7 +7255,11 @@
       containerActive.innerHTML = activeHtml;
     }
 
-    document.getElementById("manageAdminAccBtn")?.addEventListener("click", () => {
+    function isSuperAdmin() {
+      return isAdmin() && currentAdminName === SUPER_ADMIN_NAME;
+    }
+
+    function openAdminAccModal() {
       renderAdminAccList();
       const errEl = document.getElementById("addAdminAccError");
       if (errEl) errEl.style.display = "none";
@@ -7159,6 +7270,50 @@
       const modal = document.getElementById("adminAccountModal");
       if (modal) modal.classList.add("open");
       syncModalScrollLock();
+    }
+
+    function openSuperAdminAuthModal() {
+      const input = document.getElementById("saPasswordInput");
+      const err = document.getElementById("saAuthError");
+      if (input) input.value = "";
+      if (err) err.style.display = "none";
+      const modal = document.getElementById("superAdminAuthModal");
+      if (modal) modal.classList.add("open");
+      syncModalScrollLock();
+      if (input) input.focus();
+    }
+
+    document.getElementById("saAuthCancelBtn")?.addEventListener("click", () => {
+      const modal = document.getElementById("superAdminAuthModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+    });
+
+    document.getElementById("saAuthForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("saPasswordInput");
+      const err = document.getElementById("saAuthError");
+      if (!input) return;
+
+      if (input.value === SUPER_ADMIN_PASSWORD) {
+        const saModal = document.getElementById("superAdminAuthModal");
+        if (saModal) saModal.classList.remove("open");
+        syncModalScrollLock();
+        if (err) err.style.display = "none";
+        openAdminAccModal();
+      } else {
+        if (err) err.style.display = "block";
+        input.select();
+        input.focus();
+      }
+    });
+
+    document.getElementById("manageAdminAccBtn")?.addEventListener("click", () => {
+      if (isSuperAdmin()) {
+        openAdminAccModal();
+      } else {
+        openSuperAdminAuthModal();
+      }
     });
 
     document.getElementById("closeAdminAccModal")?.addEventListener("click", () => {
