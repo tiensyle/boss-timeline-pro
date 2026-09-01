@@ -56,8 +56,8 @@
       --surface-3: #e2e8f0;
       --line: #cbd5e1;
       --line-soft: #e2e8f0;
-      --text: #0f172a;
-      --text-2: #334155;
+      --text: #0c2461;
+      --text-2: #1a3a6b;
       --muted: #475569;
       --muted-2: #64748b;
       --green: #15803d;
@@ -1745,18 +1745,6 @@
       }
     }
 
-    /* ── Admin account manager ── */
-    .admin-manager-box { max-width: 720px; }
-    .admin-manager-list { display:grid; gap:10px; margin-top:14px; }
-    .admin-user-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); }
-    .admin-user-main { min-width:0; }
-    .admin-user-name { font-weight:800; color:var(--text); }
-    .admin-user-meta { font-size:12px; color:var(--muted); margin-top:3px; }
-    .admin-manager-form { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; align-items:end; margin-top:14px; }
-    .admin-manager-form .form-field { margin:0; }
-    .audit-by { margin-top:4px; font-size:11px; color:var(--muted); font-weight:700; }
-    @media (max-width: 760px) { .admin-manager-form { grid-template-columns:1fr; } .admin-user-row { align-items:flex-start; } }
-
     /* ── Auth Modal (Role Selection & Admin Login) ── */
     .auth-modal-box {
       width: min(520px, 100%);
@@ -3079,7 +3067,6 @@
               <span data-i18n="memberRole">Thành viên</span>
             </button>
           </div>
-          <button type="button" class="button-ghost" id="manageAdminsBtn" style="display:none; white-space:nowrap;" title="Quản lý tài khoản Admin">👥 <span>Quản lý Admin</span></button>
           <div class="sound-switcher" id="soundSwitcher">
             <button class="sound-btn active" id="soundToggleBtn" type="button" title="Bật/Tắt âm thanh thông báo">
               <svg viewBox="0 0 24 24" fill="none" class="sound-icon-on"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -3401,14 +3388,16 @@
         </div>
 
         <form id="adminLoginForm" class="auth-form">
-          <div class="form-field full">
-            <label for="adminUsernameInput">Tài khoản Admin</label>
-            <input type="text" id="adminUsernameInput" placeholder="Ví dụ: admin1" autocomplete="username" required>
+          <div class="form-field full" style="margin-bottom:14px;">
+            <label for="adminNameSelect" style="margin-bottom:6px;display:block;">Chọn tài khoản Admin</label>
+            <select id="adminNameSelect" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;font-weight:600;">
+              <!-- populated dynamically -->
+            </select>
           </div>
           <div class="form-field full">
-            <label for="adminPasswordInput">Mật khẩu Admin</label>
+            <label for="adminPasswordInput">Mật khẩu</label>
             <div class="password-input-wrap">
-              <input type="password" id="adminPasswordInput" placeholder="Nhập mật khẩu Admin..." autocomplete="current-password" required>
+              <input type="password" id="adminPasswordInput" placeholder="Nhập mật khẩu..." autocomplete="current-password" required>
               <button type="button" id="togglePasswordVisBtn" class="password-toggle-eye" aria-label="Hiện/ẩn mật khẩu">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
               </button>
@@ -3419,14 +3408,64 @@
             </div>
           </div>
 
-          <div class="auth-actions">
+          <div class="auth-actions" style="flex-wrap:wrap;gap:8px;">
             <button type="button" class="button-ghost" id="adminLoginBackBtn">
               <svg viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Quay lại
             </button>
+            <button type="button" class="button-ghost" id="manageAdminAccBtn" style="color:var(--violet);border-color:rgba(155,107,255,0.3);">
+              <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Quản lý tài khoản
+            </button>
             <button type="submit" class="button-primary admin-submit-btn">
               <svg viewBox="0 0 24 24" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Đăng nhập Admin
+            </button>
+          </div>
+          <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);">
+            <button type="button" class="button-ghost" id="gotoRegisterBtn" style="font-size:12.5px;color:var(--cyan);border-color:transparent;background:transparent;">
+              📝 Chưa có tài khoản Admin? Gửi yêu cầu đăng ký tại đây
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 3: Admin Account Registration Request -->
+      <div id="authStepRegister" style="display:none;">
+        <div class="auth-modal-header">
+          <div class="auth-logo-badge" style="background:rgba(74,163,255,0.15);color:var(--cyan);border:1px solid rgba(74,163,255,0.3);">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <h2 class="auth-title">Đăng ký Tài khoản Admin</h2>
+          <p class="auth-sub">Gửi yêu cầu khởi tạo tài khoản Admin phụ. Super Admin sẽ phê duyệt trước khi bạn có thể đăng nhập.</p>
+        </div>
+
+        <form id="adminRegForm" class="auth-form">
+          <div class="form-field full" style="margin-bottom:12px;">
+            <label for="regAdminName">Tên Admin mong muốn</label>
+            <input type="text" id="regAdminName" placeholder="Ví dụ: Admin 1, Admin Boss, Hùng..." maxlength="24" required
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
+          </div>
+          <div class="form-field full" style="margin-bottom:12px;">
+            <label for="regAdminPass">Mật khẩu</label>
+            <input type="password" id="regAdminPass" placeholder="Nhập mật khẩu..." maxlength="32" required
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
+          </div>
+          <div class="form-field full" style="margin-bottom:12px;">
+            <label for="regAdminNote">Ghi chú / Lý do (Tuỳ chọn)</label>
+            <input type="text" id="regAdminNote" placeholder="Ví dụ: Admin ca đêm, Leader Clan..." maxlength="60"
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
+          </div>
+          <div id="regAdminError" style="display:none;margin-bottom:12px;font-size:12px;color:var(--red);font-weight:600;padding:8px 12px;background:var(--red-soft);border-radius:6px;"></div>
+
+          <div class="auth-actions">
+            <button type="button" class="button-ghost" id="regBackBtn">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Quay lại Đăng nhập
+            </button>
+            <button type="submit" class="button-primary">
+              <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Gửi yêu cầu đăng ký
             </button>
           </div>
         </form>
@@ -3504,26 +3543,6 @@
     </div>
   </div>
 
-  <!-- Admin Account Manager -->
-  <div class="modal-backdrop" id="adminManagerModal" role="dialog" aria-modal="true" aria-labelledby="adminManagerTitle">
-    <div class="modal admin-manager-box">
-      <div class="modal-head">
-        <div>
-          <h2 id="adminManagerTitle">Quản lý tài khoản Admin</h2>
-          <p>Thêm, đổi tên hoặc xóa tài khoản Admin. Mật khẩu được lưu dạng SHA-256.</p>
-        </div>
-        <button class="icon-button" type="button" id="adminManagerCloseBtn" aria-label="Đóng">×</button>
-      </div>
-      <div class="admin-manager-list" id="adminManagerList"></div>
-      <form id="adminManagerForm" class="admin-manager-form">
-        <div class="form-field"><label for="newAdminUsername">Username</label><input id="newAdminUsername" required maxlength="24" pattern="[A-Za-z0-9_.-]+" placeholder="admin2"></div>
-        <div class="form-field"><label for="newAdminName">Tên hiển thị</label><input id="newAdminName" required maxlength="40" placeholder="Admin 2"></div>
-        <div class="form-field"><label for="newAdminPassword">Mật khẩu</label><input id="newAdminPassword" type="password" required minlength="4" maxlength="80" placeholder="Mật khẩu riêng"></div>
-        <button class="button-primary" type="submit">+ Thêm Admin</button>
-      </form>
-    </div>
-  </div>
-
   <!-- Custom Confirmation Modal -->
   <div class="modal-backdrop" id="customConfirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" style="z-index: 9999;">
 
@@ -3541,6 +3560,174 @@
       <div class="confirm-modal-actions">
         <button type="button" class="button-ghost" id="confirmModalCancelBtn">Hủy bỏ</button>
         <button type="button" class="button-danger" id="confirmModalOkBtn">Đồng ý</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Kill Confirm Popup ── -->
+  <div class="modal-backdrop" id="killConfirmModal" role="dialog" aria-modal="true" aria-labelledby="killConfirmTitle" style="z-index:10001;">
+    <div class="modal" style="max-width:420px; padding:0; overflow:hidden;">
+      <div style="background:var(--red-soft); border-bottom:1px solid rgba(226,87,76,0.3); padding:18px 22px; display:flex; align-items:center; gap:14px;">
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(226,87,76,0.15);border:1.5px solid rgba(226,87,76,0.5);display:grid;place-items:center;color:var(--red);flex:0 0 auto;">
+          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M9 19v2m6-2v2M8 16h8M12 3c4.4 0 7 2.7 7 6.5 0 2.5-1.1 4.5-3 5.5v2H8v-2c-1.9-1-3-3-3-5.5C5 5.7 7.6 3 12 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 10h.01M15 10h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <h3 id="killConfirmTitle" style="margin:0;font-size:16px;font-weight:700;color:var(--red);">Xác nhận ghi nhận chết</h3>
+          <p style="margin:3px 0 0;font-size:12px;color:var(--muted);">Hành động này sẽ bắt đầu đồng hồ đếm ngược hồi sinh.</p>
+        </div>
+      </div>
+      <div style="padding:18px 22px;">
+        <div style="background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Boss</span>
+            <span id="killConfirmBossName" style="font-size:15px;font-weight:800;color:var(--text);text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Giờ chết</span>
+            <span id="killConfirmTime" style="font-size:14px;font-weight:700;color:var(--cyan);font-family:monospace;"></span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Hồi sinh sau</span>
+            <span id="killConfirmRespawn" style="font-size:13px;font-weight:700;color:var(--amber);"></span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Admin</span>
+            <span id="killConfirmAdmin" style="font-size:13px;font-weight:700;color:var(--violet);"></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="button-ghost" id="killConfirmCancelBtn">Hủy bỏ</button>
+          <button type="button" class="button-danger" id="killConfirmOkBtn" style="display:inline-flex;align-items:center;gap:8px;">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M9 19v2m6-2v2M8 16h8M12 3c4.4 0 7 2.7 7 6.5 0 2.5-1.1 4.5-3 5.5v2H8v-2c-1.9-1-3-3-3-5.5C5 5.7 7.6 3 12 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Xác nhận ghi nhận chết
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Revive Confirm Popup ── -->
+  <div class="modal-backdrop" id="reviveConfirmModal" role="dialog" aria-modal="true" aria-labelledby="reviveConfirmTitle" style="z-index:10001;">
+    <div class="modal" style="max-width:420px; padding:0; overflow:hidden;">
+      <div style="background:var(--cyan-soft); border-bottom:1px solid rgba(74,163,255,0.3); padding:18px 22px; display:flex; align-items:center; gap:14px;">
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(74,163,255,0.15);border:1.5px solid rgba(74,163,255,0.5);display:grid;place-items:center;color:var(--cyan);flex:0 0 auto;">
+          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <h3 id="reviveConfirmTitle" style="margin:0;font-size:16px;font-weight:700;color:var(--cyan);">Xác nhận cho hồi sinh boss</h3>
+          <p style="margin:3px 0 0;font-size:12px;color:var(--muted);">Chuyển boss về trạng thái SỐNG (READY 100%) ngay lập tức.</p>
+        </div>
+      </div>
+      <div style="padding:18px 22px;">
+        <div style="background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Boss</span>
+            <span id="reviveConfirmBossName" style="font-size:15px;font-weight:800;color:var(--text);text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Trạng thái mới</span>
+            <span style="font-size:13px;font-weight:700;color:var(--green);">• ĐANG SỐNG (READY 100%)</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Admin</span>
+            <span id="reviveConfirmAdmin" style="font-size:13px;font-weight:700;color:var(--violet);"></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="button-ghost" id="reviveConfirmCancelBtn">Hủy bỏ</button>
+          <button type="button" class="button-primary" id="reviveConfirmOkBtn" style="display:inline-flex;align-items:center;gap:8px;">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Xác nhận cho hồi sinh
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Super Admin Authorization Modal ── -->
+  <div class="modal-backdrop" id="superAdminAuthModal" role="dialog" aria-modal="true" aria-labelledby="saAuthTitle" style="z-index:10003;">
+    <div class="modal" style="max-width:400px; padding:0; overflow:hidden;">
+      <div style="background:var(--surface-2); border-bottom:1px solid var(--line-soft); padding:18px 22px; display:flex; align-items:center; gap:12px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.4);display:grid;place-items:center;color:var(--amber);flex:0 0 auto;">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M12 15v2m0 4h.01M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <h3 id="saAuthTitle" style="margin:0;font-size:16px;font-weight:700;">Xác thực Super Admin</h3>
+          <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Nhập mật khẩu gốc Super Admin để truy cập Quản lý tài khoản</p>
+        </div>
+      </div>
+      <form id="saAuthForm" style="padding:20px 22px;">
+        <div style="margin-bottom:14px;">
+          <label for="saPasswordInput" style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:6px;">Mật khẩu Super Admin</label>
+          <input type="password" id="saPasswordInput" placeholder="Nhập mật khẩu Super Admin..." required
+            style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
+          <div id="saAuthError" style="display:none;margin-top:8px;font-size:12px;color:var(--red);font-weight:600;">Mật khẩu Super Admin không đúng!</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="button-ghost" id="saAuthCancelBtn">Hủy bỏ</button>
+          <button type="submit" class="button-primary" style="display:inline-flex;align-items:center;gap:6px;">
+            <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Xác nhận
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Admin Account Manager Modal ── -->
+  <div class="modal-backdrop" id="adminAccountModal" role="dialog" aria-modal="true" aria-labelledby="adminAccTitle" style="z-index:10002;">
+    <div class="modal" style="max-width:540px;padding:0;overflow:hidden;">
+      <div style="padding:20px 24px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:8px;background:rgba(155,107,255,0.15);border:1.5px solid rgba(155,107,255,0.4);display:grid;place-items:center;color:var(--violet);flex:0 0 auto;">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <h3 id="adminAccTitle" style="margin:0;font-size:16px;font-weight:700;">Quản lý tài khoản Admin</h3>
+            <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Tạo, chỉnh sửa hoặc xóa tài khoản Admin phụ</p>
+          </div>
+        </div>
+        <button type="button" class="icon-button" id="closeAdminAccModal" style="width:34px;height:34px;" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div style="padding:20px 24px;max-height:70vh;overflow-y:auto;">
+        <!-- Pending Approval Section -->
+        <div id="adminPendingSection" style="margin-bottom:20px;display:none;">
+          <div style="font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <span>⏳ Yêu cầu Admin chờ phê duyệt</span>
+            <span id="pendingBadgeCount" style="background:var(--amber-soft);color:var(--amber);padding:1px 7px;border-radius:99px;font-size:11px;">0</span>
+          </div>
+          <div id="adminPendingList"></div>
+        </div>
+
+        <!-- Add Directly Section -->
+        <div style="background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:16px;margin-bottom:18px;">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">➕ Thêm trực tiếp tài khoản Admin mới</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:5px;">Tên Admin</label>
+              <input type="text" id="newAdminName" placeholder="Ví dụ: Admin1, AdminBoss..." maxlength="24"
+                style="width:100%;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:5px;">Mật khẩu</label>
+              <input type="password" id="newAdminPass" placeholder="Nhập mật khẩu..." maxlength="32"
+                style="width:100%;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
+            </div>
+          </div>
+          <button type="button" class="button-primary" id="addAdminAccBtn" style="width:100%;height:38px;display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+            Tạo & Phê duyệt ngay
+          </button>
+          <div id="addAdminAccError" style="display:none;margin-top:8px;font-size:12px;color:var(--red);font-weight:600;"></div>
+        </div>
+
+        <!-- Active Accounts Section -->
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📋 Danh sách Admin đã phê duyệt & hoạt động</div>
+          <div id="adminAccList"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -3584,7 +3771,7 @@
         metricAlive: "Đang sống",
         metricAliveDesc: "Boss sẵn sàng",
         metricRespawning: "Đang hồi sinh",
-        metricRespawningDesc: "Đang countdown",
+        metricRespawningDesc: "Đang hồi sinh",
         metricSoon: "Sắp hồi sinh",
         metricSoonDesc: "Cần chuẩn bị",
         nextRespawnTitle: "NEXT RESPAWN",
@@ -3628,7 +3815,7 @@
         editBossBtn: "Sửa boss",
         aliveBadge: "• ĐANG SỐNG",
         soonBadge: "• SẮP HỒI SINH",
-        respawningBadge: "• ĐANG COUNTDOWN",
+        respawningBadge: "• ĐANG HỒI SINH",
         historyTitle: "Timeline gần đây",
         historySub: "Lịch sử chết và hồi sinh mới nhất",
         clearHistoryBtn: "Xóa lịch sử",
@@ -3837,19 +4024,10 @@
       chooseAdminBtn: document.getElementById("chooseAdminBtn"),
       chooseMemberBtn: document.getElementById("chooseMemberBtn"),
       adminLoginForm: document.getElementById("adminLoginForm"),
-      adminUsernameInput: document.getElementById("adminUsernameInput"),
       adminPasswordInput: document.getElementById("adminPasswordInput"),
       adminLoginError: document.getElementById("adminLoginError"),
       adminLoginBackBtn: document.getElementById("adminLoginBackBtn"),
       togglePasswordVisBtn: document.getElementById("togglePasswordVisBtn"),
-      manageAdminsBtn: document.getElementById("manageAdminsBtn"),
-      adminManagerModal: document.getElementById("adminManagerModal"),
-      adminManagerList: document.getElementById("adminManagerList"),
-      adminManagerForm: document.getElementById("adminManagerForm"),
-      adminManagerCloseBtn: document.getElementById("adminManagerCloseBtn"),
-      newAdminUsername: document.getElementById("newAdminUsername"),
-      newAdminName: document.getElementById("newAdminName"),
-      newAdminPassword: document.getElementById("newAdminPassword"),
       soundToggleBtn: document.getElementById("soundToggleBtn"),
       soundToggleText: document.getElementById("soundToggleText"),
       soundTestBtn: document.getElementById("soundTestBtn"),
@@ -3873,7 +4051,7 @@
       },
       respawning: {
         label: "Đang hồi sinh",
-        metric: "Đang countdown",
+        metric: "Đang hồi sinh",
         color: "var(--cyan)",
         soft: "var(--cyan-soft)"
       },
@@ -3886,48 +4064,61 @@
     };
 
     const STORAGE_ROLE_KEY = "bossTimelinePro.role";
-    const STORAGE_ADMIN_KEY = "bossTimelinePro.currentAdmin";
-    const DEFAULT_ADMIN_PASSWORD_HASH = "9e6eadf4719460ea9d312e5103c446d1589c4ddd3a821fea2d9dc945573aa9b1";
+    const STORAGE_ADMIN_ACCOUNTS_KEY = "bossTimelinePro.adminAccounts";
+    const STORAGE_ADMIN_NAME_KEY = "bossTimelinePro.currentAdminName";
+    // Super admin (built-in, cannot be deleted)
+    const SUPER_ADMIN_NAME = "Super Admin";
+    const SUPER_ADMIN_PASSWORD = "@#123";
+
     let currentRole = localStorage.getItem(STORAGE_ROLE_KEY) === "admin" ? "admin" : "member";
-    let currentAdmin = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_ADMIN_KEY) || "null"); } catch(e) { return null; } })();
-    if (currentRole === "admin" && !currentAdmin) {
-      currentRole = "member";
-      try { localStorage.setItem(STORAGE_ROLE_KEY, "member"); } catch (e) {}
+    let currentAdminName = localStorage.getItem(STORAGE_ADMIN_NAME_KEY) || SUPER_ADMIN_NAME;
+
+    function getAdminAccounts() {
+      try {
+        const raw = localStorage.getItem(STORAGE_ADMIN_ACCOUNTS_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) { return []; }
     }
 
-    function isAdmin() { return currentRole === "admin" && !!currentAdmin; }
-    function currentAdminName() { return currentAdmin?.displayName || currentAdmin?.username || "Admin"; }
-    async function hashText(value) {
-      if (window.crypto?.subtle) {
-        const data = new TextEncoder().encode(value);
-        const hash = await crypto.subtle.digest("SHA-256", data);
-        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-      }
-      return value;
-    }
-    function ensureAdminAccounts() {
-      if (!Array.isArray(state.admins) || !state.admins.length) {
-        state.admins = [{ username: "admin1", displayName: "Admin 1", passwordHash: DEFAULT_ADMIN_PASSWORD_HASH }];
-      }
-      if (!state.admins.some(a => a.username === "admin1")) {
-        state.admins.unshift({ username: "admin1", displayName: "Admin 1", passwordHash: DEFAULT_ADMIN_PASSWORD_HASH });
-      }
+    function saveAdminAccounts(accounts) {
+      try { localStorage.setItem(STORAGE_ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts)); } catch (e) {}
     }
 
-    function setRole(newRole, adminUser = currentAdmin) {
+    function verifyAdmin(name, password) {
+      if (name === SUPER_ADMIN_NAME && password === SUPER_ADMIN_PASSWORD) {
+        return { ok: true };
+      }
+      const accounts = getAdminAccounts();
+      const acc = accounts.find(a => a.name === name);
+      if (!acc) return { ok: false, error: "Tài khoản không tồn tại trong hệ thống." };
+      if (acc.password !== password) return { ok: false, error: "Mật khẩu không chính xác." };
+      if (acc.status === "pending") return { ok: false, error: "⏳ Tài khoản đang CHỜ SUPER ADMIN PHÊ DUYỆT! Vui lòng liên hệ Super Admin." };
+      if (acc.status !== "approved") return { ok: false, error: "Tài khoản chưa được kích hoạt." };
+      return { ok: true };
+    }
+
+    function isAdmin() {
+      return currentRole === "admin";
+    }
+
+    function setRole(newRole, adminName = null) {
       if (newRole !== "admin" && newRole !== "member") return;
       currentRole = newRole;
-      currentAdmin = newRole === "admin" ? adminUser : null;
+      if (newRole === "admin" && adminName) {
+        currentAdminName = adminName;
+        try { localStorage.setItem(STORAGE_ADMIN_NAME_KEY, adminName); } catch (e) {}
+      } else if (newRole === "member") {
+        currentAdminName = SUPER_ADMIN_NAME;
+        try { localStorage.removeItem(STORAGE_ADMIN_NAME_KEY); } catch (e) {}
+      }
       try {
         localStorage.setItem(STORAGE_ROLE_KEY, newRole);
-        if (currentAdmin) localStorage.setItem(STORAGE_ADMIN_KEY, JSON.stringify(currentAdmin));
-        else localStorage.removeItem(STORAGE_ADMIN_KEY);
       } catch (e) {}
       updateRoleUI();
       render();
       const isEn = currentLang === "en";
       if (isAdmin()) {
-        showToast(isEn ? "👑 Admin privileges activated: Full control to manage bosses." : "👑 Đã chuyển sang quyền Admin: Toàn quyền thêm, sửa, xóa boss.");
+        showToast(isEn ? `👑 Logged in as ${currentAdminName}. Full boss control enabled.` : `👑 Đăng nhập với quyền Admin: ${currentAdminName}`);
       } else {
         showToast(isEn ? "👤 Member Mode: Read-only access." : "👤 Đã chuyển sang quyền Thành viên: Chế độ chỉ xem.");
       }
@@ -3939,11 +4130,6 @@
       });
       if (elements.addBossBtn) {
         elements.addBossBtn.style.display = isAdmin() ? "inline-flex" : "none";
-      }
-      if (elements.manageAdminsBtn) {
-        elements.manageAdminsBtn.style.display = isAdmin() ? "inline-flex" : "none";
-        const adminLabel = elements.manageAdminsBtn.querySelector("span");
-        if (adminLabel) adminLabel.textContent = isAdmin() ? `Quản lý: ${currentAdminName()}` : "Quản lý Admin";
       }
       if (elements.clearHistoryBtn) {
         elements.clearHistoryBtn.style.display = isAdmin() ? "inline-flex" : "none";
@@ -4148,14 +4334,40 @@
       document.body.classList.toggle("modal-open", hasOpenModal);
     }
 
+    function populateAdminNameDropdown() {
+      const sel = document.getElementById("adminNameSelect");
+      if (!sel) return;
+      const accounts = getAdminAccounts();
+      const approved = accounts.filter(a => a.status === "approved");
+      const options = [
+        { name: SUPER_ADMIN_NAME, isSuperAdmin: true },
+        ...approved.map(a => ({ name: a.name, isSuperAdmin: false }))
+      ];
+      sel.innerHTML = options.map(o =>
+        `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name)}${o.isSuperAdmin ? " 👑" : ""}</option>`
+      ).join("");
+    }
+
     function showAuthStep(step) {
-      const isLoginStep = step === "admin";
-      elements.authStepChoose.style.display = isLoginStep ? "none" : "";
-      elements.authStepAdminLogin.style.display = isLoginStep ? "" : "none";
-      elements.adminLoginError.style.display = "none";
-      elements.adminPasswordInput.value = "";
-      elements.adminPasswordInput.type = "password";
-      elements.togglePasswordVisBtn.setAttribute("aria-label", "Hiện mật khẩu");
+      const stepChoose = document.getElementById("authStepChoose");
+      const stepLogin = document.getElementById("authStepAdminLogin");
+      const stepReg = document.getElementById("authStepRegister");
+
+      if (stepChoose) stepChoose.style.display = step === "choose" ? "" : "none";
+      if (stepLogin) stepLogin.style.display = step === "admin" ? "" : "none";
+      if (stepReg) stepReg.style.display = step === "register" ? "" : "none";
+
+      if (elements.adminLoginError) elements.adminLoginError.style.display = "none";
+      if (elements.adminPasswordInput) {
+        elements.adminPasswordInput.value = "";
+        elements.adminPasswordInput.type = "password";
+      }
+      if (elements.togglePasswordVisBtn) {
+        elements.togglePasswordVisBtn.setAttribute("aria-label", "Hiện mật khẩu");
+      }
+      if (step === "admin") {
+        populateAdminNameDropdown();
+      }
     }
 
     function openAuthModal(step = "choose") {
@@ -4186,12 +4398,6 @@
     }
 
     let state = loadState();
-    ensureAdminAccounts();
-    if (currentAdmin && !state.admins.some(a => a.username === currentAdmin.username)) {
-      currentAdmin = null;
-      currentRole = "member";
-      try { localStorage.setItem(STORAGE_ROLE_KEY, "member"); localStorage.removeItem(STORAGE_ADMIN_KEY); } catch(e) {}
-    }
     let activeFilter = "all";
     let activeLevelFilter = "all";
     const STORAGE_VIEW_KEY = "bossTimelinePro.viewMode";
@@ -4314,7 +4520,6 @@
 
       return {
         bosses,
-        admins: [{ username: "admin1", displayName: "Admin 1", passwordHash: DEFAULT_ADMIN_PASSWORD_HASH }],
         history: [
           historyItem("death", bosses[1], now - 41 * 60 * 1000),
           historyItem("death", bosses[4], now - 22 * 60 * 1000),
@@ -4325,10 +4530,6 @@
       };
     }
 
-    const MAX_HISTORY_ITEMS = 30;
-    let isRealtimeSubscribed = false;
-    let reconnectTimeout = null;
-
     function loadState() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -4337,8 +4538,7 @@
         if (!Array.isArray(parsed.bosses)) return createDefaultState();
         return {
           bosses: parsed.bosses.map(normalizeBoss),
-          admins: Array.isArray(parsed.admins) ? parsed.admins : [{ username: "admin1", displayName: "Admin 1", passwordHash: DEFAULT_ADMIN_PASSWORD_HASH }],
-          history: Array.isArray(parsed.history) ? parsed.history.slice(0, MAX_HISTORY_ITEMS) : []
+          history: Array.isArray(parsed.history) ? parsed.history.slice(0, 80) : []
         };
       } catch (error) {
         console.warn("Không thể đọc localStorage, dùng dữ liệu mẫu.", error);
@@ -4366,8 +4566,7 @@
           broadcastChannel.postMessage({
             _clientId: CLIENT_ID,
             bosses: state.bosses.map(normalizeBoss),
-            history: state.history.slice(0, MAX_HISTORY_ITEMS),
-            admins: Array.isArray(state.admins) ? state.admins : []
+            history: state.history.slice(0, 80)
           });
         }
       } catch (error) {
@@ -4376,16 +4575,27 @@
     }
 
 
+    let serverTimeOffset = 0;
+
+    function updateServerTimeOffset(serverIsoString) {
+      if (!serverIsoString) return;
+      const serverMs = new Date(serverIsoString).getTime();
+      if (!isNaN(serverMs) && serverMs > 0) {
+        serverTimeOffset = serverMs - Date.now();
+      }
+    }
+
+    function getNow() {
+      return Date.now() + serverTimeOffset;
+    }
+
     let lastLocalEditTime = 0;
 
     async function saveState() {
       // Luôn giữ local cache để app vẫn mở được khi mất mạng.
-      lastLocalEditTime = Date.now();
+      lastLocalEditTime = getNow();
       saveStateLocal();
       if (!REALTIME_ENABLED || !remoteStateReady) return;
-
-      // Chỉ admin mới ghi dữ liệu lên Supabase để tránh xung đột và tiết kiệm băng thông
-      if (!isAdmin()) return;
 
       if (remoteSaveInFlight) {
         pendingRemoteSave = true;
@@ -4399,16 +4609,15 @@
           data: {
             _clientId: CLIENT_ID,
             bosses: state.bosses.map(normalizeBoss),
-            history: state.history.slice(0, MAX_HISTORY_ITEMS),
-            admins: Array.isArray(state.admins) ? state.admins : []
+            history: state.history.slice(0, 80)
           },
-          updated_at: new Date().toISOString()
+          updated_at: new Date(getNow()).toISOString()
         };
         const { error } = await supabaseClient
           .from("boss_timeline_state")
           .upsert(payload, { onConflict: "id" });
         if (error) throw error;
-        lastRemoteUpdatedAt = Date.now();
+        lastRemoteUpdatedAt = getNow();
       } catch (error) {
         console.error("Supabase save error:", error);
         setRealtimeStatus("offline", "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
@@ -4433,71 +4642,19 @@
     function applyRemoteState(data, updatedAt) {
       if (!data || !Array.isArray(data.bosses)) return;
       if (updatedAt) {
+        updateServerTimeOffset(updatedAt);
         const remoteTime = new Date(updatedAt).getTime();
         // Nếu thay đổi remote cũ hơn thao tác bấm vừa thực hiện tại máy, bỏ qua để tránh ghi đè
         if (remoteTime && remoteTime < lastLocalEditTime - 2000) return;
-        lastRemoteUpdatedAt = remoteTime || Date.now();
+        lastRemoteUpdatedAt = remoteTime || getNow();
       }
       state = {
         bosses: data.bosses.map(normalizeBoss),
-        admins: Array.isArray(data.admins) ? data.admins : [{ username: "admin1", displayName: "Admin 1", passwordHash: DEFAULT_ADMIN_PASSWORD_HASH }],
-        history: Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY_ITEMS).map(item => ({
-          ...item,
-          adminUsername: item.adminUsername || "system",
-          adminName: item.adminName || "Hệ thống"
-        })) : []
+        history: Array.isArray(data.history) ? data.history.slice(0, 80) : []
       };
-      ensureAdminAccounts();
       remoteStateReady = true;
       saveStateLocal();
       render();
-    }
-
-    async function checkRemoteUpdates(forceFullFetch = false) {
-      if (!REALTIME_ENABLED || !remoteStateReady || remoteSaveInFlight) return;
-      // Tránh tốn bandwidth khi tab đang ẩn / chạy ngầm
-      if (document.visibilityState !== "visible") return;
-
-      try {
-        if (forceFullFetch) {
-          const { data, error } = await supabaseClient
-            .from("boss_timeline_state")
-            .select("id,data,updated_at")
-            .eq("id", 1)
-            .maybeSingle();
-          if (!error && data?.data && data.data._clientId !== CLIENT_ID) {
-            const remoteTime = new Date(data.updated_at || 0).getTime();
-            if (remoteTime > lastRemoteUpdatedAt) {
-              applyRemoteState(data.data, data.updated_at);
-            }
-          }
-          return;
-        }
-
-        // Tối ưu siêu nhẹ: chỉ tải trường updated_at (~50 bytes) để kiểm tra có thay đổi không
-        const { data, error } = await supabaseClient
-          .from("boss_timeline_state")
-          .select("updated_at")
-          .eq("id", 1)
-          .maybeSingle();
-
-        if (!error && data?.updated_at) {
-          const remoteTime = new Date(data.updated_at).getTime();
-          if (remoteTime > lastRemoteUpdatedAt) {
-            // Chỉ tải toàn bộ data khi phát hiện có thay đổi thực sự
-            const { data: fullData, error: fullErr } = await supabaseClient
-              .from("boss_timeline_state")
-              .select("id,data,updated_at")
-              .eq("id", 1)
-              .maybeSingle();
-            if (!fullErr && fullData?.data && fullData.data._clientId !== CLIENT_ID) {
-              applyRemoteState(fullData.data, fullData.updated_at);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Lỗi kiểm tra cập nhật remote:", e);
-      }
     }
 
     async function initRealtimeSync() {
@@ -4520,7 +4677,7 @@
         } else {
           const seed = {
             id: 1,
-            data: { _clientId: CLIENT_ID, bosses: state.bosses.map(normalizeBoss), history: state.history.slice(0, MAX_HISTORY_ITEMS), admins: Array.isArray(state.admins) ? state.admins : [] },
+            data: { _clientId: CLIENT_ID, bosses: state.bosses.map(normalizeBoss), history: state.history.slice(0, 80) },
             updated_at: new Date().toISOString()
           };
           const { error: seedError } = await supabaseClient
@@ -4554,39 +4711,54 @@
           })
           .subscribe((status) => {
             if (status === "SUBSCRIBED") {
-              isRealtimeSubscribed = true;
               setRealtimeStatus("online", "Realtime đang hoạt động — tự đồng bộ giữa các máy");
             } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-              isRealtimeSubscribed = false;
               setRealtimeStatus("offline", "Realtime bị ngắt kết nối — đang tự thử kết nối lại");
-              if (!reconnectTimeout) {
-                reconnectTimeout = window.setTimeout(() => {
-                  reconnectTimeout = null;
-                  initRealtimeSync();
-                }, 10000);
-              }
+              window.setTimeout(initRealtimeSync, 5000);
             }
           });
       } catch (error) {
         console.error("Supabase init error:", error);
-        isRealtimeSubscribed = false;
         remoteStateReady = false;
         setRealtimeStatus("offline", "Không thể kết nối Supabase — đang dùng localStorage");
         showToast("⚠️ Chưa kết nối được Realtime. Kiểm tra cấu hình Supabase.");
       }
     }
 
-    // Polling dự phòng CHỈ chạy khi WebSocket bị mất kết nối và tab đang mở (chu kỳ 60s siêu nhẹ)
+    // Tự động Polling dự phòng mỗi 15s để kéo dữ liệu mới nhất nếu mất kết nối WebSocket
     window.setInterval(async () => {
-      if (!isRealtimeSubscribed && document.visibilityState === "visible") {
-        await checkRemoteUpdates(false);
-      }
-    }, 60000);
+      if (!REALTIME_ENABLED || !remoteStateReady || remoteSaveInFlight) return;
+      try {
+        const { data, error } = await supabaseClient
+          .from("boss_timeline_state")
+          .select("id,data,updated_at")
+          .eq("id", 1)
+          .maybeSingle();
+        if (!error && data?.data && data.data._clientId !== CLIENT_ID) {
+          const remoteTime = new Date(data.updated_at || 0).getTime();
+          if (remoteTime > lastRemoteUpdatedAt) {
+            applyRemoteState(data.data, data.updated_at);
+          }
+        }
+      } catch (e) {}
+    }, 15000);
 
-    // Kéo dữ liệu mới nhất khi người dùng quay trở lại tab (chỉ check timestamp ~50 bytes)
+    // Kéo dữ liệu mới nhất khi người dùng quay trở lại tab
     document.addEventListener("visibilitychange", async () => {
       if (document.visibilityState === "visible" && REALTIME_ENABLED && remoteStateReady) {
-        await checkRemoteUpdates(false);
+        try {
+          const { data, error } = await supabaseClient
+            .from("boss_timeline_state")
+            .select("id,data,updated_at")
+            .eq("id", 1)
+            .maybeSingle();
+          if (!error && data?.data && data.data._clientId !== CLIENT_ID) {
+            const remoteTime = new Date(data.updated_at || 0).getTime();
+            if (remoteTime > lastRemoteUpdatedAt) {
+              applyRemoteState(data.data, data.updated_at);
+            }
+          }
+        } catch (e) {}
       }
     });
 
@@ -4635,15 +4807,8 @@
 
       const primaryFixedTime = fixedSchedules[0]?.time || boss.fixedTime || "18:00";
 
-      let diedAtVal = Number(boss.diedAt) || null;
-      let respawnsAtVal = Number(boss.respawnsAt) || null;
-      if (isFixed) {
-        if (diedAtVal) {
-          respawnsAtVal = getNextFixedSpawnTime({ spawnMode: "fixed", fixedSchedules }, diedAtVal);
-        } else {
-          respawnsAtVal = null;
-        }
-      }
+      let diedAtVal = typeof boss.diedAt === "number" && boss.diedAt > 0 ? boss.diedAt : null;
+      let respawnsAtVal = typeof boss.respawnsAt === "number" && boss.respawnsAt > 0 ? boss.respawnsAt : null;
 
       return {
         id: boss.id || makeId(),
@@ -4663,7 +4828,7 @@
       };
     }
 
-    function getNextFixedSpawnTime(boss, now = Date.now()) {
+    function getNextFixedSpawnTime(boss, now = getNow()) {
       if (boss.spawnMode !== "fixed") return null;
       const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
         ? boss.fixedSchedules
@@ -4692,8 +4857,37 @@
       return Math.min(...candidates);
     }
 
+    function getPreviousFixedSpawnTime(boss, now = getNow()) {
+      if (boss.spawnMode !== "fixed") return null;
+      const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
+        ? boss.fixedSchedules
+        : [{ day: "all", time: boss.fixedTime || "18:00" }];
+
+      const candidates = [];
+      const nowDate = new Date(now);
+
+      schedules.forEach(slot => {
+        const parts = (slot.time || "18:00").split(":").map(Number);
+        if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+        const [h, m] = parts;
+
+        const targetDays = slot.day === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(slot.day)];
+
+        for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+          const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - dayOffset, h, m, 0, 0);
+          if (targetDays.includes(d.getDay()) && d.getTime() <= now) {
+            candidates.push(d.getTime());
+            break;
+          }
+        }
+      });
+
+      if (!candidates.length) return null;
+      return Math.max(...candidates);
+    }
+
     function makeId() {
-      return "boss_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-5);
+      return "boss_" + Math.random().toString(36).slice(2, 9) + getNow().toString(36).slice(-5);
     }
 
     function clamp(value, min, max) {
@@ -4710,7 +4904,7 @@
       }[char]));
     }
 
-    function getBossStatus(boss, now = Date.now()) {
+    function getBossStatus(boss, now = getNow()) {
       const nextTime = getNextBossEventTime(boss, now);
       if (!nextTime || now >= nextTime) return "alive";
       const remaining = nextTime - now;
@@ -4718,32 +4912,42 @@
       return "respawning";
     }
 
-    function getProgress(boss, now = Date.now()) {
+    function getProgress(boss, now = getNow()) {
       const nextTime = getNextBossEventTime(boss, now);
       if (!nextTime || now >= nextTime) return 100;
-      const intervalMs = boss.spawnMode === "fixed"
-        ? Math.max(1, (nextTime || now) - (Number(boss.diedAt) || now))
-        : (boss.respawnMinutes || 30) * 60 * 1000;
+      const intervalMs = boss.spawnMode === "fixed" ? 24 * 60 * 60 * 1000 : (boss.respawnMinutes || 30) * 60 * 1000;
       const remaining = nextTime - now;
       const elapsed = Math.max(0, intervalMs - remaining);
       return clamp(Math.round((elapsed / intervalMs) * 100), 0, 100);
     }
 
-    function getRemaining(boss, now = Date.now()) {
+    function getRemaining(boss, now = getNow()) {
       const nextTime = getNextBossEventTime(boss, now);
       if (!nextTime || now >= nextTime) return 0;
       return Math.max(0, nextTime - now);
     }
 
-    function getNextBossEventTime(boss, now = Date.now()) {
-      // Chỉ boss đang CHẾT mới có countdown. Boss sống luôn hiển thị READY.
-      if (!boss.diedAt) return null;
-      if (boss.respawnsAt && boss.respawnsAt > now) return boss.respawnsAt;
+    function getNextBossEventTime(boss, now = getNow()) {
       if (boss.spawnMode === "fixed") {
+        // Chưa ghi nhận chết lần nào → boss đang SỐNG (READY)
+        if (!boss.diedAt) return null;
+
+        const prevSlot = getPreviousFixedSpawnTime(boss, now);
+
+        // Nếu boss chết TRƯỚC mốc hồi sinh cố định gần nhất → mốc đó đã qua → boss đang SỐNG
+        if (prevSlot && boss.diedAt < prevSlot) {
+          return null;
+        }
+
+        // Boss chết SAU hoặc ĐÚNG mốc hồi sinh gần nhất → đang đếm ngược đến mốc kế tiếp
         return getNextFixedSpawnTime(boss, boss.diedAt);
       }
-      const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
-      return boss.diedAt + intervalMs;
+
+      // Boss theo chu kỳ: chỉ countdown nếu có diedAt và respawnsAt trong tương lai
+      if (boss.diedAt && boss.respawnsAt && boss.respawnsAt > now) {
+        return boss.respawnsAt;
+      }
+      return null;
     }
 
     function formatSpawnLabel(boss) {
@@ -4826,7 +5030,7 @@
       return isEn ? `${minutes} mins` : `${minutes} phút`;
     }
 
-    function formatSmartRespawnDate(time, now = Date.now()) {
+    function formatSmartRespawnDate(time, now = getNow()) {
       if (!time) return "--:--";
       const target = new Date(time);
       const nowDate = new Date(now);
@@ -4860,7 +5064,7 @@
 
 
 
-    function historyItem(type, boss, time = Date.now()) {
+    function historyItem(type, boss, time = getNow()) {
       return {
         id: "history_" + Math.random().toString(36).slice(2, 9),
         type,
@@ -4868,18 +5072,17 @@
         bossName: boss.name,
         map: boss.map,
         time,
-        adminUsername: currentAdmin?.username || "system",
-        adminName: currentAdmin ? currentAdminName() : "Hệ thống"
+        adminName: isAdmin() ? currentAdminName : null
       };
     }
 
-    function pushHistory(type, boss, time = Date.now()) {
+    function pushHistory(type, boss, time = getNow()) {
       state.history.unshift(historyItem(type, boss, time));
-      state.history = state.history.slice(0, MAX_HISTORY_ITEMS);
+      state.history = state.history.slice(0, 80);
     }
 
     function autoResolveRespawns() {
-      const now = Date.now();
+      const now = getNow();
       let changed = false;
 
       state.bosses.forEach((boss) => {
@@ -4912,11 +5115,7 @@
       });
 
       if (changed) {
-        if (isAdmin()) {
-          saveState();
-        } else {
-          saveStateLocal();
-        }
+        saveState();
         const isEn = currentLang === "en";
         showToast(isEn ? "A boss has respawned. Timeline updated." : "Có boss vừa hồi sinh. Timeline đã được cập nhật.");
       }
@@ -4924,7 +5123,7 @@
 
     function render() {
       autoResolveRespawns();
-      const now = Date.now();
+      const now = getNow();
       updateRoleUI();
       updateSoundUI();
       checkBossSoundAlerts(now);
@@ -5379,28 +5578,22 @@
         const displayName = isAll ? (isEn ? "⚡ ALL BOSSES" : "⚡ TẤT CẢ BOSS") : item.bossName;
         const title = isDeath
           ? (isEn ? `${displayName} died` : `${displayName} đã chết`)
-          : item.type === "edit"
-            ? (isEn ? `${displayName} was edited` : `${displayName} đã được chỉnh sửa`)
-            : item.type === "add"
-              ? (isEn ? `${displayName} was added` : `${displayName} đã được thêm`)
-              : item.type === "delete"
-                ? (isEn ? `${displayName} was deleted` : `${displayName} đã bị xóa`)
-                : (isEn ? `${displayName} respawned` : `${displayName} đã hồi sinh`);
+          : (isEn ? `${displayName} respawned` : `${displayName} đã hồi sinh`);
         const mapName = isAll ? (isEn ? "Server Maintenance Complete" : "Bảo trì Server xong") : (item.map || (isEn ? "No map set" : "Chưa đặt map"));
-        const detail = isDeath
-          ? `${mapName} · ${isEn ? "Countdown started" : "Bắt đầu countdown"}`
-          : item.type === "edit" ? `${mapName} · ${isEn ? "Information updated" : "Cập nhật thông tin"}`
-          : item.type === "add" ? `${mapName} · ${isEn ? "Added to tracker" : "Thêm vào hệ thống"}`
-          : item.type === "delete" ? `${mapName} · ${isEn ? "Removed from tracker" : "Xóa khỏi hệ thống"}`
-          : `${mapName} · ${isEn ? "Ready to spawn" : "Sẵn sàng xuất hiện lại"}`;
-        const actor = item.adminName ? `<div class="audit-by">👤 ${escapeHtml(item.adminName)}</div>` : "";
+        const detail = `${mapName} · ${isDeath ? (isEn ? "Countdown started" : "Bắt đầu countdown") : (isEn ? "Ready to spawn" : "Sẵn sàng xuất hiện lại")}`;
+        const adminBadge = item.adminName
+          ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;font-size:11px;color:var(--violet);font-weight:700;">
+               <svg viewBox="0 0 24 24" fill="none" width="11" height="11"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+               ${escapeHtml(item.adminName)}
+             </span>`
+          : "";
         return `
           <article class="history-item">
             <div class="history-icon" style="color:${isDeath ? "var(--red)" : "var(--green)"}">${icon}</div>
-            <div>
+            <div style="min-width:0;flex:1;">
               <div class="history-title">${escapeHtml(title)}</div>
               <div class="history-detail">${escapeHtml(detail)}</div>
-              ${actor}
+              ${adminBadge}
             </div>
             <div class="history-time">${formatShortDate(item.time)}</div>
           </article>
@@ -5580,7 +5773,7 @@
         let badgeText = isEn ? "• ALIVE" : "• ĐANG SỐNG";
         if (remaining > SOON_LIMIT_MS) {
           badgeClass = "badge-waiting";
-          badgeText = isEn ? "• COUNTING DOWN" : "• ĐANG COUNTDOWN";
+          badgeText = isEn ? "• COUNTING DOWN" : "• ĐANG HỒI SINH";
         } else if (remaining > 0) {
           badgeClass = "badge-soon";
           badgeText = isEn ? "• SPAWNING SOON" : "• SẮP HỒI SINH";
@@ -5833,7 +6026,7 @@
         let statusText = "Đang sống";
         let statusBadgeClass = "status-alive";
         if (remaining > SOON_LIMIT_MS) {
-          statusText = "Đang countdown";
+          statusText = "Đang hồi sinh";
           statusBadgeClass = "status-respawning";
         } else if (remaining > 0) {
           statusText = "Sắp hồi sinh";
@@ -5880,7 +6073,7 @@
     }
     body {
       background: #ffffff;
-      color: #0f172a;
+      color: #0c2461;
       padding: 24px;
       font-size: 12.5px;
       line-height: 1.45;
@@ -5890,7 +6083,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 16px;
-      background: #0f172a;
+      background: #0c2461;
       color: #ffffff;
       border-radius: 6px;
       margin-bottom: 20px;
@@ -5924,7 +6117,7 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 2px solid #0f172a;
+      border-bottom: 2px solid #0c2461;
       padding-bottom: 12px;
       margin-bottom: 14px;
     }
@@ -5945,7 +6138,7 @@
       font-size: 11.5px;
     }
     th {
-      background: #0f172a;
+      background: #0c2461;
       color: #ffffff;
       padding: 8px 10px;
       text-align: left;
@@ -5957,11 +6150,11 @@
     td {
       padding: 7px 10px;
       border-bottom: 1px solid #e2e8f0;
-      color: #1e293b;
+      color: #0c2461;
       vertical-align: middle;
     }
     tr:nth-child(even) td { background: #f8fafc; }
-    .time-col { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; color: #0f172a; text-align: center; }
+    .time-col { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; color: #0c2461; text-align: center; }
     .level-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
     .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
     .status-alive { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
@@ -5992,7 +6185,7 @@
 
   <div class="report-header">
     <div>
-      <div style="font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.4px;">BOSS TIMELINE PRO</div>
+      <div style="font-size:20px; font-weight:800; color:#0c2461; letter-spacing:-0.4px;">BOSS TIMELINE PRO</div>
       <div style="font-size:11px; color:#64748b; margin-top:2px;">Hệ thống theo dõi & quản lý lịch xuất hiện Boss</div>
     </div>
     <div style="text-align:right; font-size:11px; color:#475569; line-height:1.6;">
@@ -6003,10 +6196,10 @@
 
   <div class="report-title-box">
     <div>
-      <div style="font-size:15px; font-weight:800; color:#0f172a;">${filterTitle}</div>
+      <div style="font-size:15px; font-weight:800; color:#0c2461;">${filterTitle}</div>
       <div style="font-size:11.5px; color:#64748b; margin-top:2px;">${filterSubDate}</div>
     </div>
-    <div style="font-weight:800; font-size:13px; color:#0f172a;">Tổng lượt xuất hiện: ${counts.total}</div>
+    <div style="font-weight:800; font-size:13px; color:#0c2461;">Tổng lượt xuất hiện: ${counts.total}</div>
   </div>
 
   <table>
@@ -6067,7 +6260,7 @@
         const timeFormatted = formatSmartRespawnDate(eventTime, now).replace(/<[^>]*>/g, "");
         const cycleText = formatSpawnLabel(boss);
         let statusText = "Đang sống";
-        if (remaining > SOON_LIMIT_MS) statusText = "Đang countdown";
+        if (remaining > SOON_LIMIT_MS) statusText = "Đang hồi sinh";
         else if (remaining > 0) statusText = "Sắp hồi sinh";
 
         rows.push([
@@ -6101,54 +6294,122 @@
       });
     }
 
-    async function killBoss(id) {
+    let _pendingKillBossId = null;
+
+    function killBoss(id) {
       const isEn = currentLang === "en";
-      if (!isAdmin()) { showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết."); return; }
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
+        return;
+      }
       const boss = state.bosses.find((item) => item.id === id);
       if (!boss) return;
-      const confirmed = await showConfirmModal({
-        title: isEn ? "Confirm boss death" : "Xác nhận boss chết",
-        subtitle: isEn ? "Please confirm before starting the respawn countdown." : "Kiểm tra thông tin trước khi bắt đầu countdown hồi sinh.",
-        message: `<div style="display:grid;gap:7px"><div><strong>Boss:</strong> ${escapeHtml(boss.name)}</div><div><strong>Level:</strong> ${boss.level || 80}</div><div><strong>Map:</strong> ${escapeHtml(boss.map)}</div><div><strong>Admin:</strong> ${escapeHtml(currentAdminName())}</div></div>`,
-        confirmText: isEn ? "☠️ Confirm boss death" : "☠️ Xác nhận boss chết",
-        cancelText: isEn ? "Cancel" : "Hủy bỏ",
-        isDanger: true
-      });
-      if (!confirmed) return;
-      const now = Date.now();
-      boss.diedAt = now;
-      boss.respawnsAt = boss.spawnMode === "fixed"
-        ? getNextFixedSpawnTime(boss, now)
-        : now + (boss.respawnMinutes || 30) * 60 * 1000;
-      pushHistory("death", boss, now);
-      await saveState();
-      render();
-      showToast(isEn ? `${boss.name} death recorded by ${currentAdminName()}.` : `${boss.name} đã được ghi nhận chết bởi ${currentAdminName()}.`);
+      openKillConfirmPopup(boss);
     }
 
-    async function reviveBoss(id) {
-      const isEn = currentLang === "en";
-      if (!isAdmin()) { showToast(isEn ? "Only Admin can revive bosses." : "Chỉ Admin mới có quyền cho hồi sinh boss."); return; }
+    function openKillConfirmPopup(boss) {
+      _pendingKillBossId = boss.id;
+      const now = getNow();
+      const nowDate = new Date(now);
+      const timeStr = nowDate.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const dateStr = `${String(nowDate.getDate()).padStart(2,"0")}/${String(nowDate.getMonth()+1).padStart(2,"0")}/${nowDate.getFullYear()}`;
+
+      // Calculate respawn time
+      let respawnText = "";
+      if (boss.spawnMode === "fixed") {
+        const nextFixed = getNextFixedSpawnTime(boss, now);
+        if (nextFixed) {
+          const nf = new Date(nextFixed);
+          respawnText = `${nf.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",second:"2-digit"})} ${String(nf.getDate()).padStart(2,"0")}/${String(nf.getMonth()+1).padStart(2,"0")}`;
+        } else {
+          respawnText = "Theo lịch cố định";
+        }
+      } else {
+        const mins = boss.respawnMinutes || 30;
+        const respawnAt = now + mins * 60 * 1000;
+        const ra = new Date(respawnAt);
+        respawnText = `${String(mins)}p (${ra.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",second:"2-digit"})})`;
+      }
+
+      document.getElementById("killConfirmBossName").textContent = boss.name;
+      document.getElementById("killConfirmTime").textContent = `${timeStr}  ${dateStr}`;
+      document.getElementById("killConfirmRespawn").textContent = respawnText;
+      document.getElementById("killConfirmAdmin").textContent = currentAdminName;
+
+      const modal = document.getElementById("killConfirmModal");
+      modal.classList.add("open");
+      syncModalScrollLock();
+      document.getElementById("killConfirmOkBtn").focus();
+    }
+
+    function killBossConfirmed() {
+      const id = _pendingKillBossId;
+      _pendingKillBossId = null;
+      const modal = document.getElementById("killConfirmModal");
+      modal.classList.remove("open");
+      syncModalScrollLock();
+      if (!id) return;
       const boss = state.bosses.find((item) => item.id === id);
       if (!boss) return;
-      const confirmed = await showConfirmModal({
-        title: isEn ? "Confirm manual respawn" : "Xác nhận cho hồi sinh",
-        subtitle: isEn ? "The boss will immediately return to READY state." : "Boss sẽ lập tức trở về trạng thái READY.",
-        message: `<div style="display:grid;gap:7px"><div><strong>Boss:</strong> ${escapeHtml(boss.name)}</div><div><strong>Map:</strong> ${escapeHtml(boss.map)}</div><div><strong>Admin:</strong> ${escapeHtml(currentAdminName())}</div></div>`,
-        confirmText: isEn ? "✓ Revive boss" : "✓ Cho hồi sinh",
-        cancelText: isEn ? "Cancel" : "Hủy bỏ",
-        isDanger: false
-      });
-      if (!confirmed) return;
-      const now = Date.now();
-      // Hồi sinh thủ công: boss sống ngay lập tức, không còn countdown đang chạy.
+      const isEn = currentLang === "en";
+      const now = getNow();
+      boss.diedAt = now;
+      if (boss.spawnMode === "fixed") {
+        boss.respawnsAt = getNextFixedSpawnTime(boss, now);
+      } else {
+        boss.respawnsAt = now + boss.respawnMinutes * 60 * 1000;
+      }
+      pushHistory("death", boss, now);
+      saveState();
+      render();
+      showToast(isEn ? `${boss.name} death recorded. Respawn countdown started.` : `${boss.name} đã bắt đầu countdown hồi sinh.`);
+    }
+
+
+    let _pendingReviveBossId = null;
+
+    function reviveBoss(id) {
+      const isEn = currentLang === "en";
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can revive bosses." : "Chỉ Admin mới có quyền cho hồi sinh boss.");
+        return;
+      }
+      const boss = state.bosses.find((item) => item.id === id);
+      if (!boss) return;
+      openReviveConfirmPopup(boss);
+    }
+
+    function openReviveConfirmPopup(boss) {
+      _pendingReviveBossId = boss.id;
+      const nameEl = document.getElementById("reviveConfirmBossName");
+      const adminEl = document.getElementById("reviveConfirmAdmin");
+      if (nameEl) nameEl.textContent = boss.name;
+      if (adminEl) adminEl.textContent = currentAdminName;
+
+      const modal = document.getElementById("reviveConfirmModal");
+      if (modal) modal.classList.add("open");
+      syncModalScrollLock();
+      document.getElementById("reviveConfirmOkBtn")?.focus();
+    }
+
+    function reviveBossConfirmed() {
+      const id = _pendingReviveBossId;
+      _pendingReviveBossId = null;
+      const modal = document.getElementById("reviveConfirmModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+      if (!id) return;
+      const boss = state.bosses.find((item) => item.id === id);
+      if (!boss) return;
+      const isEn = currentLang === "en";
+      const now = getNow();
+      boss.lastRespawnAt = now;
       boss.diedAt = null;
       boss.respawnsAt = null;
-      boss.lastRespawnAt = now;
       pushHistory("respawn", boss, now);
-      await saveState();
+      saveState();
       render();
-      showToast(isEn ? `${boss.name} revived by ${currentAdminName()}.` : `${boss.name} đã hồi sinh bởi ${currentAdminName()}.`);
+      showToast(isEn ? `${boss.name} revived and marked as alive.` : `${boss.name} đã được chuyển sang trạng thái sống.`);
     }
 
     // ── OFFSET DEATH MODAL ────────────────────────────────────────
@@ -6618,8 +6879,7 @@
         const boss = state.bosses.find((item) => item.id === editingBossId);
         if (boss) {
           Object.assign(boss, normalizeBoss({ ...boss, ...payload }));
-          pushHistory("edit", boss, Date.now());
-          showToast(`Đã cập nhật thông tin boss bởi ${currentAdminName()}.`);
+          showToast("Đã cập nhật thông tin boss.");
         }
       } else {
         const newBoss = normalizeBoss({
@@ -6630,8 +6890,7 @@
           lastRespawnAt: null
         });
         state.bosses.unshift(newBoss);
-        pushHistory("add", newBoss, Date.now());
-        showToast(`Đã thêm boss mới bởi ${currentAdminName()}.`);
+        showToast("Đã thêm boss mới.");
       }
 
       saveState();
@@ -6687,25 +6946,6 @@
       });
     }
 
-    function openAdminManager() {
-      if (!isAdmin()) return;
-      ensureAdminAccounts();
-      renderAdminManager();
-      elements.adminManagerModal.classList.add("open");
-      syncModalScrollLock();
-    }
-    function closeAdminManager() {
-      elements.adminManagerModal.classList.remove("open");
-      syncModalScrollLock();
-    }
-    function renderAdminManager() {
-      elements.adminManagerList.innerHTML = state.admins.map((a) => `
-        <div class="admin-user-row">
-          <div class="admin-user-main"><div class="admin-user-name">${escapeHtml(a.displayName)} ${a.username === currentAdmin?.username ? "· Bạn" : ""}</div><div class="admin-user-meta">@${escapeHtml(a.username)}</div></div>
-          ${state.admins.length > 1 && a.username !== currentAdmin?.username ? `<button type="button" class="button-danger" data-remove-admin="${escapeHtml(a.username)}">Xóa</button>` : ""}
-        </div>`).join("");
-    }
-
     async function deleteActiveBoss() {
       const isEn = currentLang === "en";
       if (!isAdmin()) {
@@ -6729,7 +6969,6 @@
       if (!confirmed) return;
 
       state.bosses = state.bosses.filter((item) => item.id !== editingBossId);
-      pushHistory("delete", boss, Date.now());
       saveState();
       closeModal();
       render();
@@ -6755,7 +6994,7 @@
       });
       if (!confirmed) return;
 
-      const now = Date.now();
+      const now = getNow();
       state.bosses.forEach((boss) => {
         boss.diedAt = null;
         boss.respawnsAt = null;
@@ -6768,11 +7007,9 @@
         bossId: "all",
         bossName: isEn ? "⚡ ALL BOSSES" : "⚡ TẤT CẢ BOSS",
         map: isEn ? "Server Maintenance Complete" : "Bảo trì Server xong",
-        time: now,
-        adminUsername: currentAdmin?.username || "system",
-        adminName: currentAdminName()
+        time: now
       });
-      state.history = state.history.slice(0, MAX_HISTORY_ITEMS);
+      state.history = state.history.slice(0, 80);
 
       saveState();
       render();
@@ -6871,63 +7108,324 @@
     elements.adminPasswordInput.addEventListener("input", () => {
       elements.adminLoginError.style.display = "none";
     });
-    elements.adminLoginForm.addEventListener("submit", async (event) => {
+    elements.adminLoginForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      ensureAdminAccounts();
-      const username = elements.adminUsernameInput.value.trim().toLowerCase();
-      const passwordHash = await hashText(elements.adminPasswordInput.value);
-      const account = state.admins.find(a => a.username.toLowerCase() === username && a.passwordHash === passwordHash);
-      if (account) {
-        setRole("admin", { username: account.username, displayName: account.displayName });
+      const nameSelect = document.getElementById("adminNameSelect");
+      const selectedName = nameSelect ? nameSelect.value : SUPER_ADMIN_NAME;
+      const enteredPass = elements.adminPasswordInput.value;
+
+      const res = verifyAdmin(selectedName, enteredPass);
+      if (res.ok) {
+        setRole("admin", selectedName);
         closeAuthModal();
-        elements.adminUsernameInput.value = "";
-        elements.adminPasswordInput.value = "";
         return;
       }
-      elements.adminLoginError.style.display = "flex";
+      const errEl = elements.adminLoginError;
+      if (errEl) {
+        errEl.querySelector("span").textContent = res.error || "Mật khẩu không chính xác.";
+        errEl.style.display = "flex";
+      }
       elements.adminPasswordInput.select();
       elements.adminPasswordInput.focus();
     });
 
-    // Admin account manager — bind once after all DOM elements exist.
-    elements.manageAdminsBtn?.addEventListener("click", openAdminManager);
-    elements.adminManagerCloseBtn?.addEventListener("click", closeAdminManager);
-    elements.adminManagerModal?.addEventListener("click", (e) => {
-      if (e.target === elements.adminManagerModal) closeAdminManager();
+    document.getElementById("gotoRegisterBtn")?.addEventListener("click", () => {
+      showAuthStep("register");
     });
-    elements.adminManagerList?.addEventListener("click", async (e) => {
-      const btn = e.target.closest("[data-remove-admin]");
-      if (!btn || !isAdmin()) return;
-      const username = btn.dataset.removeAdmin;
-      const account = state.admins.find(a => a.username === username);
-      if (!account) return;
-      const ok = await showConfirmModal({
-        title: "Xóa tài khoản Admin?",
-        subtitle: `Xóa @${username} khỏi hệ thống.`,
-        message: `Tài khoản <strong>${escapeHtml(account.displayName)}</strong> sẽ không thể đăng nhập nữa.`,
-        confirmText: "Xóa tài khoản", cancelText: "Hủy", isDanger: true
-      });
-      if (!ok) return;
-      state.admins = state.admins.filter(a => a.username !== username);
-      await saveState();
-      renderAdminManager();
+
+    document.getElementById("regBackBtn")?.addEventListener("click", () => {
+      showAuthStep("admin");
     });
-    elements.adminManagerForm?.addEventListener("submit", async (e) => {
+
+    document.getElementById("adminRegForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
-      if (!isAdmin()) return;
-      ensureAdminAccounts();
-      const username = elements.newAdminUsername.value.trim().toLowerCase();
-      const displayName = elements.newAdminName.value.trim();
-      const password = elements.newAdminPassword.value;
-      if (!/^[a-z0-9_.-]+$/.test(username)) { showToast("Username chỉ được dùng chữ, số, ., _, -"); return; }
-      if (!displayName) { showToast("Vui lòng nhập tên hiển thị."); return; }
-      if (password.length < 4) { showToast("Mật khẩu phải có ít nhất 4 ký tự."); return; }
-      if (state.admins.some(a => a.username.toLowerCase() === username)) { showToast("Username này đã tồn tại."); return; }
-      state.admins.push({ username, displayName, passwordHash: await hashText(password) });
-      await saveState();
-      e.target.reset();
-      renderAdminManager();
-      showToast(`Đã tạo ${displayName} (${username}).`);
+      const nameInput = document.getElementById("regAdminName");
+      const passInput = document.getElementById("regAdminPass");
+      const noteInput = document.getElementById("regAdminNote");
+      const errEl = document.getElementById("regAdminError");
+
+      const name = nameInput.value.trim();
+      const pass = passInput.value.trim();
+      const note = noteInput ? noteInput.value.trim() : "";
+
+      if (!name || !pass) {
+        if (errEl) {
+          errEl.textContent = "Vui lòng nhập Tên Admin và Mật khẩu.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (name === SUPER_ADMIN_NAME) {
+        if (errEl) {
+          errEl.textContent = "Tên này trùng với Super Admin.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      const accounts = getAdminAccounts();
+      if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+        if (errEl) {
+          errEl.textContent = "Tên Admin này đã được sử dụng hoặc đang chờ duyệt.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      accounts.push({
+        name,
+        password: pass,
+        note,
+        status: "pending",
+        createdAt: Date.now()
+      });
+      saveAdminAccounts(accounts);
+      if (errEl) errEl.style.display = "none";
+      nameInput.value = "";
+      passInput.value = "";
+      if (noteInput) noteInput.value = "";
+
+      showToast(`⏳ Đã gửi yêu cầu đăng ký tài khoản [${name}]! Vui lòng liên hệ Super Admin phê duyệt.`);
+      showAuthStep("admin");
+    });
+
+    // ── Kill Confirm Modal Listeners ──
+    document.getElementById("killConfirmOkBtn")?.addEventListener("click", () => {
+      killBossConfirmed();
+    });
+    document.getElementById("killConfirmCancelBtn")?.addEventListener("click", () => {
+      const modal = document.getElementById("killConfirmModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+      _pendingKillBossId = null;
+    });
+
+    // ── Revive Confirm Modal Listeners ──
+    document.getElementById("reviveConfirmOkBtn")?.addEventListener("click", () => {
+      reviveBossConfirmed();
+    });
+    document.getElementById("reviveConfirmCancelBtn")?.addEventListener("click", () => {
+      const modal = document.getElementById("reviveConfirmModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+      _pendingReviveBossId = null;
+    });
+
+    // ── Admin Account Manager Logic ──
+    function renderAdminAccList() {
+      const containerActive = document.getElementById("adminAccList");
+      const containerPending = document.getElementById("adminPendingList");
+      const pendingSection = document.getElementById("adminPendingSection");
+      const badgeCount = document.getElementById("pendingBadgeCount");
+      if (!containerActive || !containerPending) return;
+
+      const accounts = getAdminAccounts();
+      const pendingAccs = accounts.filter(a => a.status === "pending");
+      const approvedAccs = accounts.filter(a => a.status === "approved");
+
+      // Pending Section
+      if (pendingAccs.length > 0) {
+        if (pendingSection) pendingSection.style.display = "block";
+        if (badgeCount) badgeCount.textContent = pendingAccs.length;
+
+        containerPending.innerHTML = pendingAccs.map((acc) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--amber-soft);border:1px solid rgba(245,158,11,0.4);border-radius:6px;margin-bottom:8px;gap:10px;">
+            <div style="min-width:0;flex:1;">
+              <strong style="font-size:14px;color:var(--amber);">${escapeHtml(acc.name)}</strong>
+              ${acc.note ? `<span style="display:block;font-size:12px;color:var(--text-2);margin-top:2px;">💬 ${escapeHtml(acc.note)}</span>` : ""}
+              <span style="display:block;font-size:11px;color:var(--muted);margin-top:2px;">⏱️ Gửi lúc ${formatShortDate(acc.createdAt || Date.now())}</span>
+            </div>
+            <div style="display:flex;gap:6px;flex:0 0 auto;">
+              <button type="button" class="button-primary" data-approve-acc-name="${escapeHtml(acc.name)}" style="padding:5px 12px;font-size:12px;background:var(--green);border-color:var(--green);display:inline-flex;align-items:center;gap:4px;">
+                <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+                Phê duyệt
+              </button>
+              <button type="button" class="button-danger" data-reject-acc-name="${escapeHtml(acc.name)}" style="padding:5px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+                Xóa
+              </button>
+            </div>
+          </div>
+        `).join("");
+      } else {
+        if (pendingSection) pendingSection.style.display = "none";
+        containerPending.innerHTML = "";
+      }
+
+      // Active Section
+      let activeHtml = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:6px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:16px;">👑</span>
+            <div>
+              <strong style="font-size:14px;color:var(--text);">${escapeHtml(SUPER_ADMIN_NAME)}</strong>
+              <span style="display:block;font-size:11px;color:var(--muted);">Tài khoản Quản trị tối cao (Mặc định)</span>
+            </div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:var(--cyan);background:var(--cyan-soft);padding:3px 8px;border-radius:4px;">Cố định</span>
+        </div>
+      `;
+
+      if (!approvedAccs.length) {
+        activeHtml += `<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px;">Chưa có tài khoản Admin phụ nào được phê duyệt.</div>`;
+      } else {
+        activeHtml += approvedAccs.map((acc) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:6px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:16px;">👤</span>
+              <div>
+                <strong style="font-size:14px;color:var(--text);">${escapeHtml(acc.name)}</strong>
+                <span style="display:block;font-size:11px;color:var(--green);font-weight:600;">✓ Đã phê duyệt</span>
+              </div>
+            </div>
+            <button type="button" class="button-danger" data-reject-acc-name="${escapeHtml(acc.name)}" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+              <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M3 6h18M8 6V4h8v2m-1 4v8M9 10v8M5 6l1 15h12l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Thu hồi / Xóa
+            </button>
+          </div>
+        `).join("");
+      }
+
+      containerActive.innerHTML = activeHtml;
+    }
+
+    function isSuperAdmin() {
+      return isAdmin() && currentAdminName === SUPER_ADMIN_NAME;
+    }
+
+    function openAdminAccModal() {
+      renderAdminAccList();
+      const errEl = document.getElementById("addAdminAccError");
+      if (errEl) errEl.style.display = "none";
+      const nameInput = document.getElementById("newAdminName");
+      const passInput = document.getElementById("newAdminPass");
+      if (nameInput) nameInput.value = "";
+      if (passInput) passInput.value = "";
+      const modal = document.getElementById("adminAccountModal");
+      if (modal) modal.classList.add("open");
+      syncModalScrollLock();
+    }
+
+    function openSuperAdminAuthModal() {
+      const input = document.getElementById("saPasswordInput");
+      const err = document.getElementById("saAuthError");
+      if (input) input.value = "";
+      if (err) err.style.display = "none";
+      const modal = document.getElementById("superAdminAuthModal");
+      if (modal) modal.classList.add("open");
+      syncModalScrollLock();
+      if (input) input.focus();
+    }
+
+    document.getElementById("saAuthCancelBtn")?.addEventListener("click", () => {
+      const modal = document.getElementById("superAdminAuthModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+    });
+
+    document.getElementById("saAuthForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("saPasswordInput");
+      const err = document.getElementById("saAuthError");
+      if (!input) return;
+
+      if (input.value === SUPER_ADMIN_PASSWORD) {
+        const saModal = document.getElementById("superAdminAuthModal");
+        if (saModal) saModal.classList.remove("open");
+        syncModalScrollLock();
+        if (err) err.style.display = "none";
+        openAdminAccModal();
+      } else {
+        if (err) err.style.display = "block";
+        input.select();
+        input.focus();
+      }
+    });
+
+    document.getElementById("manageAdminAccBtn")?.addEventListener("click", () => {
+      if (isSuperAdmin()) {
+        openAdminAccModal();
+      } else {
+        openSuperAdminAuthModal();
+      }
+    });
+
+    document.getElementById("closeAdminAccModal")?.addEventListener("click", () => {
+      const modal = document.getElementById("adminAccountModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+      populateAdminNameDropdown();
+    });
+
+    document.getElementById("addAdminAccBtn")?.addEventListener("click", () => {
+      const nameInput = document.getElementById("newAdminName");
+      const passInput = document.getElementById("newAdminPass");
+      const errEl = document.getElementById("addAdminAccError");
+      if (!nameInput || !passInput) return;
+
+      const name = nameInput.value.trim();
+      const pass = passInput.value.trim();
+
+      if (!name || !pass) {
+        if (errEl) {
+          errEl.textContent = "Vui lòng nhập đầy đủ Tên Admin và Mật khẩu.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (name === SUPER_ADMIN_NAME) {
+        if (errEl) {
+          errEl.textContent = "Tên tài khoản này trùng với Super Admin.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      const accounts = getAdminAccounts();
+      if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+        if (errEl) {
+          errEl.textContent = "Tên Admin này đã tồn tại.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      accounts.push({ name, password: pass, status: "approved", createdAt: Date.now() });
+      saveAdminAccounts(accounts);
+      if (errEl) errEl.style.display = "none";
+      nameInput.value = "";
+      passInput.value = "";
+      renderAdminAccList();
+      populateAdminNameDropdown();
+      showToast(`Đã tạo và phê duyệt thành công tài khoản Admin: ${name}`);
+    });
+
+    document.getElementById("adminAccountModal")?.addEventListener("click", (e) => {
+      const approveBtn = e.target.closest("[data-approve-acc-name]");
+      const rejectBtn = e.target.closest("[data-reject-acc-name]");
+      if (!approveBtn && !rejectBtn) return;
+
+      const accounts = getAdminAccounts();
+
+      if (approveBtn) {
+        const name = approveBtn.dataset.approveAccName;
+        const target = accounts.find(a => a.name === name);
+        if (target) {
+          target.status = "approved";
+          saveAdminAccounts(accounts);
+          renderAdminAccList();
+          populateAdminNameDropdown();
+          showToast(`🟢 Đã phê duyệt tài khoản Admin [${name}] thành công!`);
+        }
+      } else if (rejectBtn) {
+        const name = rejectBtn.dataset.rejectAccName;
+        const filtered = accounts.filter(a => a.name !== name);
+        saveAdminAccounts(filtered);
+        renderAdminAccList();
+        populateAdminNameDropdown();
+        showToast(`🗑️ Đã xóa / từ chối tài khoản Admin [${name}].`);
+      }
     });
 
     document.querySelectorAll(".spawn-mode-option").forEach((opt) => {
@@ -7125,7 +7623,6 @@
           document.getElementById("confirmModalCancelBtn")?.click();
           return;
         }
-        if (elements.adminManagerModal?.classList.contains("open")) { closeAdminManager(); return; }
         if (elements.modal.classList.contains("open")) closeModal();
         if (elements.authModal.classList.contains("open")) enterMemberMode();
       }
