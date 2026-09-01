@@ -5064,7 +5064,7 @@
 
 
 
-    function historyItem(type, boss, time = getNow()) {
+    function historyItem(type, boss, time = getNow(), source = null) {
       return {
         id: "history_" + Math.random().toString(36).slice(2, 9),
         type,
@@ -5072,13 +5072,27 @@
         bossName: boss.name,
         map: boss.map,
         time,
+        source,
         adminName: isAdmin() ? currentAdminName : null
       };
     }
 
-    function pushHistory(type, boss, time = getNow()) {
-      state.history.unshift(historyItem(type, boss, time));
+    function pushHistory(type, boss, time = getNow(), source = null) {
+      state.history.unshift(historyItem(type, boss, time, source));
       state.history = state.history.slice(0, 80);
+    }
+
+    // Một luồng hồi sinh dùng chung cho cả Admin và countdown tự động.
+    // Không chặn Admin hồi sinh theo countdown: Admin có thể chủ động xác nhận
+    // theo giờ thực tế đã được note.
+    function performRespawn(boss, time = getNow(), source = "manual") {
+      if (!boss) return false;
+
+      boss.lastRespawnAt = time;
+      boss.diedAt = null;
+      boss.respawnsAt = null;
+      pushHistory("respawn", boss, time, source);
+      return true;
     }
 
     function autoResolveRespawns() {
@@ -5090,10 +5104,7 @@
           if (boss.diedAt) {
             const nextTime = getNextFixedSpawnTime(boss, boss.diedAt);
             if (nextTime && nextTime <= now) {
-              boss.lastRespawnAt = nextTime;
-              boss.diedAt = null;
-              boss.respawnsAt = null;
-              pushHistory("respawn", boss, nextTime);
+              performRespawn(boss, nextTime, "automatic");
               changed = true;
             } else if (boss.respawnsAt !== nextTime) {
               boss.respawnsAt = nextTime;
@@ -5105,10 +5116,7 @@
           }
         } else {
           if (boss.diedAt && boss.respawnsAt && boss.respawnsAt <= now) {
-            boss.lastRespawnAt = boss.respawnsAt;
-            boss.diedAt = null;
-            boss.respawnsAt = null;
-            pushHistory("respawn", boss, boss.lastRespawnAt);
+            performRespawn(boss, boss.respawnsAt, "automatic");
             changed = true;
           }
         }
@@ -5580,7 +5588,12 @@
           ? (isEn ? `${displayName} died` : `${displayName} đã chết`)
           : (isEn ? `${displayName} respawned` : `${displayName} đã hồi sinh`);
         const mapName = isAll ? (isEn ? "Server Maintenance Complete" : "Bảo trì Server xong") : (item.map || (isEn ? "No map set" : "Chưa đặt map"));
-        const detail = `${mapName} · ${isDeath ? (isEn ? "Countdown started" : "Bắt đầu countdown") : (isEn ? "Ready to spawn" : "Sẵn sàng xuất hiện lại")}`;
+        const respawnSource = item.source === "manual"
+          ? (isEn ? "Admin manual revive" : "Admin cho hồi sinh")
+          : item.source === "automatic"
+            ? (isEn ? "Automatic respawn" : "Tự động hồi sinh")
+            : (isEn ? "Ready to spawn" : "Sẵn sàng xuất hiện lại");
+        const detail = `${mapName} · ${isDeath ? (isEn ? "Countdown started" : "Bắt đầu countdown") : respawnSource}`;
         const adminBadge = item.adminName
           ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;font-size:11px;color:var(--violet);font-weight:700;">
                <svg viewBox="0 0 24 24" fill="none" width="11" height="11"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -6403,13 +6416,13 @@
       if (!boss) return;
       const isEn = currentLang === "en";
       const now = getNow();
-      boss.lastRespawnAt = now;
-      boss.diedAt = null;
-      boss.respawnsAt = null;
-      pushHistory("respawn", boss, now);
+
+      // Manual revive luôn được phép theo thao tác thực tế của Admin.
+      // Không yêu cầu countdown còn đang chạy hoặc khớp thời gian note.
+      performRespawn(boss, now, "manual");
       saveState();
       render();
-      showToast(isEn ? `${boss.name} revived and marked as alive.` : `${boss.name} đã được chuyển sang trạng thái sống.`);
+      showToast(isEn ? `${boss.name} revived and marked as alive. Timeline updated.` : `${boss.name} đã được chuyển sang trạng thái sống và cập nhật ghi nhận.`);
     }
 
     // ── OFFSET DEATH MODAL ────────────────────────────────────────
