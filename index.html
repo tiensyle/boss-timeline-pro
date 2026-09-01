@@ -4807,15 +4807,8 @@
 
       const primaryFixedTime = fixedSchedules[0]?.time || boss.fixedTime || "18:00";
 
-      let diedAtVal = Number(boss.diedAt) || null;
-      let respawnsAtVal = Number(boss.respawnsAt) || null;
-      if (isFixed) {
-        if (diedAtVal) {
-          respawnsAtVal = getNextFixedSpawnTime({ spawnMode: "fixed", fixedSchedules }, diedAtVal);
-        } else {
-          respawnsAtVal = null;
-        }
-      }
+      let diedAtVal = typeof boss.diedAt === "number" && boss.diedAt > 0 ? boss.diedAt : null;
+      let respawnsAtVal = typeof boss.respawnsAt === "number" && boss.respawnsAt > 0 ? boss.respawnsAt : null;
 
       return {
         id: boss.id || makeId(),
@@ -4864,6 +4857,35 @@
       return Math.min(...candidates);
     }
 
+    function getPreviousFixedSpawnTime(boss, now = getNow()) {
+      if (boss.spawnMode !== "fixed") return null;
+      const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
+        ? boss.fixedSchedules
+        : [{ day: "all", time: boss.fixedTime || "18:00" }];
+
+      const candidates = [];
+      const nowDate = new Date(now);
+
+      schedules.forEach(slot => {
+        const parts = (slot.time || "18:00").split(":").map(Number);
+        if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+        const [h, m] = parts;
+
+        const targetDays = slot.day === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(slot.day)];
+
+        for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+          const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - dayOffset, h, m, 0, 0);
+          if (targetDays.includes(d.getDay()) && d.getTime() <= now) {
+            candidates.push(d.getTime());
+            break;
+          }
+        }
+      });
+
+      if (!candidates.length) return null;
+      return Math.max(...candidates);
+    }
+
     function makeId() {
       return "boss_" + Math.random().toString(36).slice(2, 9) + getNow().toString(36).slice(-5);
     }
@@ -4907,9 +4929,15 @@
 
     function getNextBossEventTime(boss, now = getNow()) {
       if (boss.spawnMode === "fixed") {
-        if (!boss.diedAt) return null;
-        return getNextFixedSpawnTime(boss, boss.diedAt || now);
+        const prevSlot = getPreviousFixedSpawnTime(boss, now);
+        const nextSlot = getNextFixedSpawnTime(boss, now);
+        // Nếu vừa tới khung giờ spawn (trong vòng 30 phút sau prevSlot) và chưa bấm ghi nhận chết:
+        if (prevSlot && (now - prevSlot <= 30 * 60 * 1000) && (!boss.diedAt || boss.diedAt < prevSlot)) {
+          return null; // Boss đang SỐNG (READY 100%)
+        }
+        return nextSlot;
       }
+
       if (boss.diedAt && boss.respawnsAt && boss.respawnsAt > now) {
         return boss.respawnsAt;
       }
