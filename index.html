@@ -4507,11 +4507,25 @@
     }
 
 
+    let serverTimeOffset = 0;
+
+    function updateServerTimeOffset(serverIsoString) {
+      if (!serverIsoString) return;
+      const serverMs = new Date(serverIsoString).getTime();
+      if (!isNaN(serverMs) && serverMs > 0) {
+        serverTimeOffset = serverMs - Date.now();
+      }
+    }
+
+    function getNow() {
+      return Date.now() + serverTimeOffset;
+    }
+
     let lastLocalEditTime = 0;
 
     async function saveState() {
       // Luôn giữ local cache để app vẫn mở được khi mất mạng.
-      lastLocalEditTime = Date.now();
+      lastLocalEditTime = getNow();
       saveStateLocal();
       if (!REALTIME_ENABLED || !remoteStateReady) return;
 
@@ -4529,13 +4543,13 @@
             bosses: state.bosses.map(normalizeBoss),
             history: state.history.slice(0, 80)
           },
-          updated_at: new Date().toISOString()
+          updated_at: new Date(getNow()).toISOString()
         };
         const { error } = await supabaseClient
           .from("boss_timeline_state")
           .upsert(payload, { onConflict: "id" });
         if (error) throw error;
-        lastRemoteUpdatedAt = Date.now();
+        lastRemoteUpdatedAt = getNow();
       } catch (error) {
         console.error("Supabase save error:", error);
         setRealtimeStatus("offline", "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
@@ -4560,10 +4574,11 @@
     function applyRemoteState(data, updatedAt) {
       if (!data || !Array.isArray(data.bosses)) return;
       if (updatedAt) {
+        updateServerTimeOffset(updatedAt);
         const remoteTime = new Date(updatedAt).getTime();
         // Nếu thay đổi remote cũ hơn thao tác bấm vừa thực hiện tại máy, bỏ qua để tránh ghi đè
         if (remoteTime && remoteTime < lastLocalEditTime - 2000) return;
-        lastRemoteUpdatedAt = remoteTime || Date.now();
+        lastRemoteUpdatedAt = remoteTime || getNow();
       }
       state = {
         bosses: data.bosses.map(normalizeBoss),
@@ -4752,7 +4767,7 @@
       };
     }
 
-    function getNextFixedSpawnTime(boss, now = Date.now()) {
+    function getNextFixedSpawnTime(boss, now = getNow()) {
       if (boss.spawnMode !== "fixed") return null;
       const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
         ? boss.fixedSchedules
@@ -4782,7 +4797,7 @@
     }
 
     function makeId() {
-      return "boss_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-5);
+      return "boss_" + Math.random().toString(36).slice(2, 9) + getNow().toString(36).slice(-5);
     }
 
     function clamp(value, min, max) {
@@ -4799,7 +4814,7 @@
       }[char]));
     }
 
-    function getBossStatus(boss, now = Date.now()) {
+    function getBossStatus(boss, now = getNow()) {
       const nextTime = getNextBossEventTime(boss, now);
       if (!nextTime || now >= nextTime) return "alive";
       const remaining = nextTime - now;
@@ -4807,7 +4822,7 @@
       return "respawning";
     }
 
-    function getProgress(boss, now = Date.now()) {
+    function getProgress(boss, now = getNow()) {
       const nextTime = getNextBossEventTime(boss, now);
       if (!nextTime || now >= nextTime) return 100;
       const intervalMs = boss.spawnMode === "fixed" ? 24 * 60 * 60 * 1000 : (boss.respawnMinutes || 30) * 60 * 1000;
@@ -4816,13 +4831,13 @@
       return clamp(Math.round((elapsed / intervalMs) * 100), 0, 100);
     }
 
-    function getRemaining(boss, now = Date.now()) {
+    function getRemaining(boss, now = getNow()) {
       const nextTime = getNextBossEventTime(boss, now);
       if (!nextTime || now >= nextTime) return 0;
       return Math.max(0, nextTime - now);
     }
 
-    function getNextBossEventTime(boss, now = Date.now()) {
+    function getNextBossEventTime(boss, now = getNow()) {
       if (boss.spawnMode === "fixed") {
         if (!boss.diedAt) return null;
         return getNextFixedSpawnTime(boss, boss.diedAt || now);
@@ -4913,7 +4928,7 @@
       return isEn ? `${minutes} mins` : `${minutes} phút`;
     }
 
-    function formatSmartRespawnDate(time, now = Date.now()) {
+    function formatSmartRespawnDate(time, now = getNow()) {
       if (!time) return "--:--";
       const target = new Date(time);
       const nowDate = new Date(now);
@@ -4947,7 +4962,7 @@
 
 
 
-    function historyItem(type, boss, time = Date.now()) {
+    function historyItem(type, boss, time = getNow()) {
       return {
         id: "history_" + Math.random().toString(36).slice(2, 9),
         type,
@@ -4959,13 +4974,13 @@
       };
     }
 
-    function pushHistory(type, boss, time = Date.now()) {
+    function pushHistory(type, boss, time = getNow()) {
       state.history.unshift(historyItem(type, boss, time));
       state.history = state.history.slice(0, 80);
     }
 
     function autoResolveRespawns() {
-      const now = Date.now();
+      const now = getNow();
       let changed = false;
 
       state.bosses.forEach((boss) => {
@@ -5006,7 +5021,7 @@
 
     function render() {
       autoResolveRespawns();
-      const now = Date.now();
+      const now = getNow();
       updateRoleUI();
       updateSoundUI();
       checkBossSoundAlerts(now);
@@ -6192,7 +6207,7 @@
 
     function openKillConfirmPopup(boss) {
       _pendingKillBossId = boss.id;
-      const now = Date.now();
+      const now = getNow();
       const nowDate = new Date(now);
       const timeStr = nowDate.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       const dateStr = `${String(nowDate.getDate()).padStart(2,"0")}/${String(nowDate.getMonth()+1).padStart(2,"0")}/${nowDate.getFullYear()}`;
@@ -6235,7 +6250,7 @@
       const boss = state.bosses.find((item) => item.id === id);
       if (!boss) return;
       const isEn = currentLang === "en";
-      const now = Date.now();
+      const now = getNow();
       boss.diedAt = now;
       if (boss.spawnMode === "fixed") {
         boss.respawnsAt = getNextFixedSpawnTime(boss, now);
@@ -6257,7 +6272,7 @@
       }
       const boss = state.bosses.find((item) => item.id === id);
       if (!boss) return;
-      const now = Date.now();
+      const now = getNow();
       boss.lastRespawnAt = now;
       boss.diedAt = null;
       boss.respawnsAt = null;
@@ -6849,7 +6864,7 @@
       });
       if (!confirmed) return;
 
-      const now = Date.now();
+      const now = getNow();
       state.bosses.forEach((boss) => {
         boss.diedAt = null;
         boss.respawnsAt = null;
