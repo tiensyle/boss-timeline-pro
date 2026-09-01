@@ -3422,6 +3422,52 @@
               Đăng nhập Admin
             </button>
           </div>
+          <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);">
+            <button type="button" class="button-ghost" id="gotoRegisterBtn" style="font-size:12.5px;color:var(--cyan);border-color:transparent;background:transparent;">
+              📝 Chưa có tài khoản Admin? Gửi yêu cầu đăng ký tại đây
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 3: Admin Account Registration Request -->
+      <div id="authStepRegister" style="display:none;">
+        <div class="auth-modal-header">
+          <div class="auth-logo-badge" style="background:rgba(74,163,255,0.15);color:var(--cyan);border:1px solid rgba(74,163,255,0.3);">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <h2 class="auth-title">Đăng ký Tài khoản Admin</h2>
+          <p class="auth-sub">Gửi yêu cầu khởi tạo tài khoản Admin phụ. Super Admin sẽ phê duyệt trước khi bạn có thể đăng nhập.</p>
+        </div>
+
+        <form id="adminRegForm" class="auth-form">
+          <div class="form-field full" style="margin-bottom:12px;">
+            <label for="regAdminName">Tên Admin mong muốn</label>
+            <input type="text" id="regAdminName" placeholder="Ví dụ: Admin 1, Admin Boss, Hùng..." maxlength="24" required
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
+          </div>
+          <div class="form-field full" style="margin-bottom:12px;">
+            <label for="regAdminPass">Mật khẩu</label>
+            <input type="password" id="regAdminPass" placeholder="Nhập mật khẩu..." maxlength="32" required
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
+          </div>
+          <div class="form-field full" style="margin-bottom:12px;">
+            <label for="regAdminNote">Ghi chú / Lý do (Tuỳ chọn)</label>
+            <input type="text" id="regAdminNote" placeholder="Ví dụ: Admin ca đêm, Leader Clan..." maxlength="60"
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
+          </div>
+          <div id="regAdminError" style="display:none;margin-bottom:12px;font-size:12px;color:var(--red);font-weight:600;padding:8px 12px;background:var(--red-soft);border-radius:6px;"></div>
+
+          <div class="auth-actions">
+            <button type="button" class="button-ghost" id="regBackBtn">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Quay lại Đăng nhập
+            </button>
+            <button type="submit" class="button-primary">
+              <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Gửi yêu cầu đăng ký
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -3578,8 +3624,18 @@
         </button>
       </div>
       <div style="padding:20px 24px;max-height:70vh;overflow-y:auto;">
+        <!-- Pending Approval Section -->
+        <div id="adminPendingSection" style="margin-bottom:20px;display:none;">
+          <div style="font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <span>⏳ Yêu cầu Admin chờ phê duyệt</span>
+            <span id="pendingBadgeCount" style="background:var(--amber-soft);color:var(--amber);padding:1px 7px;border-radius:99px;font-size:11px;">0</span>
+          </div>
+          <div id="adminPendingList"></div>
+        </div>
+
+        <!-- Add Directly Section -->
         <div style="background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:16px;margin-bottom:18px;">
-          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">➕ Thêm tài khoản Admin mới</div>
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">➕ Thêm trực tiếp tài khoản Admin mới</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
             <div>
               <label style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:5px;">Tên Admin</label>
@@ -3594,12 +3650,14 @@
           </div>
           <button type="button" class="button-primary" id="addAdminAccBtn" style="width:100%;height:38px;display:inline-flex;align-items:center;justify-content:center;gap:8px;">
             <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-            Thêm tài khoản
+            Tạo & Phê duyệt ngay
           </button>
           <div id="addAdminAccError" style="display:none;margin-top:8px;font-size:12px;color:var(--red);font-weight:600;"></div>
         </div>
+
+        <!-- Active Accounts Section -->
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📋 Danh sách tài khoản Admin</div>
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📋 Danh sách Admin đã phê duyệt & hoạt động</div>
           <div id="adminAccList"></div>
         </div>
       </div>
@@ -3959,9 +4017,16 @@
     }
 
     function verifyAdmin(name, password) {
-      if (name === SUPER_ADMIN_NAME && password === SUPER_ADMIN_PASSWORD) return true;
+      if (name === SUPER_ADMIN_NAME && password === SUPER_ADMIN_PASSWORD) {
+        return { ok: true };
+      }
       const accounts = getAdminAccounts();
-      return accounts.some(a => a.name === name && a.password === password);
+      const acc = accounts.find(a => a.name === name);
+      if (!acc) return { ok: false, error: "Tài khoản không tồn tại trong hệ thống." };
+      if (acc.password !== password) return { ok: false, error: "Mật khẩu không chính xác." };
+      if (acc.status === "pending") return { ok: false, error: "⏳ Tài khoản đang CHỜ SUPER ADMIN PHÊ DUYỆT! Vui lòng liên hệ Super Admin." };
+      if (acc.status !== "approved") return { ok: false, error: "Tài khoản chưa được kích hoạt." };
+      return { ok: true };
     }
 
     function isAdmin() {
@@ -4205,9 +4270,10 @@
       const sel = document.getElementById("adminNameSelect");
       if (!sel) return;
       const accounts = getAdminAccounts();
+      const approved = accounts.filter(a => a.status === "approved");
       const options = [
         { name: SUPER_ADMIN_NAME, isSuperAdmin: true },
-        ...accounts.map(a => ({ name: a.name, isSuperAdmin: false }))
+        ...approved.map(a => ({ name: a.name, isSuperAdmin: false }))
       ];
       sel.innerHTML = options.map(o =>
         `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name)}${o.isSuperAdmin ? " 👑" : ""}</option>`
@@ -4215,14 +4281,23 @@
     }
 
     function showAuthStep(step) {
-      const isLoginStep = step === "admin";
-      elements.authStepChoose.style.display = isLoginStep ? "none" : "";
-      elements.authStepAdminLogin.style.display = isLoginStep ? "" : "none";
-      elements.adminLoginError.style.display = "none";
-      elements.adminPasswordInput.value = "";
-      elements.adminPasswordInput.type = "password";
-      elements.togglePasswordVisBtn.setAttribute("aria-label", "Hiện mật khẩu");
-      if (isLoginStep) {
+      const stepChoose = document.getElementById("authStepChoose");
+      const stepLogin = document.getElementById("authStepAdminLogin");
+      const stepReg = document.getElementById("authStepRegister");
+
+      if (stepChoose) stepChoose.style.display = step === "choose" ? "" : "none";
+      if (stepLogin) stepLogin.style.display = step === "admin" ? "" : "none";
+      if (stepReg) stepReg.style.display = step === "register" ? "" : "none";
+
+      if (elements.adminLoginError) elements.adminLoginError.style.display = "none";
+      if (elements.adminPasswordInput) {
+        elements.adminPasswordInput.value = "";
+        elements.adminPasswordInput.type = "password";
+      }
+      if (elements.togglePasswordVisBtn) {
+        elements.togglePasswordVisBtn.setAttribute("aria-label", "Hiện mật khẩu");
+      }
+      if (step === "admin") {
         populateAdminNameDropdown();
       }
     }
@@ -4749,19 +4824,13 @@
 
     function getNextBossEventTime(boss, now = Date.now()) {
       if (boss.spawnMode === "fixed") {
-        return getNextFixedSpawnTime(boss, now);
+        if (!boss.diedAt) return null;
+        return getNextFixedSpawnTime(boss, boss.diedAt || now);
       }
       if (boss.diedAt && boss.respawnsAt && boss.respawnsAt > now) {
         return boss.respawnsAt;
       }
-      const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
-      let ref = boss.respawnsAt || (boss.diedAt ? boss.diedAt + intervalMs : (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : now));
-      if (ref < now) {
-        const diff = now - ref;
-        const steps = Math.ceil(diff / intervalMs);
-        ref += steps * intervalMs;
-      }
-      return ref;
+      return null;
     }
 
     function formatSpawnLabel(boss) {
@@ -6900,14 +6969,80 @@
       const selectedName = nameSelect ? nameSelect.value : SUPER_ADMIN_NAME;
       const enteredPass = elements.adminPasswordInput.value;
 
-      if (verifyAdmin(selectedName, enteredPass)) {
+      const res = verifyAdmin(selectedName, enteredPass);
+      if (res.ok) {
         setRole("admin", selectedName);
         closeAuthModal();
         return;
       }
-      elements.adminLoginError.style.display = "flex";
+      const errEl = elements.adminLoginError;
+      if (errEl) {
+        errEl.querySelector("span").textContent = res.error || "Mật khẩu không chính xác.";
+        errEl.style.display = "flex";
+      }
       elements.adminPasswordInput.select();
       elements.adminPasswordInput.focus();
+    });
+
+    document.getElementById("gotoRegisterBtn")?.addEventListener("click", () => {
+      showAuthStep("register");
+    });
+
+    document.getElementById("regBackBtn")?.addEventListener("click", () => {
+      showAuthStep("admin");
+    });
+
+    document.getElementById("adminRegForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nameInput = document.getElementById("regAdminName");
+      const passInput = document.getElementById("regAdminPass");
+      const noteInput = document.getElementById("regAdminNote");
+      const errEl = document.getElementById("regAdminError");
+
+      const name = nameInput.value.trim();
+      const pass = passInput.value.trim();
+      const note = noteInput ? noteInput.value.trim() : "";
+
+      if (!name || !pass) {
+        if (errEl) {
+          errEl.textContent = "Vui lòng nhập Tên Admin và Mật khẩu.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (name === SUPER_ADMIN_NAME) {
+        if (errEl) {
+          errEl.textContent = "Tên này trùng với Super Admin.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      const accounts = getAdminAccounts();
+      if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+        if (errEl) {
+          errEl.textContent = "Tên Admin này đã được sử dụng hoặc đang chờ duyệt.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      accounts.push({
+        name,
+        password: pass,
+        note,
+        status: "pending",
+        createdAt: Date.now()
+      });
+      saveAdminAccounts(accounts);
+      if (errEl) errEl.style.display = "none";
+      nameInput.value = "";
+      passInput.value = "";
+      if (noteInput) noteInput.value = "";
+
+      showToast(`⏳ Đã gửi yêu cầu đăng ký tài khoản [${name}]! Vui lòng liên hệ Super Admin phê duyệt.`);
+      showAuthStep("admin");
     });
 
     // ── Kill Confirm Modal Listeners ──
@@ -6923,11 +7058,46 @@
 
     // ── Admin Account Manager Logic ──
     function renderAdminAccList() {
-      const container = document.getElementById("adminAccList");
-      if (!container) return;
+      const containerActive = document.getElementById("adminAccList");
+      const containerPending = document.getElementById("adminPendingList");
+      const pendingSection = document.getElementById("adminPendingSection");
+      const badgeCount = document.getElementById("pendingBadgeCount");
+      if (!containerActive || !containerPending) return;
+
       const accounts = getAdminAccounts();
-      
-      let html = `
+      const pendingAccs = accounts.filter(a => a.status === "pending");
+      const approvedAccs = accounts.filter(a => a.status === "approved");
+
+      // Pending Section
+      if (pendingAccs.length > 0) {
+        if (pendingSection) pendingSection.style.display = "block";
+        if (badgeCount) badgeCount.textContent = pendingAccs.length;
+
+        containerPending.innerHTML = pendingAccs.map((acc) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--amber-soft);border:1px solid rgba(245,158,11,0.4);border-radius:6px;margin-bottom:8px;gap:10px;">
+            <div style="min-width:0;flex:1;">
+              <strong style="font-size:14px;color:var(--amber);">${escapeHtml(acc.name)}</strong>
+              ${acc.note ? `<span style="display:block;font-size:12px;color:var(--text-2);margin-top:2px;">💬 ${escapeHtml(acc.note)}</span>` : ""}
+              <span style="display:block;font-size:11px;color:var(--muted);margin-top:2px;">⏱️ Gửi lúc ${formatShortDate(acc.createdAt || Date.now())}</span>
+            </div>
+            <div style="display:flex;gap:6px;flex:0 0 auto;">
+              <button type="button" class="button-primary" data-approve-acc-name="${escapeHtml(acc.name)}" style="padding:5px 12px;font-size:12px;background:var(--green);border-color:var(--green);display:inline-flex;align-items:center;gap:4px;">
+                <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+                Phê duyệt
+              </button>
+              <button type="button" class="button-danger" data-reject-acc-name="${escapeHtml(acc.name)}" style="padding:5px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+                Xóa
+              </button>
+            </div>
+          </div>
+        `).join("");
+      } else {
+        if (pendingSection) pendingSection.style.display = "none";
+        containerPending.innerHTML = "";
+      }
+
+      // Active Section
+      let activeHtml = `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:6px;margin-bottom:8px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-size:16px;">👑</span>
@@ -6940,27 +7110,27 @@
         </div>
       `;
 
-      if (!accounts.length) {
-        html += `<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px;">Chưa có tài khoản Admin phụ nào. Bạn có thể tạo thêm ở trên.</div>`;
+      if (!approvedAccs.length) {
+        activeHtml += `<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px;">Chưa có tài khoản Admin phụ nào được phê duyệt.</div>`;
       } else {
-        html += accounts.map((acc, index) => `
+        activeHtml += approvedAccs.map((acc) => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:6px;margin-bottom:8px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:16px;">👤</span>
               <div>
                 <strong style="font-size:14px;color:var(--text);">${escapeHtml(acc.name)}</strong>
-                <span style="display:block;font-size:11px;color:var(--muted);">Mật khẩu: ••••••••</span>
+                <span style="display:block;font-size:11px;color:var(--green);font-weight:600;">✓ Đã phê duyệt</span>
               </div>
             </div>
-            <button type="button" class="button-danger" data-delete-acc-idx="${index}" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+            <button type="button" class="button-danger" data-reject-acc-name="${escapeHtml(acc.name)}" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
               <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M3 6h18M8 6V4h8v2m-1 4v8M9 10v8M5 6l1 15h12l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Xóa
+              Thu hồi / Xóa
             </button>
           </div>
         `).join("");
       }
 
-      container.innerHTML = html;
+      containerActive.innerHTML = activeHtml;
     }
 
     document.getElementById("manageAdminAccBtn")?.addEventListener("click", () => {
@@ -7017,27 +7187,40 @@
         return;
       }
 
-      accounts.push({ name, password: pass });
+      accounts.push({ name, password: pass, status: "approved", createdAt: Date.now() });
       saveAdminAccounts(accounts);
       if (errEl) errEl.style.display = "none";
       nameInput.value = "";
       passInput.value = "";
       renderAdminAccList();
       populateAdminNameDropdown();
-      showToast(`Đã tạo thành công tài khoản Admin: ${name}`);
+      showToast(`Đã tạo và phê duyệt thành công tài khoản Admin: ${name}`);
     });
 
-    document.getElementById("adminAccList")?.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-delete-acc-idx]");
-      if (!btn) return;
-      const idx = Number(btn.dataset.deleteAccIdx);
+    document.getElementById("adminAccountModal")?.addEventListener("click", (e) => {
+      const approveBtn = e.target.closest("[data-approve-acc-name]");
+      const rejectBtn = e.target.closest("[data-reject-acc-name]");
+      if (!approveBtn && !rejectBtn) return;
+
       const accounts = getAdminAccounts();
-      if (idx >= 0 && idx < accounts.length) {
-        const deleted = accounts.splice(idx, 1)[0];
-        saveAdminAccounts(accounts);
+
+      if (approveBtn) {
+        const name = approveBtn.dataset.approveAccName;
+        const target = accounts.find(a => a.name === name);
+        if (target) {
+          target.status = "approved";
+          saveAdminAccounts(accounts);
+          renderAdminAccList();
+          populateAdminNameDropdown();
+          showToast(`🟢 Đã phê duyệt tài khoản Admin [${name}] thành công!`);
+        }
+      } else if (rejectBtn) {
+        const name = rejectBtn.dataset.rejectAccName;
+        const filtered = accounts.filter(a => a.name !== name);
+        saveAdminAccounts(filtered);
         renderAdminAccList();
         populateAdminNameDropdown();
-        showToast(`Đã xóa tài khoản Admin: ${deleted.name}`);
+        showToast(`🗑️ Đã xóa / từ chối tài khoản Admin [${name}].`);
       }
     });
 
