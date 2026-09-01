@@ -5778,16 +5778,21 @@
       });
 
       elements.todayScheduleBody.innerHTML = items.map(({ boss, eventTime }) => {
-        const remaining = eventTime - now;
+        // Trạng thái phải lấy từ dữ liệu thực tế của boss (diedAt/respawnsAt),
+        // không được suy ra chỉ từ mốc lịch eventTime.
+        // Nếu Admin đã ghi nhận boss chết thì bảng phải hiển thị ĐANG HỒI SINH
+        // cho đến khi boss thực sự được hồi sinh (thủ công hoặc tự động).
+        const status = getBossStatus(boss, now);
+        const remaining = getRemaining(boss, now);
         const timeFormatted = formatSmartRespawnDate(eventTime, now);
         const cycleText = formatSpawnLabel(boss);
 
         let badgeClass = "badge-alive";
         let badgeText = isEn ? "• ALIVE" : "• ĐANG SỐNG";
-        if (remaining > SOON_LIMIT_MS) {
+        if (status === "respawning") {
           badgeClass = "badge-waiting";
           badgeText = isEn ? "• COUNTING DOWN" : "• ĐANG HỒI SINH";
-        } else if (remaining > 0) {
+        } else if (status === "soon") {
           badgeClass = "badge-soon";
           badgeText = isEn ? "• SPAWNING SOON" : "• SẮP HỒI SINH";
         }
