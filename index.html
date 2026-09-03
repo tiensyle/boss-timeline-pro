@@ -5713,9 +5713,16 @@
         const matchingSlots = schedules.filter(s => s.day === "all" || Number(s.day) === targetDow);
         if (!matchingSlots.length) return null;
         
-        const [h, m] = (matchingSlots[0].time || "18:00").split(":").map(Number);
-        const slotDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), h || 0, m || 0, 0, 0);
-        return slotDate.getTime();
+        const slotTimes = matchingSlots.map(s => {
+          const [h, m] = (s.time || "18:00").split(":").map(Number);
+          return new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), h || 0, m || 0, 0, 0).getTime();
+        }).sort((a, b) => a - b);
+
+        if (dayFilter === "today" || Number(dayFilter) === nowDate.getDay()) {
+          const upcoming = slotTimes.find(t => t >= now);
+          if (upcoming) return upcoming;
+        }
+        return slotTimes[0];
       } else {
         const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
         let baseTime = boss.respawnsAt;
@@ -5737,7 +5744,7 @@
       }
     }
 
-    function renderTodayScheduleTable(now) {
+    function renderTodayScheduleTable(now = getNow()) {
       if (!elements.todayScheduleBody) return;
       updateScheduleDayTabs(new Date(now));
       if (elements.todayScheduleSubtitle) {
@@ -5778,10 +5785,6 @@
       });
 
       elements.todayScheduleBody.innerHTML = items.map(({ boss, eventTime }) => {
-        // Trạng thái phải lấy từ dữ liệu thực tế của boss (diedAt/respawnsAt),
-        // không được suy ra chỉ từ mốc lịch eventTime.
-        // Nếu Admin đã ghi nhận boss chết thì bảng phải hiển thị ĐANG HỒI SINH
-        // cho đến khi boss thực sự được hồi sinh (thủ công hoặc tự động).
         const status = getBossStatus(boss, now);
         const remaining = getRemaining(boss, now);
         const timeFormatted = formatSmartRespawnDate(eventTime, now);
@@ -5922,141 +5925,75 @@
     }
 
     function exportTodaySchedulePDF() {
-      const now = Date.now();
+      const now = getNow();
       const nowDate = new Date(now);
+      const isEn = currentLang === "en";
       const clockStr = formatClock(now);
 
-      let filterTitle = "BÁO CÁO LỊCH BOSS (7 NGÀY)";
+      let filterTitle = isEn ? "BOSS SCHEDULE & FORECAST REPORT (7 DAYS)" : "BÁO CÁO LỊCH BOSS & DỰ BÁO (7 NGÀY)";
       let filterSubDate = getTodayScheduleSubtitle(nowDate, scheduleDayFilter);
 
       let targetDate = new Date(nowDate);
       let isSingleDay = false;
 
       if (scheduleDayFilter === "today") {
-        filterTitle = "BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)";
+        filterTitle = isEn ? "TODAY'S BOSS SCHEDULE REPORT (00:00 - 24:00)" : "BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)";
         isSingleDay = true;
       } else if (scheduleDayFilter !== "all") {
-        const dayNames = { 1: "THỨ 2", 2: "THỨ 3", 3: "THỨ 4", 4: "THỨ 5", 5: "THỨ 6", 6: "THỨ 7", 0: "CHỦ NHẬT" };
+        const dayNamesVi = { 1: "THỨ 2", 2: "THỨ 3", 3: "THỨ 4", 4: "THỨ 5", 5: "THỨ 6", 6: "THỨ 7", 0: "CHỦ NHẬT" };
+        const dayNamesEn = { 1: "MONDAY", 2: "TUESDAY", 3: "WEDNESDAY", 4: "THURSDAY", 5: "FRIDAY", 6: "SATURDAY", 0: "SUNDAY" };
         const dayDow = Number(scheduleDayFilter);
-        const dayName = dayNames[dayDow] || "";
+        const dayName = isEn ? (dayNamesEn[dayDow] || "") : (dayNamesVi[dayDow] || "");
         
         targetDate = getTargetDateForFilter(nowDate, scheduleDayFilter);
 
         const dd = String(targetDate.getDate()).padStart(2, "0");
         const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
-        filterTitle = `BÁO CÁO LỊCH BOSS - ${dayName} (${dd}/${mm}) (00:00 - 24:00)`;
-        filterSubDate = `Danh sách lượt xuất hiện / hồi sinh trong ${dayName} (${dd}/${mm}) từ 00h00 đến 24h00`;
+        filterTitle = isEn
+          ? `BOSS SCHEDULE REPORT - ${dayName} (${dd}/${mm}) (00:00 - 24:00)`
+          : `BÁO CÁO LỊCH BOSS - ${dayName} (${dd}/${mm}) (00:00 - 24:00)`;
+        filterSubDate = isEn
+          ? `List of boss spawns and respawns on ${dayName} (${dd}/${mm}) from 00:00 to 24:00 UTC+7`
+          : `Danh sách lượt xuất hiện / hồi sinh trong ${dayName} (${dd}/${mm}) từ 00h00 đến 24h00 UTC+7`;
         isSingleDay = true;
       }
 
-      const occurrences = [];
+      const items = [];
+      state.bosses.forEach((boss) => {
+        const eventTime = getBossScheduleEventTime(boss, now, scheduleDayFilter);
+        if (eventTime !== null) {
+          items.push({ boss, eventTime });
+        }
+      });
 
-      if (isSingleDay) {
-        const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
-        const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+      items.sort((a, b) => {
+        if (a.eventTime && b.eventTime) return a.eventTime - b.eventTime;
+        return a.boss.name.localeCompare(b.boss.name, "vi");
+      });
 
-        const startMs = startOfDay.getTime();
-        const endMs = endOfDay.getTime();
-        const targetDow = targetDate.getDay();
-
-        state.bosses.forEach((boss) => {
-          if (boss.spawnMode === "fixed") {
-            const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0 ? boss.fixedSchedules : [{ day: "all", time: boss.fixedTime || "18:00" }];
-            schedules.forEach((slot) => {
-              if (slot.day === "all" || Number(slot.day) === targetDow) {
-                const [hh, mm] = (slot.time || "18:00").split(":").map(Number);
-                const slotDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), hh || 0, mm || 0, 0, 0);
-                const timeMs = slotDate.getTime();
-                
-                occurrences.push({
-                  boss,
-                  timeMs,
-                  timeFormatted: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`,
-                  dateFormatted: `${String(targetDate.getDate()).padStart(2, "0")}/${String(targetDate.getMonth() + 1).padStart(2, "0")}`,
-                  isFixed: true
-                });
-              }
-            });
-          } else {
-            const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
-            let refMs = boss.respawnsAt || (boss.diedAt ? boss.diedAt + intervalMs : null);
-            if (!refMs && boss.lastRespawnAt) refMs = boss.lastRespawnAt;
-            if (!refMs) refMs = startMs + intervalMs;
-
-            let cur = refMs;
-            if (cur < startMs) {
-              const diff = startMs - cur;
-              const steps = Math.ceil(diff / intervalMs);
-              cur += steps * intervalMs;
-            } else if (cur > endMs) {
-              const diff = cur - endMs;
-              const steps = Math.ceil(diff / intervalMs);
-              cur -= steps * intervalMs;
-            }
-
-            while (cur <= endMs) {
-              const curDate = new Date(cur);
-              const hh = String(curDate.getHours()).padStart(2, "0");
-              const min = String(curDate.getMinutes()).padStart(2, "0");
-              const ss = String(curDate.getSeconds()).padStart(2, "0");
-
-              occurrences.push({
-                boss,
-                timeMs: cur,
-                timeFormatted: `${hh}:${min}:${ss}`,
-                dateFormatted: `${String(curDate.getDate()).padStart(2, "0")}/${String(curDate.getMonth() + 1).padStart(2, "0")}`,
-                isFixed: false
-              });
-              cur += intervalMs;
-            }
-          }
-        });
-
-        occurrences.sort((a, b) => a.timeMs - b.timeMs);
-      } else {
-        state.bosses.forEach((boss) => {
-          const isFixed = boss.spawnMode === "fixed";
-          const eventTime = getBossScheduleEventTime(boss, now, "all");
-          if (!eventTime) return;
-          const d = new Date(eventTime);
-          const hh = String(d.getHours()).padStart(2, "0");
-          const min = String(d.getMinutes()).padStart(2, "0");
-          const ss = String(d.getSeconds()).padStart(2, "0");
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-
-          occurrences.push({
-            boss,
-            timeMs: eventTime,
-            timeFormatted: `${hh}:${min}:${ss} (${dd}/${mm})`,
-            dateFormatted: `${dd}/${mm}`,
-            isFixed
-          });
-        });
-
-        occurrences.sort((a, b) => a.timeMs - b.timeMs);
-      }
-
-      const rowsHtml = occurrences.map((item, idx) => {
-        const boss = item.boss;
-        const remaining = item.timeMs - now;
+      const rowsHtml = items.map(({ boss, eventTime }, idx) => {
+        const status = getBossStatus(boss, now);
+        const isFixed = boss.spawnMode === "fixed";
         const cycleText = formatSpawnLabel(boss);
-        let statusText = "Đang sống";
+        const cleanTimeStr = formatSmartRespawnDate(eventTime, now).replace(/<[^>]*>/g, " ");
+
+        let statusText = isEn ? "• ALIVE" : "• ĐANG SỐNG";
         let statusBadgeClass = "status-alive";
-        if (remaining > SOON_LIMIT_MS) {
-          statusText = "Đang hồi sinh";
+        if (status === "respawning") {
+          statusText = isEn ? "• COUNTING DOWN" : "• ĐANG HỒI SINH";
           statusBadgeClass = "status-respawning";
-        } else if (remaining > 0) {
-          statusText = "Sắp hồi sinh";
+        } else if (status === "soon") {
+          statusText = isEn ? "• SPAWNING SOON" : "• SẮP HỒI SINH";
           statusBadgeClass = "status-soon";
         }
+
         const notes = escapeHtml(boss.notes || "—");
-        const bossNameHtml = item.isFixed ? `<strong style="color: #d97706;">⭐ ${escapeHtml(boss.name)}</strong>` : `<strong>${escapeHtml(boss.name)}</strong>`;
+        const bossNameHtml = isFixed ? `<strong style="color: #d97706;">⭐ ${escapeHtml(boss.name)}</strong>` : `<strong>${escapeHtml(boss.name)}</strong>`;
 
         return `
           <tr>
             <td style="text-align:center; font-weight:600; color:#64748b;">${idx + 1}</td>
-            <td class="time-col"><strong>${item.timeFormatted}</strong></td>
+            <td class="time-col"><strong>${cleanTimeStr}</strong></td>
             <td style="text-align:center;"><span class="level-tag">Lv. ${boss.level || 80}</span></td>
             <td>${bossNameHtml}</td>
             <td style="font-weight:600; color:#475569;">${escapeHtml(cycleText)}</td>
@@ -6068,13 +6005,13 @@
       }).join("");
 
       const counts = {
-        total: occurrences.length,
-        fixed: occurrences.filter(o => o.isFixed).length,
-        interval: occurrences.filter(o => !o.isFixed).length
+        total: items.length,
+        fixed: items.filter(o => o.boss.spawnMode === "fixed").length,
+        interval: items.filter(o => o.boss.spawnMode !== "fixed").length
       };
 
       const reportHtml = `<!DOCTYPE html>
-<html lang="vi">
+<html lang="${isEn ? 'en' : 'vi'}">
 <head>
   <meta charset="UTF-8">
   <title>${filterTitle} - Boss Timeline Pro</title>
@@ -6172,12 +6109,12 @@
       vertical-align: middle;
     }
     tr:nth-child(even) td { background: #f8fafc; }
-    .time-col { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; color: #0c2461; text-align: center; }
+    .time-col { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; color: #0c2461; }
     .level-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
     .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
     .status-alive { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-    .status-soon { background: #fef9c3; color: #a16207; border: 1px solid #fef08a; }
-    .status-respawning { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+    .status-soon { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .status-respawning { background: #cffafe; color: #0e7490; border: 1px solid #a5f3fc; }
     .report-footer {
       border-top: 1px solid #e2e8f0;
       padding-top: 10px;
@@ -6194,21 +6131,21 @@
 </head>
 <body>
   <div class="print-bar">
-    <div><strong>📄 BÁO CÁO LỊCH BOSS TIMELINE PRO</strong></div>
+    <div><strong>📄 ${isEn ? "BOSS TIMELINE PRO REPORT" : "BÁO CÁO LỊCH BOSS TIMELINE PRO"}</strong></div>
     <div style="display:flex; gap:10px;">
-      <button class="print-btn" onclick="window.print()">🖨️ In / Lưu file PDF</button>
-      <button class="close-btn" onclick="window.close()">❌ Đóng cửa sổ</button>
+      <button class="print-btn" onclick="window.print()">🖨️ ${isEn ? "Print / Save PDF" : "In / Lưu file PDF"}</button>
+      <button class="close-btn" onclick="window.close()">❌ ${isEn ? "Close" : "Đóng cửa sổ"}</button>
     </div>
   </div>
 
   <div class="report-header">
     <div>
       <div style="font-size:20px; font-weight:800; color:#0c2461; letter-spacing:-0.4px;">BOSS TIMELINE PRO</div>
-      <div style="font-size:11px; color:#64748b; margin-top:2px;">Hệ thống theo dõi & quản lý lịch xuất hiện Boss</div>
+      <div style="font-size:11px; color:#64748b; margin-top:2px;">${isEn ? "Real-time Boss Spawn & Respawn Management System" : "Hệ thống theo dõi & quản lý lịch xuất hiện Boss"}</div>
     </div>
     <div style="text-align:right; font-size:11px; color:#475569; line-height:1.6;">
-      <div><strong>Giờ xuất báo cáo:</strong> ${clockStr}</div>
-      <div><strong>Phạm vi dữ liệu:</strong> ${isSingleDay ? "Lịch theo ngày (00h-24h)" : "Toàn bộ lịch boss"}</div>
+      <div><strong>${isEn ? "Exported at:" : "Giờ xuất báo cáo:"}</strong> ${clockStr}</div>
+      <div><strong>${isEn ? "Scope:" : "Phạm vi dữ liệu:"}</strong> ${isSingleDay ? (isEn ? "Daily Schedule (00:00 - 24:00)" : "Lịch theo ngày (00h-24h)") : (isEn ? "Full 7-Day Forecast" : "Toàn bộ lịch boss (7 Ngày)")}</div>
     </div>
   </div>
 
@@ -6217,29 +6154,29 @@
       <div style="font-size:15px; font-weight:800; color:#0c2461;">${filterTitle}</div>
       <div style="font-size:11.5px; color:#64748b; margin-top:2px;">${filterSubDate}</div>
     </div>
-    <div style="font-weight:800; font-size:13px; color:#0c2461;">Tổng lượt xuất hiện: ${counts.total}</div>
+    <div style="font-weight:800; font-size:13px; color:#0c2461;">${isEn ? "Total Bosses:" : "Tổng số Boss:"} ${counts.total}</div>
   </div>
 
   <table>
     <thead>
       <tr>
         <th style="width:5%; text-align:center;">STT</th>
-        <th style="width:15%; text-align:center;">GIỜ HỒI SINH</th>
-        <th style="width:10%; text-align:center;">LEVEL</th>
-        <th style="width:20%; text-align:left;">TÊN BOSS</th>
-        <th style="width:15%; text-align:left;">CHU KỲ</th>
-        <th style="width:15%; text-align:center;">TRẠNG THÁI</th>
-        <th style="width:20%; text-align:left;">ĐỊA ĐIỂM / MAP</th>
+        <th style="width:18%;">${isEn ? "SPAWN TIME & DATE" : "GIỜ & NGÀY HỒI SINH"}</th>
+        <th style="width:8%; text-align:center;">LEVEL</th>
+        <th style="width:20%;">${isEn ? "BOSS NAME" : "TÊN BOSS"}</th>
+        <th style="width:15%;">${isEn ? "CYCLE" : "CHU KỲ"}</th>
+        <th style="width:14%; text-align:center;">${isEn ? "STATUS" : "TRẠNG THÁI"}</th>
+        <th style="width:20%;">${isEn ? "LOCATION / MAP" : "ĐỊA ĐIỂM"}</th>
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml || `<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Không có lượt boss nào xuất hiện trong khoảng thời gian được chọn.</td></tr>`}
+      ${rowsHtml || `<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">${isEn ? "No bosses scheduled in the selected time range." : "Không có boss nào xuất hiện trong khoảng thời gian được chọn."}</td></tr>`}
     </tbody>
   </table>
 
   <div class="report-footer">
-    <div>Xuất tự động từ hệ thống Boss Timeline Pro</div>
-    <div>Báo cáo dữ liệu chi tiết 1 trang A4 Landscape</div>
+    <div>${isEn ? "Generated automatically from Boss Timeline Pro" : "Xuất tự động từ hệ thống Boss Timeline Pro"}</div>
+    <div>${isEn ? "Detailed Data Report · A4 Landscape" : "Báo cáo dữ liệu chi tiết 1 trang A4 Landscape"}</div>
   </div>
 </body>
 </html>`;
@@ -6248,16 +6185,19 @@
       if (reportWin) {
         reportWin.document.write(reportHtml);
         reportWin.document.close();
-        showToast("📄 Đã mở trang báo cáo lịch boss.");
+        showToast(isEn ? "📄 Boss schedule report opened." : "📄 Đã mở trang báo cáo lịch boss.");
       } else {
-        showToast("⚠️ Vui lòng cho phép trình duyệt mở tab mới để xem báo cáo.");
+        showToast(isEn ? "⚠️ Please allow popups to view the report." : "⚠️ Vui lòng cho phép trình duyệt mở tab mới để xem báo cáo.");
       }
     }
 
     function exportTodayScheduleCSV() {
-      const now = Date.now();
+      const now = getNow();
+      const isEn = currentLang === "en";
       const rows = [
-        ["GIỜ & NGÀY HỒI SINH", "LEVEL", "BOSS", "CHU KỲ", "TRẠNG THÁI", "ĐỊA ĐIỂM", "GHI CHÚ"]
+        isEn
+          ? ["SPAWN TIME & DATE", "LEVEL", "BOSS", "CYCLE", "STATUS", "LOCATION", "NOTES"]
+          : ["GIỜ & NGÀY HỒI SINH", "LEVEL", "BOSS", "CHU KỲ", "TRẠNG THÁI", "ĐỊA ĐIỂM", "GHI CHÚ"]
       ];
 
       const items = [];
@@ -6274,12 +6214,12 @@
       });
 
       items.forEach(({ boss, eventTime }) => {
-        const remaining = eventTime - now;
-        const timeFormatted = formatSmartRespawnDate(eventTime, now).replace(/<[^>]*>/g, "");
+        const status = getBossStatus(boss, now);
+        const timeFormatted = formatSmartRespawnDate(eventTime, now).replace(/<[^>]*>/g, " ");
         const cycleText = formatSpawnLabel(boss);
-        let statusText = "Đang sống";
-        if (remaining > SOON_LIMIT_MS) statusText = "Đang hồi sinh";
-        else if (remaining > 0) statusText = "Sắp hồi sinh";
+        let statusText = isEn ? "ALIVE" : "Đang sống";
+        if (status === "respawning") statusText = isEn ? "COUNTING DOWN" : "Đang hồi sinh";
+        else if (status === "soon") statusText = isEn ? "SPAWNING SOON" : "Sắp hồi sinh";
 
         rows.push([
           `"${timeFormatted}"`,
@@ -6296,14 +6236,14 @@
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const dateIso = new Date().toISOString().slice(0, 10);
+      const dateIso = new Date(now).toISOString().slice(0, 10);
       link.setAttribute("href", url);
       link.setAttribute("download", `lich_boss_${scheduleDayFilter}_${dateIso}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showToast("Đã xuất file CSV lịch boss thành công.");
+      showToast(isEn ? "Exported CSV schedule successfully." : "Đã xuất file CSV lịch boss thành công.");
     }
 
     function updateFilterState() {
@@ -6581,7 +6521,7 @@
       } else {
         respawnsAt = diedAt + boss.respawnMinutes * 60 * 1000;
       }
-      const remainingMs = respawnsAt - Date.now();
+      const remainingMs = respawnsAt - getNow();
       const diedFullStr = formatFullDateTime(diedAt, isEn);
       const respawnFullStr = formatFullDateTime(respawnsAt, isEn);
       const remainingStr = remainingMs <= 0
@@ -6695,7 +6635,7 @@
         const chip = e.target.closest(".offset-preset-chip");
         if (!chip) return;
         _offsetMinutes = Number(chip.dataset.offset);
-        const targetD = new Date(Date.now() - _offsetMinutes * 60 * 1000);
+        const targetD = new Date(getNow() - _offsetMinutes * 60 * 1000);
         
         if (offsetDateInput) {
           offsetDateInput.value = dateToYMD(targetD);
@@ -7476,7 +7416,7 @@
       scheduleDayFilter = btn.dataset.dayFilter;
       document.querySelectorAll(".schedule-day-tab").forEach(t => t.classList.remove("active"));
       btn.classList.add("active");
-      renderTodayScheduleTable(Date.now());
+      renderTodayScheduleTable(getNow());
     });
 
     if (elements.soundToggleBtn) {
