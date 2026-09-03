@@ -3739,8 +3739,9 @@
 
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
   <script>
     const STORAGE_KEY = "bossTimelinePro.v1";
     const SOON_LIMIT_MS = 5 * 60 * 1000;
@@ -3967,19 +3968,32 @@
     }
 
 
-    // ── Supabase Realtime ───────────────────────────────────────────────
-    // Điền URL + anon key trong supabase-config.js để bật đồng bộ team.
-    const SUPABASE_CONFIG = window.BOSS_TIMELINE_SUPABASE || { url: "", anonKey: "" };
-    const REALTIME_ENABLED = Boolean(SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey && window.supabase);
-    const supabaseClient = REALTIME_ENABLED
-      ? window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey)
-      : null;
-    let realtimeChannel = null;
+    // ── Google Firebase Realtime Database ──────────────────────────────
+    // Cấu hình trong file firebase-config.js để bật đồng bộ team.
+    const FIREBASE_CONFIG = window.BOSS_TIMELINE_FIREBASE || null;
+    const REALTIME_ENABLED = Boolean(FIREBASE_CONFIG && (FIREBASE_CONFIG.databaseURL || FIREBASE_CONFIG.projectId) && window.firebase);
+    let firebaseApp = null;
+    let firebaseDb = null;
+    let stateDbRef = null;
     let remoteStateReady = false;
     let remoteSaveInFlight = false;
     let pendingRemoteSave = false;
     let lastRemoteUpdatedAt = 0;
     const CLIENT_ID = "client_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+
+    if (REALTIME_ENABLED) {
+      try {
+        if (!firebase.apps.length) {
+          firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+        } else {
+          firebaseApp = firebase.app();
+        }
+        firebaseDb = firebase.database();
+        stateDbRef = firebaseDb.ref("boss_timeline_state");
+      } catch (e) {
+        console.error("Firebase init error:", e);
+      }
+    }
 
 
     const elements = {
@@ -4595,7 +4609,7 @@
       // Luôn giữ local cache để app vẫn mở được khi mất mạng.
       lastLocalEditTime = getNow();
       saveStateLocal();
-      if (!REALTIME_ENABLED || !remoteStateReady) return;
+      if (!REALTIME_ENABLED || !stateDbRef || !remoteStateReady) return;
 
       if (remoteSaveInFlight) {
         pendingRemoteSave = true;
@@ -4605,7 +4619,6 @@
       remoteSaveInFlight = true;
       try {
         const payload = {
-          id: 1,
           data: {
             _clientId: CLIENT_ID,
             bosses: state.bosses.map(normalizeBoss),
@@ -4613,13 +4626,10 @@
           },
           updated_at: new Date(getNow()).toISOString()
         };
-        const { error } = await supabaseClient
-          .from("boss_timeline_state")
-          .upsert(payload, { onConflict: "id" });
-        if (error) throw error;
+        await stateDbRef.set(payload);
         lastRemoteUpdatedAt = getNow();
       } catch (error) {
-        console.error("Supabase save error:", error);
+        console.error("Firebase save error:", error);
         setRealtimeStatus("offline", "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
       } finally {
         remoteSaveInFlight = false;
@@ -4657,99 +4667,44 @@
       render();
     }
 
-    let reconnectTimer = null;
-
-    async function initRealtimeSync() {
-      if (!REALTIME_ENABLED) {
-        setRealtimeStatus("offline", "Chưa cấu hình Supabase — dán URL + Key vào supabase-config.js");
+    function initRealtimeSync() {
+      if (!REALTIME_ENABLED || !stateDbRef) {
+        setRealtimeStatus("offline", "Chưa cấu hình Firebase — kiểm tra firebase-config.js");
         return;
       }
 
-      setRealtimeStatus("connecting", "Đang kết nối Supabase Realtime…");
-      try {
-        const { data, error } = await supabaseClient
-          .from("boss_timeline_state")
-          .select("id,data,updated_at")
-          .eq("id", 1)
-          .maybeSingle();
-        if (error) throw error;
+      setRealtimeStatus("connecting", "Đang kết nối Google Firebase Realtime…");
 
-        if (data?.data && Array.isArray(data.data.bosses)) {
-          applyRemoteState(data.data, data.updated_at);
+      // Giám sát kết nối Firebase connection state
+      firebaseDb.ref(".info/connected").on("value", (snap) => {
+        if (snap.val() === true) {
+          setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
         } else {
+          setRealtimeStatus("connecting", "Đang kết nối lại Firebase Realtime…");
+        }
+      });
+
+      // Lắng nghe thay đổi trực tiếp từ Firebase Realtime Database
+      stateDbRef.on("value", (snapshot) => {
+        const val = snapshot.val();
+        if (val && val.data && Array.isArray(val.data.bosses)) {
+          if (val.data._clientId === CLIENT_ID) return; // Bỏ qua nếu là thay đổi từ chính tab này
+          applyRemoteState(val.data, val.updated_at);
+          showToast("🔄 Team vừa cập nhật Boss Timeline.");
+        } else if (!val) {
+          // Chưa có dữ liệu trên Firebase -> Tự động Seed dữ liệu từ local lên!
           const seed = {
-            id: 1,
             data: { _clientId: CLIENT_ID, bosses: state.bosses.map(normalizeBoss), history: state.history.slice(0, 30) },
             updated_at: new Date(getNow()).toISOString()
           };
-          const { error: seedError } = await supabaseClient
-            .from("boss_timeline_state")
-            .upsert(seed, { onConflict: "id" });
-          if (seedError) throw seedError;
+          stateDbRef.set(seed);
         }
-
         remoteStateReady = true;
-        setRealtimeStatus("online", "Đã kết nối Realtime — thay đổi sẽ tự đồng bộ cho cả team");
-
-        if (realtimeChannel) {
-          try { supabaseClient.removeChannel(realtimeChannel); } catch (e) {}
-          realtimeChannel = null;
-        }
-
-        realtimeChannel = supabaseClient
-          .channel("boss-timeline-realtime")
-          .on("postgres_changes", {
-            event: "*",
-            schema: "public",
-            table: "boss_timeline_state",
-            filter: "id=eq.1"
-          }, (payload) => {
-            const newData = payload.new?.data;
-            if (!newData || !Array.isArray(newData.bosses)) return;
-            // Bỏ qua update phát ra từ chính tab này
-            if (newData._clientId === CLIENT_ID) return;
-
-            applyRemoteState(newData, payload.new?.updated_at);
-            showToast("🔄 Team vừa cập nhật Boss Timeline.");
-          })
-          .subscribe((status) => {
-            if (status === "SUBSCRIBED") {
-              setRealtimeStatus("online", "Realtime đang hoạt động — tự đồng bộ giữa các máy");
-            } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-              setRealtimeStatus("offline", "Realtime bị ngắt kết nối — đang tự thử kết nối lại");
-              window.clearTimeout(reconnectTimer);
-              reconnectTimer = window.setTimeout(initRealtimeSync, 10000);
-            }
-          });
-      } catch (error) {
-        console.error("Supabase init error:", error);
-        remoteStateReady = false;
-        setRealtimeStatus("offline", "Không thể kết nối Supabase — đang dùng localStorage");
-      }
+      }, (error) => {
+        console.error("Firebase Realtime listener error:", error);
+        setRealtimeStatus("offline", "Lỗi kết nối Firebase — đang dùng localStorage");
+      });
     }
-
-    // Tiết kiệm 100% băng thông: Chỉ kiểm tra cập nhật khi người dùng chuyển tab quay lại (sau ít nhất 30 giây)
-    let lastVisibilityCheckTime = 0;
-    document.addEventListener("visibilitychange", async () => {
-      const now = getNow();
-      if (document.visibilityState === "visible" && REALTIME_ENABLED && remoteStateReady) {
-        if (now - lastVisibilityCheckTime < 30000) return; // Không gọi nếu vừa kiểm tra trong 30s
-        lastVisibilityCheckTime = now;
-        try {
-          const { data, error } = await supabaseClient
-            .from("boss_timeline_state")
-            .select("id,data,updated_at")
-            .eq("id", 1)
-            .maybeSingle();
-          if (!error && data?.data && data.data._clientId !== CLIENT_ID) {
-            const remoteTime = new Date(data.updated_at || 0).getTime();
-            if (remoteTime > lastRemoteUpdatedAt) {
-              applyRemoteState(data.data, data.updated_at);
-            }
-          }
-        } catch (e) {}
-      }
-    });
 
 
     function normalizeBoss(boss) {
@@ -7017,11 +6972,11 @@
       realtimeStatusEl.style.cursor = "pointer";
       realtimeStatusEl.addEventListener("click", () => {
         if (!REALTIME_ENABLED) {
-          alert("⚡ HƯỚNG DẪN BẬT ĐỒNG BỘ NGHỆ AN/TEAM (SUPABASE REALTIME):\n\n1. Tạo dự án Supabase miễn phí tại https://supabase.com\n2. Chạy script 'supabase-schema.sql' trong Supabase SQL Editor.\n3. Mở file 'supabase-config.js' trong thư mục web app.\n4. Dán URL dự án và API Key (anon public) vào file supabase-config.js và lưu lại.\n5. Tải lại trang web này trên các máy A và B để bắt đầu đồng bộ Realtime!");
+          alert("⚡ HƯỚNG DẪN BẬT ĐỒNG BỘ TEAM (GOOGLE FIREBASE REALTIME):\n\n1. Tạo dự án miễn phí tại https://console.firebase.google.com\n2. Bật Realtime Database trong mục Build -> Realtime Database (chọn chế độ test mode).\n3. Mở file 'firebase-config.js' trong thư mục web app và dán cấu hình Firebase của bạn vào.\n4. Mở trang web này trên các máy để bắt đầu tự động đồng bộ Realtime!");
         } else if (remoteStateReady) {
-          showToast("🟢 Live Sync đang hoạt động. Mọi thay đổi sẽ đồng bộ tức thì cho cả team.");
+          showToast("🟢 Google Firebase Realtime đang hoạt động. Mọi thay đổi sẽ đồng bộ tức thì cho cả team.");
         } else {
-          showToast("🔄 Đang kết nối lại Supabase Realtime...");
+          showToast("🔄 Đang kết nối lại Google Firebase Realtime...");
           initRealtimeSync();
         }
       });
