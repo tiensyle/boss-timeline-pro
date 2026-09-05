@@ -4573,10 +4573,16 @@
       if (activeDiscordNotified[alertId]) return;
       activeDiscordNotified[alertId] = true;
 
+      // Chi gui Discord tu Vercel/production - khong gui tu localhost de tranh spam
+      if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === "") {
+        console.log("[Discord Bot] Bo qua - dang chay localhost, khong gui Discord.");
+        return;
+      }
+
       // Ghi log vao Firebase (khong dedup - tranh block alert tu tab/nguoi khac)
       if (firebaseDb) {
         try {
-          const safeKey = alertId.replace(/[.#$[]\\/]/g, "_");
+          const safeKey = alertId.replace(/[.#$\[\]\/]/g, "_");
           firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey).set(Date.now()).catch(function() {});
         } catch (e) {
           console.warn("[Discord Bot] Firebase log error:", e);
