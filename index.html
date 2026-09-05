@@ -4556,16 +4556,16 @@
       }
     }
 
-    async function sendDiscordBossAlert(boss, milestoneType) {
+    async function sendDiscordBossAlert(boss, milestoneType, explicitEventTime = null) {
       if (!discordConfig.enabled || !discordConfig.webhookUrl) return;
 
-      let eventKey = null;
-      if (boss.spawnMode === "fixed") {
-        if (!boss.diedAt) return;
-        eventKey = getNextFixedSpawnTime(boss, boss.diedAt);
-      } else {
-        if (!boss.respawnsAt) return;
-        eventKey = boss.respawnsAt;
+      let eventKey = explicitEventTime;
+      if (!eventKey) {
+        if (boss.spawnMode === "fixed") {
+          eventKey = boss.diedAt ? getNextFixedSpawnTime(boss, boss.diedAt) : getNextFixedSpawnTime(boss, getNow());
+        } else {
+          eventKey = boss.respawnsAt || boss.lastRespawnAt || getNow();
+        }
       }
       if (!eventKey) return;
 
@@ -4950,7 +4950,7 @@
       await sendDiscordWebhook(payload);
     }
 
-    function notifyBossAlert(boss, milestoneType) {
+    function notifyBossAlert(boss, milestoneType, eventTime = null) {
       if (isSoundEnabled) {
         let toastMsg = "";
         if (milestoneType === "10m") {
@@ -4969,7 +4969,7 @@
         if (toastMsg) showToast(toastMsg);
         window.setTimeout(() => speakText("BOSS BOSS"), 300);
       }
-      sendDiscordBossAlert(boss, milestoneType);
+      sendDiscordBossAlert(boss, milestoneType, eventTime);
     }
 
     function checkBossSoundAlerts(now) {
@@ -4996,21 +4996,21 @@
         if (remaining <= 10 * 60 * 1000 && remaining > 5 * 60 * 1000) {
           if (!activeSoundNotified[eventKey + "_10m"]) {
             activeSoundNotified[eventKey + "_10m"] = true;
-            notifyBossAlert(boss, "10m");
+            notifyBossAlert(boss, "10m", eventTime);
           }
         }
         // Mốc 5 phút (từ 5m xuống 1m)
         else if (remaining <= 5 * 60 * 1000 && remaining > 60 * 1000) {
           if (!activeSoundNotified[eventKey + "_5m"]) {
             activeSoundNotified[eventKey + "_5m"] = true;
-            notifyBossAlert(boss, "5m");
+            notifyBossAlert(boss, "5m", eventTime);
           }
         }
         // Mốc 1 phút (từ 60s xuống 2s)
         else if (remaining <= 60 * 1000 && remaining > 2000) {
           if (!activeSoundNotified[eventKey + "_1m"]) {
             activeSoundNotified[eventKey + "_1m"] = true;
-            notifyBossAlert(boss, "1m");
+            notifyBossAlert(boss, "1m", eventTime);
           }
         }
       });
@@ -5791,7 +5791,7 @@
               const targetKey = boss.id + "_" + nextTime;
               if (!activeSoundNotified[targetKey + "_0m"]) {
                 activeSoundNotified[targetKey + "_0m"] = true;
-                notifyBossAlert(boss, "0m");
+                notifyBossAlert(boss, "0m", nextTime);
               }
               performRespawn(boss, nextTime, "automatic");
               changed = true;
@@ -5800,9 +5800,10 @@
         } else {
           if (boss.diedAt && boss.respawnsAt && boss.respawnsAt <= now) {
             const cycleKey = boss.id + "_" + boss.respawnsAt;
+            const respawnTime = boss.respawnsAt;
             if (!activeSoundNotified[cycleKey + "_0m"]) {
               activeSoundNotified[cycleKey + "_0m"] = true;
-              notifyBossAlert(boss, "0m");
+              notifyBossAlert(boss, "0m", respawnTime);
             }
             performRespawn(boss, boss.respawnsAt, "automatic");
             changed = true;
