@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
@@ -4463,7 +4463,7 @@
       notify10m: true,
       notify5m: true,
       notify0m: true,
-      notifyKill: true,
+      notifyKill: false,
       tagEveryone: true,
       notifyDailySchedule: true
     };
@@ -4573,17 +4573,17 @@
       if (activeDiscordNotified[alertId]) return;
       activeDiscordNotified[alertId] = true;
 
-      // Chi gui Discord tu Vercel/production - khong gui tu localhost de tranh spam
-      if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === "") {
-        console.log("[Discord Bot] Bo qua - dang chay localhost, khong gui Discord.");
-        return;
-      }
-
-      // Ghi log vao Firebase (khong dedup - tranh block alert tu tab/nguoi khac)
+      // Ghi log vao Firebase de theo doi va chong spam trung lap giua cac tab
       if (firebaseDb) {
         try {
           const safeKey = alertId.replace(/[.#$\[\]\/]/g, "_");
-          firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey).set(Date.now()).catch(function() {});
+          const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
+          const snap = await alertRef.once("value");
+          if (snap.exists() && (Date.now() - Number(snap.val()) < 5 * 60 * 1000)) {
+            console.log("[Discord Bot] Alert nay da duoc tab khac gui:", alertId);
+            return;
+          }
+          await alertRef.set(Date.now());
         } catch (e) {
           console.warn("[Discord Bot] Firebase log error:", e);
         }
@@ -4595,27 +4595,31 @@
       let contentText = "";
       const thumbnailUrl = "https://cdn-icons-png.flaticon.com/512/10329/10329997.png";
 
+      const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+      const remainMs = Number(eventKey) - Date.now();
+      const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
+
       if (milestoneType === "10m") {
         if (!discordConfig.notify10m) return;
-        title = "[THONG BAO] BOSS SAP HOI SINH SAU 10 PHUT!";
-        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau 10 phut.\nAnh em di chuyen den khu vuc boss som!";
+        title = `[THONG BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut).\nAnh em di chuyen den khu vuc boss som!`;
         color = 16107019; // Amber
         contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else if (milestoneType === "5m") {
         if (!discordConfig.notify5m) return;
-        title = "[CANH BAO] BOSS SAP HOI SINH SAU 5 PHUT!";
-        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau 5 phut!\nAnh em di chuyen den Map ngay!";
+        title = `[CANH BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut)!\nAnh em di chuyen den Map ngay!`;
         color = 16347926; // Orange
         contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else if (milestoneType === "1m") {
-        title = "[KHAN CAP] BOSS SAP HOI SINH SAU 1 PHUT!";
-        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau 1 PHUT!\nAnh em tap trung tai diem boss ngay!";
+        title = `[KHAN CAP] BOSS SAP HOI SINH (CON ~1 PHUT)!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}**!\nAnh em tap trung tai diem boss ngay!`;
         color = 15548997; // Red
         contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else if (milestoneType === "0m") {
         if (!discordConfig.notify0m) return;
         title = "[BOSS DA RA] TIEU DIET BOSS NGAY!";
-        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") **DA HOI SINH** tai **" + boss.map + "**!\nTap trung tieu diet boss ngay!";
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) **DA HOI SINH** tai **${boss.map}**!\nTap trung tieu diet boss ngay!`;
         color = 15548997; // Red
         contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else {
@@ -4633,8 +4637,6 @@
       } else {
         cycleLabel = formatCycleDuration(boss.respawnMinutes);
       }
-
-      const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 
       const payload = {
         username: "Boss Tracker Alert",
@@ -4922,33 +4924,8 @@
     }
 
     async function sendDiscordKillAlert(boss, diedAt, nextRespawn) {
-      if (!discordConfig.enabled || !discordConfig.webhookUrl || !discordConfig.notifyKill) return;
-      if (!isAdmin()) return;
-
-      const cycleLabel = boss.spawnMode === "fixed" ? "Cố định theo lịch" : formatCycleDuration(boss.respawnMinutes);
-      const nextStr = nextRespawn ? new Date(nextRespawn).toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit"}) + " (" + new Date(nextRespawn).toLocaleDateString("vi-VN") + ")" : "Đang chờ cập nhật";
-      const payload = {
-        username: "Boss Tracker Alert",
-        avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
-        embeds: [
-          {
-            title: `💀 [GHI NHẬN] BOSS ĐÃ BỊ TIÊU DIỆT!`,
-            description: `Admin **${currentAdminName || "Admin"}** vừa ghi nhận tiêu diệt Boss **${boss.name}** tại **${boss.map}**.`,
-            color: 6499839, // Indigo #6366f1
-            fields: [
-              { name: "👑 Boss", value: `**${boss.name}** (Lv. ${boss.level})`, inline: true },
-              { name: "📍 Map", value: boss.map, inline: true },
-              { name: "⏱️ Chu kỳ", value: cycleLabel, inline: true },
-              { name: "🕒 Giờ chết", value: new Date(diedAt || getNow()).toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit",second:"2-digit"}), inline: true },
-              { name: "⏳ Hồi sinh lần tới", value: `**${nextStr}**`, inline: true }
-            ],
-            footer: { text: "Boss Timeline Pro • Live Alert System" },
-            timestamp: new Date().toISOString()
-          }
-        ]
-      };
-
-      await sendDiscordWebhook(payload);
+      // Đã tắt hoàn toàn: chỉ gửi 2 loại thông báo (báo cáo 00h và đếm ngược giờ boss sắp ra)
+      return;
     }
 
     function notifyBossAlert(boss, milestoneType, eventTime = null) {
@@ -4993,22 +4970,22 @@
         const remaining = eventTime - now;
         if (remaining <= 0) return; // Mốc 0m được autoResolveRespawns kích hoạt tự động
 
-        // Mốc 10 phút (từ 10m xuống 5m)
-        if (remaining <= 10 * 60 * 1000 && remaining > 5 * 60 * 1000) {
+        // Mốc 10 phút (kích hoạt trong khoảng 7.5 phút - 10.5 phút)
+        if (remaining <= 10.5 * 60 * 1000 && remaining > 7.5 * 60 * 1000) {
           if (!activeSoundNotified[eventKey + "_10m"]) {
             activeSoundNotified[eventKey + "_10m"] = true;
             notifyBossAlert(boss, "10m", eventTime);
           }
         }
-        // Mốc 5 phút (từ 5m xuống 1m)
-        else if (remaining <= 5 * 60 * 1000 && remaining > 60 * 1000) {
+        // Mốc 5 phút (kích hoạt trong khoảng 2.5 phút - 5.5 phút)
+        else if (remaining <= 5.5 * 60 * 1000 && remaining > 2.5 * 60 * 1000) {
           if (!activeSoundNotified[eventKey + "_5m"]) {
             activeSoundNotified[eventKey + "_5m"] = true;
             notifyBossAlert(boss, "5m", eventTime);
           }
         }
-        // Mốc 1 phút (từ 60s xuống 2s)
-        else if (remaining <= 60 * 1000 && remaining > 2000) {
+        // Mốc 1 phút (kích hoạt trong khoảng 5 giây - 90 giây)
+        else if (remaining <= 90 * 1000 && remaining > 5000) {
           if (!activeSoundNotified[eventKey + "_1m"]) {
             activeSoundNotified[eventKey + "_1m"] = true;
             notifyBossAlert(boss, "1m", eventTime);
@@ -5904,11 +5881,26 @@
       }
 
       return filtered.sort((a, b) => {
-        const aTime = getNextBossEventTime(a, now);
-        const bTime = getNextBossEventTime(b, now);
-        if (aTime && bTime && aTime !== bTime) {
-          return aTime - bTime;
+        let aTime = getNextBossEventTime(a, now);
+        if (!aTime && a.spawnMode === "fixed") {
+          aTime = getNextFixedSpawnTime(a, now);
         }
+        let bTime = getNextBossEventTime(b, now);
+        if (!bTime && b.spawnMode === "fixed") {
+          bTime = getNextFixedSpawnTime(b, now);
+        }
+
+        // Cả 2 đều có thời gian ra sắp tới: Sắp ra gần nhất lên trước!
+        if (aTime && bTime) {
+          if (aTime !== bTime) return aTime - bTime;
+          return a.name.localeCompare(b.name, "vi");
+        }
+
+        // Boss đang đếm ngược hoặc có giờ cố định đứng TRƯỚC boss đang sống (READY)
+        if (aTime && !bTime) return -1;
+        if (!aTime && bTime) return 1;
+
+        // Cả 2 boss đều đang sống (READY): xếp theo tên A-Z
         return a.name.localeCompare(b.name, "vi");
       });
     }
