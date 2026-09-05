@@ -4469,6 +4469,13 @@
       try {
         localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
       } catch (e) {}
+      if (firebaseDb && isAdmin()) {
+        try {
+          firebaseDb.ref("boss_timeline_discord_config").set(discordConfig);
+        } catch (e) {
+          console.warn("Firebase save discord config error:", e);
+        }
+      }
       updateDiscordButtonUI();
     }
 
@@ -4612,19 +4619,19 @@
           if (!nextTime) return;
           const remaining = nextTime - now;
           const targetKey = boss.id + "_" + nextTime;
-          if (remaining <= 10 * 60 * 1000 && remaining > 8 * 60 * 1000) {
+          if (remaining <= 10 * 60 * 1000 && remaining > 7 * 60 * 1000) {
             if (!activeSoundNotified[targetKey + "_10m"]) {
               activeSoundNotified[targetKey + "_10m"] = true;
               notifyBossAlert(boss, "10m");
             }
           }
-          if (remaining <= 5 * 60 * 1000 && remaining > 3 * 60 * 1000) {
+          if (remaining <= 5 * 60 * 1000 && remaining > 2 * 60 * 1000) {
             if (!activeSoundNotified[targetKey + "_5m"]) {
               activeSoundNotified[targetKey + "_5m"] = true;
               notifyBossAlert(boss, "5m");
             }
           }
-          if (remaining <= 2000 && remaining >= -1000) {
+          if (remaining <= 2000 && remaining >= -60000) {
             if (!activeSoundNotified[targetKey + "_0m"]) {
               activeSoundNotified[targetKey + "_0m"] = true;
               notifyBossAlert(boss, "0m");
@@ -4634,19 +4641,19 @@
           if (!boss.diedAt || !boss.respawnsAt) return;
           const remaining = boss.respawnsAt - now;
           const cycleKey = boss.id + "_" + boss.respawnsAt;
-          if (remaining <= 10 * 60 * 1000 && remaining > 8 * 60 * 1000) {
+          if (remaining <= 10 * 60 * 1000 && remaining > 7 * 60 * 1000) {
             if (!activeSoundNotified[cycleKey + "_10m"]) {
               activeSoundNotified[cycleKey + "_10m"] = true;
               notifyBossAlert(boss, "10m");
             }
           }
-          if (remaining <= 5 * 60 * 1000 && remaining > 3 * 60 * 1000) {
+          if (remaining <= 5 * 60 * 1000 && remaining > 2 * 60 * 1000) {
             if (!activeSoundNotified[cycleKey + "_5m"]) {
               activeSoundNotified[cycleKey + "_5m"] = true;
               notifyBossAlert(boss, "5m");
             }
           }
-          if (remaining <= 2000 && remaining >= -1000) {
+          if (remaining <= 2000 && remaining >= -60000) {
             if (!activeSoundNotified[cycleKey + "_0m"]) {
               activeSoundNotified[cycleKey + "_0m"] = true;
               notifyBossAlert(boss, "0m");
@@ -5061,6 +5068,18 @@
       }, (error) => {
         console.error("Firebase Realtime listener error:", error);
         setRealtimeStatus("offline", "Lỗi kết nối Firebase — đang dùng localStorage");
+      });
+
+      // Lắng nghe cấu hình Discord Webhook từ Firebase
+      firebaseDb.ref("boss_timeline_discord_config").on("value", (snapshot) => {
+        const remoteCfg = snapshot.val();
+        if (remoteCfg && typeof remoteCfg === "object" && remoteCfg.webhookUrl) {
+          discordConfig = { ...defaultDiscordConfig, ...remoteCfg };
+          try {
+            localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
+          } catch (e) {}
+          updateDiscordButtonUI();
+        }
       });
     }
 
@@ -5693,46 +5712,8 @@
         progressSpan.style.width = `${progress}%`;
       }
 
-      // Đảm bảo nút bấm luôn đồng bộ 100% không bị lệch/nhấp nháy
-      if (isAdmin()) {
-        const actionPanel = row.querySelector(".compact-action-panel");
-        if (actionPanel) {
-          const btnGroup = actionPanel.querySelector("div[style*='display:flex']");
-          if (btnGroup) {
-            const hasSplitGroup = Boolean(btnGroup.querySelector(".split-btn-group"));
-            if (isAlive && !hasSplitGroup) {
-              const actionIcon = iconSvg.skull;
-              const actionLabel = isEn ? "Record Death" : "Ghi nhận chết";
-              btnGroup.innerHTML = `
-                <div class="split-btn-group" style="flex:1;">
-                  <button class="button-danger action-main" type="button" data-action="kill" data-id="${escapeHtml(boss.id)}" style="padding:5px 10px; font-size:12px;" title="${isEn ? 'Record death right now' : 'Ghi nhận chết ngay bây giờ'}">
-                    ${actionIcon}
-                    <span>${actionLabel}</span>
-                  </button>
-                  <button class="split-arrow-btn" type="button" data-action="offset-menu" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Record past death time' : 'Ghi nhận chết lùi giờ'}">
-                    <svg viewBox="0 0 24 24" fill="none" width="12" height="12"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  </button>
-                </div>
-                <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
-                  ${iconSvg.edit}
-                </button>
-              `;
-            } else if (!isAlive && hasSplitGroup) {
-              const actionIcon = iconSvg.check;
-              const actionLabel = isEn ? "Revive Now" : "Cho hồi sinh";
-              btnGroup.innerHTML = `
-                <button class="button-primary action-main" type="button" data-action="revive" data-id="${escapeHtml(boss.id)}" style="flex:1; padding:5px 10px; font-size:12px;">
-                  ${actionIcon}
-                  <span>${actionLabel}</span>
-                </button>
-                <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
-                  ${iconSvg.edit}
-                </button>
-              `;
-            }
-          }
-        }
-      }
+      // Không cập nhật buttons ở đây – khi trạng thái boss thay đổi (alive↔dead)
+      // structKey thay đổi → renderBossGrid sẽ re-render toàn bộ compact table với buttons đúng
     }
 
     function renderBossGrid(now) {
@@ -5750,10 +5731,14 @@
         return;
       }
 
-      const gridKey = bosses.map((b) => `${b.id}:${b.diedAt || 0}:${b.respawnsAt || 0}:${getBossStatus(b, now)}`).join(",") + "_" + currentRole + "_" + currentLang + "_" + activeFilter + "_" + activeView;
+      // Structural key: chỉ thay đổi khi boss thực sự thay đổi trạng thái (chết/sống),
+      // số lượng boss, vai trò, ngôn ngữ, bộ lọc. KHÔNG bao gồm giây đếm ngược.
+      const structKey = bosses.map((b) => `${b.id}:${b.diedAt || 0}:${b.respawnsAt || 0}:${getBossStatus(b, now)}`).join(",")
+        + "|" + currentRole + "|" + currentLang + "|" + activeFilter + "|" + (activeLevelFilter || "all") + "|" + activeView;
 
-      if (gridKey !== lastRenderedGridKey) {
-        lastRenderedGridKey = gridKey;
+      if (structKey !== lastRenderedGridKey) {
+        // Cấu trúc thực sự thay đổi → re-render toàn bộ
+        lastRenderedGridKey = structKey;
         if (activeView === "compact") {
           elements.bossGrid.style.display = "block";
           elements.bossGrid.innerHTML = renderCompactBossTable(bosses, now);
@@ -5762,17 +5747,18 @@
           elements.bossGrid.innerHTML = bosses.map((boss) => renderBossCard(boss, now)).join("");
         }
       } else {
+        // Cấu trúc không đổi → chỉ cập nhật số đếm ngược in-place (không xóa DOM)
         if (activeView === "compact") {
           elements.bossGrid.style.display = "block";
-          const existingRows = elements.bossGrid.querySelectorAll(".compact-boss-row");
-          bosses.forEach((boss, i) => {
-            if (existingRows[i]) updateCompactRowInPlace(existingRows[i], boss, now);
+          bosses.forEach((boss) => {
+            const row = elements.bossGrid.querySelector(`.compact-boss-row[data-id="${CSS.escape(boss.id)}"]`);
+            if (row) updateCompactRowInPlace(row, boss, now);
           });
         } else {
           elements.bossGrid.style.display = "grid";
-          const existingCards = elements.bossGrid.querySelectorAll(".boss-card");
-          bosses.forEach((boss, i) => {
-            if (existingCards[i]) updateBossCardInPlace(existingCards[i], boss, now);
+          bosses.forEach((boss) => {
+            const card = elements.bossGrid.querySelector(`.boss-card[data-id="${CSS.escape(boss.id)}"]`);
+            if (card) updateBossCardInPlace(card, boss, now);
           });
         }
       }
@@ -5812,51 +5798,13 @@
       }
 
       const progressSpan = card.querySelector(".progress-track span");
-      if (progressSpan) {
-        progressSpan.style.width = `${progress}%`;
-      }
+      if (progressSpan) progressSpan.style.width = `${progress}%`;
 
       const metaSpans = card.querySelectorAll(".boss-meta span");
       if (metaSpans[0] && metaSpans[0].textContent !== respawnTimeText) metaSpans[0].textContent = respawnTimeText;
       if (metaSpans[1] && metaSpans[1].textContent !== `${progress}%`) metaSpans[1].textContent = `${progress}%`;
-
-      // Cập nhật nút bấm tương ứng ngay lập tức không bị lệch
-      if (isAdmin()) {
-        const actionsEl = card.querySelector(".card-actions");
-        if (actionsEl) {
-          const hasSplitGroup = Boolean(actionsEl.querySelector(".split-btn-group"));
-          if (isAlive && !hasSplitGroup) {
-            const actionIcon = iconSvg.skull;
-            const actionLabel = isEn ? "Record Death" : "Ghi nhận chết";
-            actionsEl.innerHTML = `
-              <div class="split-btn-group">
-                <button class="button-danger action-main" type="button" data-action="kill" data-id="${escapeHtml(boss.id)}" title="${isEn ? 'Record death right now' : 'Ghi nhận chết ngay bây giờ'}">
-                  ${actionIcon}
-                  <span>${actionLabel}</span>
-                </button>
-                <button class="split-arrow-btn" type="button" data-action="offset-menu" data-id="${escapeHtml(boss.id)}" aria-label="${isEn ? 'Record past death time' : 'Ghi nhận chết lùi giờ'}" title="${isEn ? 'Record past death time' : 'Ghi nhận chết lùi giờ'}">
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
-              </div>
-              <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" aria-label="${isEn ? 'Edit' : 'Chỉnh sửa'} ${escapeHtml(boss.name)}" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
-                ${iconSvg.edit}
-              </button>
-            `;
-          } else if (!isAlive && hasSplitGroup) {
-            const actionIcon = iconSvg.check;
-            const actionLabel = isEn ? "Revive Now" : "Cho hồi sinh";
-            actionsEl.innerHTML = `
-              <button class="button-primary action-main" type="button" data-action="revive" data-id="${escapeHtml(boss.id)}">
-                ${actionIcon}
-                <span>${actionLabel}</span>
-              </button>
-              <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" aria-label="${isEn ? 'Edit' : 'Chỉnh sửa'} ${escapeHtml(boss.name)}" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
-                ${iconSvg.edit}
-              </button>
-            `;
-          }
-        }
-      }
+      // Không cập nhật buttons ở đây – khi trạng thái boss thay đổi (alive↔dead)
+      // structKey thay đổi → renderBossGrid sẽ re-render đầy đủ card với buttons đúng
     }
 
     function renderBossCard(boss, now) {
