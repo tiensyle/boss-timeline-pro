@@ -4510,7 +4510,38 @@
 
     async function sendDiscordBossAlert(boss, milestoneType) {
       if (!discordConfig.enabled || !discordConfig.webhookUrl) return;
-      if (!isAdmin()) return; // Chỉ máy Admin gửi webhook để tránh trùng lặp tin nhắn
+
+      // Tính eventKey: dùng thời điểm hồi sinh cụ thể để dedup chính xác
+      let eventKey = null;
+      if (boss.spawnMode === "fixed") {
+        if (!boss.diedAt) return; // Boss fixed đang sống, không cần alert đếm ngược
+        eventKey = getNextFixedSpawnTime(boss, boss.diedAt);
+      } else {
+        if (!boss.respawnsAt) return; // Boss thường chưa có thời gian hồi sinh
+        eventKey = boss.respawnsAt;
+      }
+      if (!eventKey) return;
+
+      const alertId = `${boss.id}_${milestoneType}_${eventKey}`;
+      if (activeDiscordNotified[alertId]) return;
+      activeDiscordNotified[alertId] = true;
+
+      // Distributed deduplication qua Firebase: đảm bảo chỉ 1 máy bắn webhook duy nhất cho toàn team
+      if (firebaseDb) {
+        try {
+          const safeKey = alertId.replace(/[.#$[\]/]/g, "_");
+          const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
+          const snap = await alertRef.once("value");
+          if (snap.exists() && (Date.now() - Number(snap.val()) < 15 * 60 * 1000)) {
+            return; // Máy khác trong team đã gửi webhook này rồi
+          }
+          await alertRef.set(Date.now());
+        } catch (e) {
+          console.warn("Firebase discord alert dedup check error:", e);
+        }
+      } else if (!isAdmin()) {
+        return; // Khi không có Firebase, chỉ Admin gửi
+      }
 
       let title = "";
       let desc = "";
@@ -4520,13 +4551,18 @@
       if (milestoneType === "10m") {
         if (!discordConfig.notify10m) return;
         title = `⏳ [THÔNG BÁO] BOSS SẮP HỒI SINH SAU 10 PHÚT!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ xuất hiện tại **${boss.map}** sau 10 phút.`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ hồi sinh tại **${boss.map}** sau 10 phút.`;
         color = 16107019; // Amber #f59e0b
       } else if (milestoneType === "5m") {
         if (!discordConfig.notify5m) return;
         title = `⚠️ [CẢNH BÁO] BOSS SẮP HỒI SINH SAU 5 PHÚT!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ xuất hiện tại **${boss.map}** sau 5 phút! Anh em di chuyển đến Map ngay!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ hồi sinh tại **${boss.map}** sau 5 phút! Anh em di chuyển đến Map ngay!`;
         color = 16347926; // Orange #f97316
+        if (discordConfig.tagEveryone) mention = true;
+      } else if (milestoneType === "1m") {
+        title = `🚨 [KHẨN CẤP] BOSS SẮP HỒI SINH SAU 1 PHÚT!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ hồi sinh tại **${boss.map}** sau 1 PHÚT! Anh em tập trung tại điểm boss ngay!`;
+        color = 15548997; // Red #ED4245
         if (discordConfig.tagEveryone) mention = true;
       } else if (milestoneType === "0m") {
         if (!discordConfig.notify0m) return;
@@ -4534,9 +4570,25 @@
         desc = `Boss **${boss.name}** (Lv. ${boss.level}) **ĐÃ HỒI SINH** tại **${boss.map}**!`;
         color = 15548997; // Red #ED4245
         if (discordConfig.tagEveryone) mention = true;
+      } else {
+        return;
       }
 
-      const cycleLabel = boss.spawnMode === "fixed" ? "Cố định theo lịch" : formatCycleDuration(boss.respawnMinutes);
+      // cycleLabel: với boss fixed hiển thị giờ cụ thể thay vì "Cố định theo lịch"
+      let cycleLabel;
+      if (boss.spawnMode === "fixed") {
+        const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
+          ? boss.fixedSchedules
+          : [{ day: "all", time: boss.fixedTime || "18:00" }];
+        const timeList = schedules.map(s => s.time || "18:00").join(", ");
+        cycleLabel = "Co dinh " + timeList;
+      } else {
+        cycleLabel = formatCycleDuration(boss.respawnMinutes);
+      }
+
+      // Giờ hồi sinh dự kiến
+      const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
       const payload = {
         username: "Boss Tracker Alert",
         avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
@@ -4547,11 +4599,12 @@
             description: desc,
             color: color,
             fields: [
-              { name: "👑 Boss", value: `**${boss.name}**`, inline: true },
-              { name: "📊 Level", value: `Lv. ${boss.level}`, inline: true },
-              { name: "📍 Bản đồ", value: `**${boss.map}**`, inline: true },
-              { name: "⏱️ Chu kỳ", value: cycleLabel, inline: true },
-              { name: "📝 Ghi chú", value: boss.notes || "Không có", inline: false }
+              { name: "Boss", value: `**${boss.name}**`, inline: true },
+              { name: "Level", value: `Lv. ${boss.level}`, inline: true },
+              { name: "Ban do", value: `**${boss.map}**`, inline: true },
+              { name: "Chu ky", value: cycleLabel, inline: true },
+              { name: "Gio hoi sinh", value: `**${spawnTimeStr}**`, inline: true },
+              { name: "Ghi chu", value: boss.notes || "Khong co", inline: false }
             ],
             footer: { text: "Boss Timeline Pro • Live Alert System" },
             timestamp: new Date().toISOString()
@@ -4601,11 +4654,14 @@
         } else if (milestoneType === "5m") {
           playChime("5m");
           toastMsg = `⏳ [5 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
+        } else if (milestoneType === "1m") {
+          playChime("5m");
+          toastMsg = `🚨 [1 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
         } else if (milestoneType === "0m") {
           playChime("spawn");
           toastMsg = `⚔️ [BOSS XUẤT HIỆN] ${boss.name} đã ra tại ${boss.map}`;
         }
-        showToast(toastMsg);
+        if (toastMsg) showToast(toastMsg);
         window.setTimeout(() => speakText("BOSS BOSS"), 300);
       }
       sendDiscordBossAlert(boss, milestoneType);
@@ -4614,50 +4670,42 @@
     function checkBossSoundAlerts(now) {
       if (!isSoundEnabled && !discordConfig.enabled) return;
       state.bosses.forEach((boss) => {
+        let eventTime = null;
+        let eventKey = "";
+
         if (boss.spawnMode === "fixed") {
-          const nextTime = getNextFixedSpawnTime(boss, now);
-          if (!nextTime) return;
-          const remaining = nextTime - now;
-          const targetKey = boss.id + "_" + nextTime;
-          if (remaining <= 10 * 60 * 1000 && remaining > 7 * 60 * 1000) {
-            if (!activeSoundNotified[targetKey + "_10m"]) {
-              activeSoundNotified[targetKey + "_10m"] = true;
-              notifyBossAlert(boss, "10m");
-            }
-          }
-          if (remaining <= 5 * 60 * 1000 && remaining > 2 * 60 * 1000) {
-            if (!activeSoundNotified[targetKey + "_5m"]) {
-              activeSoundNotified[targetKey + "_5m"] = true;
-              notifyBossAlert(boss, "5m");
-            }
-          }
-          if (remaining <= 2000 && remaining >= -60000) {
-            if (!activeSoundNotified[targetKey + "_0m"]) {
-              activeSoundNotified[targetKey + "_0m"] = true;
-              notifyBossAlert(boss, "0m");
-            }
-          }
+          if (!boss.diedAt) return; // Chưa chết thì đang sống, không có đếm ngược
+          eventTime = getNextFixedSpawnTime(boss, boss.diedAt);
+          if (!eventTime) return;
+          eventKey = boss.id + "_" + eventTime;
         } else {
           if (!boss.diedAt || !boss.respawnsAt) return;
-          const remaining = boss.respawnsAt - now;
-          const cycleKey = boss.id + "_" + boss.respawnsAt;
-          if (remaining <= 10 * 60 * 1000 && remaining > 7 * 60 * 1000) {
-            if (!activeSoundNotified[cycleKey + "_10m"]) {
-              activeSoundNotified[cycleKey + "_10m"] = true;
-              notifyBossAlert(boss, "10m");
-            }
+          eventTime = boss.respawnsAt;
+          eventKey = boss.id + "_" + boss.respawnsAt;
+        }
+
+        const remaining = eventTime - now;
+        if (remaining <= 0) return; // Mốc 0m được autoResolveRespawns kích hoạt tự động
+
+        // Mốc 10 phút (từ 10m xuống 5m)
+        if (remaining <= 10 * 60 * 1000 && remaining > 5 * 60 * 1000) {
+          if (!activeSoundNotified[eventKey + "_10m"]) {
+            activeSoundNotified[eventKey + "_10m"] = true;
+            notifyBossAlert(boss, "10m");
           }
-          if (remaining <= 5 * 60 * 1000 && remaining > 2 * 60 * 1000) {
-            if (!activeSoundNotified[cycleKey + "_5m"]) {
-              activeSoundNotified[cycleKey + "_5m"] = true;
-              notifyBossAlert(boss, "5m");
-            }
+        }
+        // Mốc 5 phút (từ 5m xuống 1m)
+        else if (remaining <= 5 * 60 * 1000 && remaining > 60 * 1000) {
+          if (!activeSoundNotified[eventKey + "_5m"]) {
+            activeSoundNotified[eventKey + "_5m"] = true;
+            notifyBossAlert(boss, "5m");
           }
-          if (remaining <= 2000 && remaining >= -60000) {
-            if (!activeSoundNotified[cycleKey + "_0m"]) {
-              activeSoundNotified[cycleKey + "_0m"] = true;
-              notifyBossAlert(boss, "0m");
-            }
+        }
+        // Mốc 1 phút (từ 60s xuống 2s)
+        else if (remaining <= 60 * 1000 && remaining > 2000) {
+          if (!activeSoundNotified[eventKey + "_1m"]) {
+            activeSoundNotified[eventKey + "_1m"] = true;
+            notifyBossAlert(boss, "1m");
           }
         }
       });
@@ -4960,7 +5008,14 @@
       if (!serverIsoString) return;
       const serverMs = new Date(serverIsoString).getTime();
       if (!isNaN(serverMs) && serverMs > 0) {
-        serverTimeOffset = serverMs - Date.now();
+        const ageMs = Date.now() - serverMs;
+        // Chi cap nhat offset neu timestamp Firebase moi (trong vong 5 phut)
+        // Neu data Firebase cu hon 5 phut -> reset offset ve 0, dung gio may
+        if (Math.abs(ageMs) < 5 * 60 * 1000) {
+          serverTimeOffset = serverMs - Date.now();
+        } else {
+          serverTimeOffset = 0;
+        }
       }
     }
 
@@ -5428,12 +5483,22 @@
           if (boss.diedAt) {
             const nextTime = getNextFixedSpawnTime(boss, boss.diedAt);
             if (nextTime && nextTime <= now) {
+              const targetKey = boss.id + "_" + nextTime;
+              if (!activeSoundNotified[targetKey + "_0m"]) {
+                activeSoundNotified[targetKey + "_0m"] = true;
+                notifyBossAlert(boss, "0m");
+              }
               performRespawn(boss, nextTime, "automatic");
               changed = true;
             }
           }
         } else {
           if (boss.diedAt && boss.respawnsAt && boss.respawnsAt <= now) {
+            const cycleKey = boss.id + "_" + boss.respawnsAt;
+            if (!activeSoundNotified[cycleKey + "_0m"]) {
+              activeSoundNotified[cycleKey + "_0m"] = true;
+              notifyBossAlert(boss, "0m");
+            }
             performRespawn(boss, boss.respawnsAt, "automatic");
             changed = true;
           }
