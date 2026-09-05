@@ -4559,110 +4559,114 @@
     async function sendDiscordBossAlert(boss, milestoneType, explicitEventTime = null) {
       if (!discordConfig.enabled || !discordConfig.webhookUrl) return;
 
-      let eventKey = explicitEventTime;
-      if (!eventKey) {
-        if (boss.spawnMode === "fixed") {
-          eventKey = boss.diedAt ? getNextFixedSpawnTime(boss, boss.diedAt) : getNextFixedSpawnTime(boss, getNow());
+      try {
+        let eventKey = explicitEventTime;
+        if (!eventKey) {
+          if (boss.spawnMode === "fixed") {
+            eventKey = boss.diedAt ? getNextFixedSpawnTime(boss, boss.diedAt) : getNextFixedSpawnTime(boss, getNow());
+          } else {
+            eventKey = boss.respawnsAt || boss.lastRespawnAt || getNow();
+          }
+        }
+        if (!eventKey) return;
+
+        const alertId = boss.id + "_" + milestoneType + "_" + eventKey;
+        if (activeDiscordNotified[alertId]) return;
+        activeDiscordNotified[alertId] = true;
+
+        // Ghi log vao Firebase de theo doi va chong spam trung lap giua cac tab
+        if (firebaseDb) {
+          try {
+            const safeKey = alertId.replace(/[.#$\[\]\/]/g, "_");
+            const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
+            const snap = await alertRef.once("value");
+            if (snap.exists() && (Date.now() - Number(snap.val()) < 5 * 60 * 1000)) {
+              console.log("[Discord Bot] Alert nay da duoc tab khac gui:", alertId);
+              return;
+            }
+            await alertRef.set(Date.now());
+          } catch (e) {
+            console.warn("[Discord Bot] Firebase log error:", e);
+          }
+        }
+
+        let title = "";
+        let desc = "";
+        let color = 5793266;
+        let contentText = "";
+        const thumbnailUrl = "https://cdn-icons-png.flaticon.com/512/10329/10329997.png";
+
+        const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+        const remainMs = Number(eventKey) - Date.now();
+        const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
+
+        if (milestoneType === "10m") {
+          if (!discordConfig.notify10m) return;
+          title = `[THONG BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
+          desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut).\nAnh em di chuyen den khu vuc boss som!`;
+          color = 16107019; // Amber
+          contentText = discordConfig.tagEveryone ? "@everyone" : "";
+        } else if (milestoneType === "5m") {
+          if (!discordConfig.notify5m) return;
+          title = `[CANH BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
+          desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut)!\nAnh em di chuyen den Map ngay!`;
+          color = 16347926; // Orange
+          contentText = discordConfig.tagEveryone ? "@everyone" : "";
+        } else if (milestoneType === "1m") {
+          title = `[KHAN CAP] BOSS SAP HOI SINH (CON ~1 PHUT)!`;
+          desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}**!\nAnh em tap trung tai diem boss ngay!`;
+          color = 15548997; // Red
+          contentText = discordConfig.tagEveryone ? "@everyone" : "";
+        } else if (milestoneType === "0m") {
+          if (!discordConfig.notify0m) return;
+          title = "[BOSS DA RA] TIEU DIET BOSS NGAY!";
+          desc = `Boss **${boss.name}** (Lv. ${boss.level}) **DA HOI SINH** tai **${boss.map}**!\nTap trung tieu diet boss ngay!`;
+          color = 15548997; // Red
+          contentText = discordConfig.tagEveryone ? "@everyone" : "";
         } else {
-          eventKey = boss.respawnsAt || boss.lastRespawnAt || getNow();
+          return;
         }
-      }
-      if (!eventKey) return;
 
-      const alertId = boss.id + "_" + milestoneType + "_" + eventKey;
-      if (activeDiscordNotified[alertId]) return;
-      activeDiscordNotified[alertId] = true;
-
-      // Ghi log vao Firebase de theo doi va chong spam trung lap giua cac tab
-      if (firebaseDb) {
-        try {
-          const safeKey = alertId.replace(/[.#$\[\]\/]/g, "_");
-          const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
-          const snap = await alertRef.once("value");
-          if (snap.exists() && (Date.now() - Number(snap.val()) < 5 * 60 * 1000)) {
-            console.log("[Discord Bot] Alert nay da duoc tab khac gui:", alertId);
-            return;
-          }
-          await alertRef.set(Date.now());
-        } catch (e) {
-          console.warn("[Discord Bot] Firebase log error:", e);
+        // cycleLabel: hien thi gio cu the cho boss fixed
+        let cycleLabel;
+        if (boss.spawnMode === "fixed") {
+          const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
+            ? boss.fixedSchedules
+            : [{ day: "all", time: boss.fixedTime || "18:00" }];
+          const timeList = schedules.map(s => s.time || "18:00").join(", ");
+          cycleLabel = "Co dinh " + timeList;
+        } else {
+          cycleLabel = typeof formatRespawnMinutes === "function" ? formatRespawnMinutes(boss.respawnMinutes) : (boss.respawnMinutes + " phút");
         }
+
+        const payload = {
+          username: "Boss Tracker Alert",
+          avatar_url: thumbnailUrl,
+          content: contentText,
+          embeds: [
+            {
+              title: title,
+              description: desc,
+              color: color,
+              thumbnail: { url: thumbnailUrl },
+              fields: [
+                { name: "Boss", value: "**" + boss.name + "**", inline: true },
+                { name: "Level", value: "Lv. " + boss.level, inline: true },
+                { name: "Ban do", value: "**" + boss.map + "**", inline: true },
+                { name: "Chu ky", value: cycleLabel, inline: true },
+                { name: "Gio hoi sinh", value: "**" + spawnTimeStr + "**", inline: true },
+                { name: "Ghi chu", value: boss.notes || "Khong co", inline: false }
+              ],
+              footer: { text: "Boss Timeline Pro • Live Alert System" },
+              timestamp: new Date().toISOString()
+            }
+          ]
+        };
+
+        await sendDiscordWebhook(payload);
+      } catch (err) {
+        console.error("[Discord Bot] sendDiscordBossAlert error:", err);
       }
-
-      let title = "";
-      let desc = "";
-      let color = 5793266;
-      let contentText = "";
-      const thumbnailUrl = "https://cdn-icons-png.flaticon.com/512/10329/10329997.png";
-
-      const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-      const remainMs = Number(eventKey) - Date.now();
-      const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
-
-      if (milestoneType === "10m") {
-        if (!discordConfig.notify10m) return;
-        title = `[THONG BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut).\nAnh em di chuyen den khu vuc boss som!`;
-        color = 16107019; // Amber
-        contentText = discordConfig.tagEveryone ? "@everyone" : "";
-      } else if (milestoneType === "5m") {
-        if (!discordConfig.notify5m) return;
-        title = `[CANH BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut)!\nAnh em di chuyen den Map ngay!`;
-        color = 16347926; // Orange
-        contentText = discordConfig.tagEveryone ? "@everyone" : "";
-      } else if (milestoneType === "1m") {
-        title = `[KHAN CAP] BOSS SAP HOI SINH (CON ~1 PHUT)!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}**!\nAnh em tap trung tai diem boss ngay!`;
-        color = 15548997; // Red
-        contentText = discordConfig.tagEveryone ? "@everyone" : "";
-      } else if (milestoneType === "0m") {
-        if (!discordConfig.notify0m) return;
-        title = "[BOSS DA RA] TIEU DIET BOSS NGAY!";
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) **DA HOI SINH** tai **${boss.map}**!\nTap trung tieu diet boss ngay!`;
-        color = 15548997; // Red
-        contentText = discordConfig.tagEveryone ? "@everyone" : "";
-      } else {
-        return;
-      }
-
-      // cycleLabel: hien thi gio cu the cho boss fixed
-      let cycleLabel;
-      if (boss.spawnMode === "fixed") {
-        const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
-          ? boss.fixedSchedules
-          : [{ day: "all", time: boss.fixedTime || "18:00" }];
-        const timeList = schedules.map(s => s.time || "18:00").join(", ");
-        cycleLabel = "Co dinh " + timeList;
-      } else {
-        cycleLabel = formatCycleDuration(boss.respawnMinutes);
-      }
-
-      const payload = {
-        username: "Boss Tracker Alert",
-        avatar_url: thumbnailUrl,
-        content: contentText,
-        embeds: [
-          {
-            title: title,
-            description: desc,
-            color: color,
-            thumbnail: { url: thumbnailUrl },
-            fields: [
-              { name: "Boss", value: "**" + boss.name + "**", inline: true },
-              { name: "Level", value: "Lv. " + boss.level, inline: true },
-              { name: "Ban do", value: "**" + boss.map + "**", inline: true },
-              { name: "Chu ky", value: cycleLabel, inline: true },
-              { name: "Gio hoi sinh", value: "**" + spawnTimeStr + "**", inline: true },
-              { name: "Ghi chu", value: boss.notes || "Khong co", inline: false }
-            ],
-            footer: { text: "Boss Timeline Pro • Live Alert System" },
-            timestamp: new Date().toISOString()
-          }
-        ]
-      };
-
-      await sendDiscordWebhook(payload);
     }
 
     async function generateScheduleImageBlob(items, dateDisplay, now) {
