@@ -4509,9 +4509,15 @@
     }
 
     async function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png") {
-      if (!discordConfig.enabled || !discordConfig.webhookUrl) return false;
+      if (!discordConfig.enabled || !discordConfig.webhookUrl) {
+        console.warn("[Discord Bot] Bỏ qua gửi: bot chưa bật hoặc chưa có webhookUrl", discordConfig);
+        return false;
+      }
       const url = discordConfig.webhookUrl.trim();
-      if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) return false;
+      if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) {
+        console.warn("[Discord Bot] Webhook URL không hợp lệ:", url);
+        return false;
+      }
       try {
         let res;
         if (fileBlob) {
@@ -4529,9 +4535,23 @@
             body: JSON.stringify(payload)
           });
         }
-        return res.ok || res.status === 204;
+
+        if (res.status === 429) {
+          const data = await res.json().catch(() => ({}));
+          console.warn("[Discord Bot] Bị Discord giới hạn tần suất (Rate limit 429):", data);
+          return false;
+        }
+
+        const success = res.ok || res.status === 204;
+        if (!success) {
+          const errText = await res.text().catch(() => "");
+          console.warn(`[Discord Bot] Lỗi gửi Webhook HTTP ${res.status}:`, errText);
+        } else {
+          console.log("[Discord Bot] Gửi webhook thành công!", payload?.embeds?.[0]?.title || payload?.content || "");
+        }
+        return success;
       } catch (e) {
-        console.warn("Discord Webhook post error:", e);
+        console.warn("[Discord Bot] Webhook fetch error:", e);
         return false;
       }
     }
@@ -4559,14 +4579,13 @@
           const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
           const snap = await alertRef.once("value");
           if (snap.exists() && (Date.now() - Number(snap.val()) < 15 * 60 * 1000)) {
+            console.log("[Discord Bot] Đã gửi thông báo gần đây, bỏ qua dedup:", alertId);
             return;
           }
           await alertRef.set(Date.now());
         } catch (e) {
           console.warn("Firebase discord alert dedup check error:", e);
         }
-      } else if (!isAdmin()) {
-        return;
       }
 
       let title = "";
