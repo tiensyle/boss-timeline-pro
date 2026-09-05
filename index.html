@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
@@ -4573,18 +4573,13 @@
       if (activeDiscordNotified[alertId]) return;
       activeDiscordNotified[alertId] = true;
 
+      // Ghi log vao Firebase (khong dedup - tranh block alert tu tab/nguoi khac)
       if (firebaseDb) {
         try {
-          const safeKey = alertId.replace(/[.#$[\]\/]/g, "_");
-          const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
-          const snap = await alertRef.once("value");
-          if (snap.exists() && (Date.now() - Number(snap.val()) < 15 * 60 * 1000)) {
-            console.log("[Discord Bot] Đã gửi thông báo gần đây, bỏ qua dedup:", alertId);
-            return;
-          }
-          await alertRef.set(Date.now());
+          const safeKey = alertId.replace(/[.#$[]\\/]/g, "_");
+          firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey).set(Date.now()).catch(function() {});
         } catch (e) {
-          console.warn("Firebase discord alert dedup check error:", e);
+          console.warn("[Discord Bot] Firebase log error:", e);
         }
       }
 
