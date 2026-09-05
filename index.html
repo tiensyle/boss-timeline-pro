@@ -5408,13 +5408,7 @@
             if (nextTime && nextTime <= now) {
               performRespawn(boss, nextTime, "automatic");
               changed = true;
-            } else if (boss.respawnsAt !== nextTime) {
-              boss.respawnsAt = nextTime;
-              changed = true;
             }
-          } else if (boss.respawnsAt !== null) {
-            boss.respawnsAt = null;
-            changed = true;
           }
         } else {
           if (boss.diedAt && boss.respawnsAt && boss.respawnsAt <= now) {
@@ -5698,6 +5692,47 @@
       if (progressSpan) {
         progressSpan.style.width = `${progress}%`;
       }
+
+      // Đảm bảo nút bấm luôn đồng bộ 100% không bị lệch/nhấp nháy
+      if (isAdmin()) {
+        const actionPanel = row.querySelector(".compact-action-panel");
+        if (actionPanel) {
+          const btnGroup = actionPanel.querySelector("div[style*='display:flex']");
+          if (btnGroup) {
+            const hasSplitGroup = Boolean(btnGroup.querySelector(".split-btn-group"));
+            if (isAlive && !hasSplitGroup) {
+              const actionIcon = iconSvg.skull;
+              const actionLabel = isEn ? "Record Death" : "Ghi nhận chết";
+              btnGroup.innerHTML = `
+                <div class="split-btn-group" style="flex:1;">
+                  <button class="button-danger action-main" type="button" data-action="kill" data-id="${escapeHtml(boss.id)}" style="padding:5px 10px; font-size:12px;" title="${isEn ? 'Record death right now' : 'Ghi nhận chết ngay bây giờ'}">
+                    ${actionIcon}
+                    <span>${actionLabel}</span>
+                  </button>
+                  <button class="split-arrow-btn" type="button" data-action="offset-menu" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Record past death time' : 'Ghi nhận chết lùi giờ'}">
+                    <svg viewBox="0 0 24 24" fill="none" width="12" height="12"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+                <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
+                  ${iconSvg.edit}
+                </button>
+              `;
+            } else if (!isAlive && hasSplitGroup) {
+              const actionIcon = iconSvg.check;
+              const actionLabel = isEn ? "Revive Now" : "Cho hồi sinh";
+              btnGroup.innerHTML = `
+                <button class="button-primary action-main" type="button" data-action="revive" data-id="${escapeHtml(boss.id)}" style="flex:1; padding:5px 10px; font-size:12px;">
+                  ${actionIcon}
+                  <span>${actionLabel}</span>
+                </button>
+                <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" style="padding:5px 8px;" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
+                  ${iconSvg.edit}
+                </button>
+              `;
+            }
+          }
+        }
+      }
     }
 
     function renderBossGrid(now) {
@@ -5715,7 +5750,7 @@
         return;
       }
 
-      const gridKey = bosses.map((b) => `${b.id}:${getBossStatus(b, now)}`).join(",") + "_" + currentRole + "_" + currentLang + "_" + activeFilter + "_" + activeView;
+      const gridKey = bosses.map((b) => `${b.id}:${b.diedAt || 0}:${b.respawnsAt || 0}:${getBossStatus(b, now)}`).join(",") + "_" + currentRole + "_" + currentLang + "_" + activeFilter + "_" + activeView;
 
       if (gridKey !== lastRenderedGridKey) {
         lastRenderedGridKey = gridKey;
@@ -5784,6 +5819,44 @@
       const metaSpans = card.querySelectorAll(".boss-meta span");
       if (metaSpans[0] && metaSpans[0].textContent !== respawnTimeText) metaSpans[0].textContent = respawnTimeText;
       if (metaSpans[1] && metaSpans[1].textContent !== `${progress}%`) metaSpans[1].textContent = `${progress}%`;
+
+      // Cập nhật nút bấm tương ứng ngay lập tức không bị lệch
+      if (isAdmin()) {
+        const actionsEl = card.querySelector(".card-actions");
+        if (actionsEl) {
+          const hasSplitGroup = Boolean(actionsEl.querySelector(".split-btn-group"));
+          if (isAlive && !hasSplitGroup) {
+            const actionIcon = iconSvg.skull;
+            const actionLabel = isEn ? "Record Death" : "Ghi nhận chết";
+            actionsEl.innerHTML = `
+              <div class="split-btn-group">
+                <button class="button-danger action-main" type="button" data-action="kill" data-id="${escapeHtml(boss.id)}" title="${isEn ? 'Record death right now' : 'Ghi nhận chết ngay bây giờ'}">
+                  ${actionIcon}
+                  <span>${actionLabel}</span>
+                </button>
+                <button class="split-arrow-btn" type="button" data-action="offset-menu" data-id="${escapeHtml(boss.id)}" aria-label="${isEn ? 'Record past death time' : 'Ghi nhận chết lùi giờ'}" title="${isEn ? 'Record past death time' : 'Ghi nhận chết lùi giờ'}">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+              <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" aria-label="${isEn ? 'Edit' : 'Chỉnh sửa'} ${escapeHtml(boss.name)}" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
+                ${iconSvg.edit}
+              </button>
+            `;
+          } else if (!isAlive && hasSplitGroup) {
+            const actionIcon = iconSvg.check;
+            const actionLabel = isEn ? "Revive Now" : "Cho hồi sinh";
+            actionsEl.innerHTML = `
+              <button class="button-primary action-main" type="button" data-action="revive" data-id="${escapeHtml(boss.id)}">
+                ${actionIcon}
+                <span>${actionLabel}</span>
+              </button>
+              <button class="icon-button" type="button" data-action="edit" data-id="${escapeHtml(boss.id)}" aria-label="${isEn ? 'Edit' : 'Chỉnh sửa'} ${escapeHtml(boss.name)}" title="${isEn ? 'Edit' : 'Chỉnh sửa'}">
+                ${iconSvg.edit}
+              </button>
+            `;
+          }
+        }
+      }
     }
 
     function renderBossCard(boss, now) {
@@ -6721,11 +6794,16 @@
     }
 
     function openOffsetModal(id) {
+      const isEn = currentLang === "en";
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
+        requestAdminLogin();
+        return;
+      }
       const boss = state.bosses.find((b) => b.id === id);
       if (!boss) return;
       _offsetBossId = id;
       _offsetMinutes = 0;
-      const isEn = currentLang === "en";
       const t = TRANSLATIONS[currentLang];
 
       document.getElementById("offsetModalTitle").textContent = t.offsetModalTitle;
@@ -6852,9 +6930,13 @@
     }
 
     function confirmOffsetDeath() {
+      const isEn = currentLang === "en";
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
+        return;
+      }
       const boss = state.bosses.find((b) => b.id === _offsetBossId);
       if (!boss) return;
-      const isEn = currentLang === "en";
       const diedAt = getOffsetDiedAt();
       boss.diedAt = diedAt;
       if (boss.spawnMode === "fixed") {
@@ -7954,6 +8036,13 @@
 
     // ── Discord Settings Modal Event Handlers ──
     function openDiscordModal() {
+      const isEn = currentLang === "en";
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
+        requestAdminLogin();
+        return;
+      }
+
       const urlInput = document.getElementById("discordWebhookUrl");
       const enableMaster = document.getElementById("discordEnableMaster");
       const n10m = document.getElementById("discordNotify10m");
@@ -7989,6 +8078,12 @@
     document.getElementById("discordCancelBtn")?.addEventListener("click", closeDiscordModal);
 
     document.getElementById("discordSaveBtn")?.addEventListener("click", () => {
+      const isEn = currentLang === "en";
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
+        return;
+      }
+
       const urlInput = document.getElementById("discordWebhookUrl");
       const enableMaster = document.getElementById("discordEnableMaster");
       const n10m = document.getElementById("discordNotify10m");
@@ -8019,6 +8114,12 @@
     });
 
     document.getElementById("discordTestBtn")?.addEventListener("click", async () => {
+      const isEn = currentLang === "en";
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
+        return;
+      }
+
       const urlInput = document.getElementById("discordWebhookUrl");
       const tagEv = document.getElementById("discordTagEveryone");
       const resEl = document.getElementById("discordTestResult");
