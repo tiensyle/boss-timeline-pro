@@ -3921,14 +3921,31 @@
           </label>
         </div>
 
+        <div class="discord-option-row" style="background:rgba(59, 130, 246, 0.08);border-color:rgba(59, 130, 246, 0.25);">
+          <div>
+            <strong style="display:block;font-size:12.5px;color:var(--text);">📅 Tự động gửi Lịch Boss hôm nay lúc 00:00 hàng ngày</strong>
+            <span style="font-size:11px;color:var(--muted);">Gửi bảng danh sách toàn bộ giờ boss xuất hiện trong ngày vào kênh Discord</span>
+          </div>
+          <label class="discord-switch">
+            <input type="checkbox" id="discordNotifyDailySchedule" checked>
+            <span class="discord-slider"></span>
+          </label>
+        </div>
+
         <div id="discordTestResult" style="display:none;margin-top:12px;padding:10px 12px;border-radius:6px;font-size:12px;font-weight:600;"></div>
       </div>
 
       <div style="padding:14px 22px;border-top:1px solid var(--line-soft);background:var(--surface-2);display:flex;justify-content:space-between;align-items:center;">
-        <button type="button" class="button-ghost" id="discordTestBtn" style="display:inline-flex;align-items:center;gap:6px;color:#5865F2;border-color:rgba(88,101,242,0.3);">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Gửi thử Test Bot
-        </button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="button-ghost" id="discordTestBtn" style="display:inline-flex;align-items:center;gap:6px;color:#5865F2;border-color:rgba(88,101,242,0.3);">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Gửi thử Test Bot
+          </button>
+          <button type="button" class="button-ghost" id="discordTestScheduleBtn" style="display:inline-flex;align-items:center;gap:6px;color:#3b82f6;border-color:rgba(59,130,246,0.3);">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Gửi ngay Lịch Boss hôm nay
+          </button>
+        </div>
         <div style="display:flex;gap:8px;">
           <button type="button" class="button-ghost" id="discordCancelBtn">Đóng</button>
           <button type="button" class="button-primary" id="discordSaveBtn" style="background:#5865F2;border-color:#5865F2;display:inline-flex;align-items:center;gap:6px;">
@@ -4447,7 +4464,8 @@
       notify5m: true,
       notify0m: true,
       notifyKill: true,
-      tagEveryone: true
+      tagEveryone: true,
+      notifyDailySchedule: true
     };
 
     function loadDiscordConfig() {
@@ -4486,7 +4504,7 @@
       const isConnected = Boolean(discordConfig.enabled && discordConfig.webhookUrl);
       btn.classList.toggle("connected", isConnected);
       if (text) {
-        text.textContent = isConnected ? "Discord: Bật" : "Discord Bot";
+        text.textContent = isConnected ? "Discord: Bat" : "Discord Bot";
       }
     }
 
@@ -4494,7 +4512,6 @@
       if (!discordConfig.enabled || !discordConfig.webhookUrl) return false;
       const url = discordConfig.webhookUrl.trim();
       if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) return false;
-
       try {
         const res = await fetch(url, {
           method: "POST",
@@ -4511,106 +4528,65 @@
     async function sendDiscordBossAlert(boss, milestoneType) {
       if (!discordConfig.enabled || !discordConfig.webhookUrl) return;
 
-      // Tính eventKey: dùng thời điểm hồi sinh cụ thể để dedup chính xác
       let eventKey = null;
       if (boss.spawnMode === "fixed") {
-        if (!boss.diedAt) return; // Boss fixed đang sống, không cần alert đếm ngược
+        if (!boss.diedAt) return;
         eventKey = getNextFixedSpawnTime(boss, boss.diedAt);
       } else {
-        if (!boss.respawnsAt) return; // Boss thường chưa có thời gian hồi sinh
+        if (!boss.respawnsAt) return;
         eventKey = boss.respawnsAt;
       }
       if (!eventKey) return;
 
-      const alertId = `${boss.id}_${milestoneType}_${eventKey}`;
+      const alertId = boss.id + "_" + milestoneType + "_" + eventKey;
       if (activeDiscordNotified[alertId]) return;
       activeDiscordNotified[alertId] = true;
 
-      // Distributed deduplication qua Firebase: đảm bảo chỉ 1 máy bắn webhook duy nhất cho toàn team
       if (firebaseDb) {
         try {
-          const safeKey = alertId.replace(/[.#$[\]/]/g, "_");
+          const safeKey = alertId.replace(/[.#$[\]\/]/g, "_");
           const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
           const snap = await alertRef.once("value");
           if (snap.exists() && (Date.now() - Number(snap.val()) < 15 * 60 * 1000)) {
-            return; // Máy khác trong team đã gửi webhook này rồi
+            return;
           }
           await alertRef.set(Date.now());
         } catch (e) {
           console.warn("Firebase discord alert dedup check error:", e);
         }
       } else if (!isAdmin()) {
-        return; // Khi không có Firebase, chỉ Admin gửi
+        return;
       }
 
-      let contentText = "";
       let title = "";
       let desc = "";
       let color = 5793266;
-      let mention = false;
-      let thumbnailUrl = "https://cdn-icons-png.flaticon.com/512/10329/10329997.png";
+      let contentText = "";
+      const thumbnailUrl = "https://cdn-icons-png.flaticon.com/512/10329/10329997.png";
 
       if (milestoneType === "10m") {
         if (!discordConfig.notify10m) return;
-        contentText = ">>> **[THONG BAO]** Boss sap hoi sinh sau 10 phut!";
-        title = "BOSS SAP HOI SINH SAU 10 PHUT";
-        desc = [
-          "**" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau **10 phut**.",
-          "",
-          "Anh em di chuyen den khu vuc boss som!"
-        ].join("\n");
+        title = "[THONG BAO] BOSS SAP HOI SINH SAU 10 PHUT!";
+        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau 10 phut.\nAnh em di chuyen den khu vuc boss som!";
         color = 16107019; // Amber
-        mention = false;
+        contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else if (milestoneType === "5m") {
         if (!discordConfig.notify5m) return;
-        contentText = [
-          "# CANH BAO - BOSS SAP HOI SINH SAU 5 PHUT!",
-          "",
-          (discordConfig.tagEveryone ? "@everyone" : ""),
-          "**>> Di chuyen den ban do " + boss.map + " NGAY! <<**"
-        ].filter(Boolean).join("\n");
-        title = "BOSS SAP HOI SINH SAU 5 PHUT!";
-        desc = [
-          "**" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai",
-          "**" + boss.map + "** sau **5 PHUT**!",
-          "",
-          "Tap ket vi tri boss gap!"
-        ].join("\n");
+        title = "[CANH BAO] BOSS SAP HOI SINH SAU 5 PHUT!";
+        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau 5 phut!\nAnh em di chuyen den Map ngay!";
         color = 16347926; // Orange
-        mention = false; // mention da o contentText
+        contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else if (milestoneType === "1m") {
-        contentText = [
-          "# BOSS SAP RA - 1 PHUT NUA!",
-          "",
-          (discordConfig.tagEveryone ? "@everyone" : ""),
-          "**== CHUAN BI NGAY =="
-        ].filter(Boolean).join("\n");
-        title = "KHAN CAP - 1 PHUT NUA BOSS RA!";
-        desc = [
-          "**" + boss.name + "** (Lv. " + boss.level + ") se xuat hien tai",
-          "**" + boss.map + "** SAU **1 PHUT**!",
-          "",
-          "Tat ca focus boss ngay lap tuc!"
-        ].join("\n");
+        title = "[KHAN CAP] BOSS SAP HOI SINH SAU 1 PHUT!";
+        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau 1 PHUT!\nAnh em tap trung tai diem boss ngay!";
         color = 15548997; // Red
-        mention = false;
+        contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else if (milestoneType === "0m") {
         if (!discordConfig.notify0m) return;
-        contentText = [
-          "# BOSS DA XUAT HIEN - TIEU DIET NGAY!",
-          "",
-          (discordConfig.tagEveryone ? "@everyone" : ""),
-          "**== BOSS RA ROI == GO NGAY =="
-        ].filter(Boolean).join("\n");
-        title = "BOSS DA HOI SINH - TIEU DIET NGAY!";
-        desc = [
-          "**" + boss.name + "** (Lv. " + boss.level + ") **DA HOI SINH** tai",
-          "**" + boss.map + "**!",
-          "",
-          "Tap trung tieu diet boss ngay!"
-        ].join("\n");
+        title = "[BOSS DA RA] TIEU DIET BOSS NGAY!";
+        desc = "Boss **" + boss.name + "** (Lv. " + boss.level + ") **DA HOI SINH** tai **" + boss.map + "**!\nTap trung tieu diet boss ngay!";
         color = 15548997; // Red
-        mention = false;
+        contentText = discordConfig.tagEveryone ? "@everyone" : "";
       } else {
         return;
       }
@@ -4643,9 +4619,9 @@
               { name: "Boss", value: "**" + boss.name + "**", inline: true },
               { name: "Level", value: "Lv. " + boss.level, inline: true },
               { name: "Ban do", value: "**" + boss.map + "**", inline: true },
-              { name: "Gio hoi sinh", value: "**" + spawnTimeStr + "**", inline: true },
               { name: "Chu ky", value: cycleLabel, inline: true },
-              { name: "Ghi chu", value: boss.notes || "Khong co", inline: true }
+              { name: "Gio hoi sinh", value: "**" + spawnTimeStr + "**", inline: true },
+              { name: "Ghi chu", value: boss.notes || "Khong co", inline: false }
             ],
             footer: { text: "Boss Timeline Pro • Live Alert System" },
             timestamp: new Date().toISOString()
@@ -4654,6 +4630,121 @@
       };
 
       await sendDiscordWebhook(payload);
+    }
+
+    async function sendDiscordDailySchedule(forced = false) {
+      if (!discordConfig.enabled || !discordConfig.webhookUrl) return false;
+      if (!forced && discordConfig.notifyDailySchedule === false) return false;
+
+      const now = getNow();
+      const nowDate = new Date(now);
+      const dateKey = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}-${String(nowDate.getDate()).padStart(2, "0")}`;
+      const alertId = `daily_schedule_${dateKey}`;
+
+      if (!forced) {
+        if (activeDiscordNotified[alertId]) return false;
+        activeDiscordNotified[alertId] = true;
+
+        if (firebaseDb) {
+          try {
+            const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + alertId);
+            const snap = await alertRef.once("value");
+            if (snap.exists() && (Date.now() - Number(snap.val()) < 20 * 60 * 60 * 1000)) {
+              return false; // Máy khác đã gửi lịch ngày hôm nay rồi
+            }
+            await alertRef.set(Date.now());
+          } catch (e) {
+            console.warn("Firebase daily schedule dedup error:", e);
+          }
+        } else if (!isAdmin()) {
+          return false;
+        }
+      }
+
+      // Thu thập danh sách boss ngày hôm nay
+      const items = [];
+      state.bosses.forEach((boss) => {
+        const eventTime = getBossScheduleEventTime(boss, now, "today");
+        if (eventTime !== null) {
+          items.push({ boss, eventTime });
+        }
+      });
+
+      items.sort((a, b) => {
+        if (a.eventTime && b.eventTime) return a.eventTime - b.eventTime;
+        return a.boss.name.localeCompare(b.boss.name, "vi");
+      });
+
+      const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+      const dayStr = dayNames[nowDate.getDay()];
+      const dd = String(nowDate.getDate()).padStart(2, "0");
+      const mm = String(nowDate.getMonth() + 1).padStart(2, "0");
+      const yyyy = nowDate.getFullYear();
+      const dateDisplay = `${dayStr}, ${dd}/${mm}/${yyyy}`;
+
+      if (items.length === 0) {
+        const emptyPayload = {
+          username: "Boss Tracker Alert",
+          avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
+          embeds: [
+            {
+              title: `📅 LỊCH BOSS HÔM NAY (${dateDisplay})`,
+              description: "Hôm nay không có boss cố định nào theo lịch được thiết lập.",
+              color: 3447003,
+              footer: { text: "Boss Timeline Pro • Daily Schedule" },
+              timestamp: new Date().toISOString()
+            }
+          ]
+        };
+        return await sendDiscordWebhook(emptyPayload);
+      }
+
+      // Chia thành các đoạn tối đa 20 boss/embed (Discord giới hạn embed description 4096 ký tự)
+      const lines = items.map((item, idx) => {
+        const timeObj = new Date(item.eventTime);
+        const timeStr = timeObj.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const st = getBossStatus(item.boss, now);
+        const stText = st === "alive" ? "🟢 ĐANG SỐNG" : (st === "soon" ? "🟡 SẮP RA" : "🔴 ĐANG HỒI SINH");
+        const fixedStar = item.boss.spawnMode === "fixed" ? "⭐ " : "";
+        return `\`${timeStr}\` | **Lv.${item.boss.level || 80}** | ${fixedStar}**${item.boss.name}** [${item.boss.map}] — *${stText}*`;
+      });
+
+      // Tạo chunks tối đa 25 dòng mỗi chunk
+      const chunkSize = 25;
+      const chunks = [];
+      for (let i = 0; i < lines.length; i += chunkSize) {
+        chunks.push(lines.slice(i, i + chunkSize));
+      }
+
+      const embeds = chunks.map((chunk, index) => {
+        const isFirst = index === 0;
+        const pageStr = chunks.length > 1 ? ` (Phần ${index + 1}/${chunks.length})` : "";
+        return {
+          title: isFirst ? `📅 LỊCH HỒI SINH BOSS HÔM NAY — ${dateDisplay}` : `📅 Lịch Boss hôm nay (tiếp theo)${pageStr}`,
+          description: (isFirst ? `Tổng cộng: **${items.length} lượt boss** xuất hiện trong ngày hôm nay:\n\n` : "") + chunk.join("\n"),
+          color: 3447003, // Blue #3498db
+          footer: { text: `Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày${pageStr}` },
+          timestamp: new Date().toISOString()
+        };
+      });
+
+      const payload = {
+        username: "Boss Tracker Alert",
+        avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
+        content: (forced || discordConfig.tagEveryone) ? "@everyone 📢 **Lịch Boss ngày mới hôm nay đã sẵn sàng!**" : "📢 **Lịch Boss ngày mới hôm nay đã sẵn sàng!**",
+        embeds: embeds.slice(0, 10) // Discord cho tối đa 10 embeds/tin nhắn
+      };
+
+      return await sendDiscordWebhook(payload);
+    }
+
+    function checkDailyScheduleAlert(now) {
+      if (!discordConfig.enabled || !discordConfig.webhookUrl || discordConfig.notifyDailySchedule === false) return;
+      const d = new Date(now);
+      // Kích hoạt trong khung 00:00:00 - 00:05:00 hàng ngày
+      if (d.getHours() === 0 && d.getMinutes() < 5) {
+        sendDiscordDailySchedule(false);
+      }
     }
 
     async function sendDiscordKillAlert(boss, diedAt, nextRespawn) {
@@ -5563,6 +5654,7 @@
       updateRoleUI();
       updateSoundUI();
       checkBossSoundAlerts(now);
+      checkDailyScheduleAlert(now);
       renderClocks(now);
       renderMetrics(now);
       renderTodayScheduleTable(now);
@@ -8139,6 +8231,7 @@
       const n0m = document.getElementById("discordNotify0m");
       const nKill = document.getElementById("discordNotifyKill");
       const tagEv = document.getElementById("discordTagEveryone");
+      const nDaily = document.getElementById("discordNotifyDailySchedule");
       const resEl = document.getElementById("discordTestResult");
 
       if (urlInput) urlInput.value = discordConfig.webhookUrl || "";
@@ -8148,6 +8241,7 @@
       if (n0m) n0m.checked = discordConfig.notify0m !== false;
       if (nKill) nKill.checked = discordConfig.notifyKill !== false;
       if (tagEv) tagEv.checked = discordConfig.tagEveryone !== false;
+      if (nDaily) nDaily.checked = discordConfig.notifyDailySchedule !== false;
       if (resEl) resEl.style.display = "none";
 
       const modal = document.getElementById("discordSettingsModal");
@@ -8180,6 +8274,7 @@
       const n0m = document.getElementById("discordNotify0m");
       const nKill = document.getElementById("discordNotifyKill");
       const tagEv = document.getElementById("discordTagEveryone");
+      const nDaily = document.getElementById("discordNotifyDailySchedule");
 
       const newConfig = {
         enabled: enableMaster ? enableMaster.checked : false,
@@ -8188,7 +8283,8 @@
         notify5m: n5m ? n5m.checked : true,
         notify0m: n0m ? n0m.checked : true,
         notifyKill: nKill ? nKill.checked : true,
-        tagEveryone: tagEv ? tagEv.checked : true
+        tagEveryone: tagEv ? tagEv.checked : true,
+        notifyDailySchedule: nDaily ? nDaily.checked : true
       };
 
       if (newConfig.enabled && !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(newConfig.webhookUrl)) {
@@ -8200,6 +8296,45 @@
       saveDiscordConfigLocal(newConfig);
       closeDiscordModal();
       showToast(newConfig.enabled ? "🤖 Đã lưu & kích hoạt Discord Bot thành công!" : "🤖 Đã lưu cấu hình Discord.");
+    });
+
+    document.getElementById("discordTestScheduleBtn")?.addEventListener("click", async () => {
+      const isEn = currentLang === "en";
+      if (!isAdmin()) {
+        showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
+        return;
+      }
+      const resEl = document.getElementById("discordTestResult");
+      if (resEl) {
+        resEl.style.display = "block";
+        resEl.style.background = "var(--surface-3)";
+        resEl.style.color = "var(--text)";
+        resEl.style.border = "1px solid var(--line)";
+        resEl.textContent = "⏳ Đang gửi Lịch Boss hôm nay sang Discord...";
+      }
+      try {
+        const ok = await sendDiscordDailySchedule(true);
+        if (ok) {
+          if (resEl) {
+            resEl.style.display = "block";
+            resEl.style.background = "var(--green-soft)";
+            resEl.style.color = "var(--green)";
+            resEl.style.border = "1px solid var(--green)";
+            resEl.textContent = "✅ Đã gửi Lịch Boss hôm nay sang Discord thành công!";
+          }
+          showToast("✅ Đã gửi Lịch Boss hôm nay sang Discord!");
+        } else {
+          throw new Error("Không thể gửi webhook, vui lòng kiểm tra URL!");
+        }
+      } catch (err) {
+        if (resEl) {
+          resEl.style.display = "block";
+          resEl.style.background = "var(--red-soft)";
+          resEl.style.color = "var(--red)";
+          resEl.style.border = "1px solid var(--red)";
+          resEl.textContent = "❌ Gửi thất bại: " + err.message;
+        }
+      }
     });
 
     document.getElementById("discordTestBtn")?.addEventListener("click", async () => {
