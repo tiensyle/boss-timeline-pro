@@ -4508,16 +4508,27 @@
       }
     }
 
-    async function sendDiscordWebhook(payload) {
+    async function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png") {
       if (!discordConfig.enabled || !discordConfig.webhookUrl) return false;
       const url = discordConfig.webhookUrl.trim();
       if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) return false;
       try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
+        let res;
+        if (fileBlob) {
+          const fd = new FormData();
+          fd.append("payload_json", JSON.stringify(payload));
+          fd.append("file", fileBlob, fileName);
+          res = await fetch(url, {
+            method: "POST",
+            body: fd
+          });
+        } else {
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        }
         return res.ok || res.status === 204;
       } catch (e) {
         console.warn("Discord Webhook post error:", e);
@@ -4632,6 +4643,161 @@
       await sendDiscordWebhook(payload);
     }
 
+    async function generateScheduleImageBlob(items, dateDisplay, now) {
+      return new Promise((resolve) => {
+        try {
+          const rowHeight = 44;
+          const headerHeight = 110;
+          const tableHeadHeight = 42;
+          const footerHeight = 40;
+          const width = 1150;
+          const height = headerHeight + tableHeadHeight + (items.length * rowHeight) + footerHeight;
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(null);
+
+          // Background
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, width, height);
+
+          // Top Header Bar
+          ctx.fillStyle = "#0c2461";
+          ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
+          ctx.fillText("BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)", 24, 45);
+
+          ctx.fillStyle = "#64748b";
+          ctx.font = "14px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
+          ctx.fillText(dateDisplay + " · 00:00 → 24:00 · UTC+7", 24, 75);
+
+          // Total badge
+          ctx.fillStyle = "#0c2461";
+          ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
+          const countStr = "Tổng số Boss: " + items.length;
+          const countWidth = ctx.measureText(countStr).width;
+          ctx.fillText(countStr, width - 24 - countWidth, 55);
+
+          // Table Header
+          const tableY = headerHeight;
+          ctx.fillStyle = "#0c2461";
+          ctx.fillRect(16, tableY, width - 32, tableHeadHeight);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 12.5px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
+          ctx.fillText("STT", 32, tableY + 26);
+          ctx.fillText("GIỜ & NGÀY HỒI SINH", 85, tableY + 26);
+          ctx.fillText("LEVEL", 285, tableY + 26);
+          ctx.fillText("TÊN BOSS", 370, tableY + 26);
+          ctx.fillText("CHU KỲ", 560, tableY + 26);
+          ctx.fillText("TRẠNG THÁI", 750, tableY + 26);
+          ctx.fillText("ĐỊA ĐIỂM", 895, tableY + 26);
+
+          // Table Rows
+          let y = tableY + tableHeadHeight;
+          items.forEach((item, idx) => {
+            const isEven = idx % 2 === 1;
+            if (isEven) {
+              ctx.fillStyle = "#f8fafc";
+              ctx.fillRect(16, y, width - 32, rowHeight);
+            }
+
+            // Bottom border
+            ctx.fillStyle = "#e2e8f0";
+            ctx.fillRect(16, y + rowHeight - 1, width - 32, 1);
+
+            // STT
+            ctx.fillStyle = "#64748b";
+            ctx.font = "600 13px Consolas, monospace";
+            ctx.fillText(String(idx + 1), 36, y + 27);
+
+            // Time & Date
+            const timeObj = new Date(item.eventTime);
+            const timeStr = timeObj.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            ctx.fillStyle = "#0c2461";
+            ctx.font = "bold 13px Consolas, monospace";
+            ctx.fillText(timeStr, 85, y + 27);
+            ctx.fillStyle = "#64748b";
+            ctx.font = "12px -apple-system, BlinkMacSystemFont, sans-serif";
+            ctx.fillText("(Hôm nay)", 165, y + 27);
+
+            // Level Pill
+            ctx.fillStyle = "#e0f2fe";
+            ctx.beginPath();
+            ctx.roundRect(280, y + 11, 58, 22, 4);
+            ctx.fill();
+            ctx.strokeStyle = "#bae6fd";
+            ctx.stroke();
+            ctx.fillStyle = "#0369a1";
+            ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
+            ctx.fillText("Lv. " + (item.boss.level || 80), 290, y + 26);
+
+            // Boss Name
+            const isFixed = item.boss.spawnMode === "fixed";
+            ctx.fillStyle = isFixed ? "#d97706" : "#0c2461";
+            ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, sans-serif";
+            const nameStr = (isFixed ? "⭐ " : "") + item.boss.name;
+            ctx.fillText(nameStr, 370, y + 27);
+
+            // Cycle
+            ctx.fillStyle = "#475569";
+            ctx.font = "500 12.5px -apple-system, BlinkMacSystemFont, sans-serif";
+            const cycleStr = formatSpawnLabel(item.boss);
+            ctx.fillText(cycleStr, 560, y + 27);
+
+            // Status Badge
+            const st = getBossStatus(item.boss, now);
+            let badgeBg = "#dcfce7";
+            let badgeBorder = "#bbf7d0";
+            let badgeText = "#15803d";
+            let badgeLabel = "• ĐANG SỐNG";
+            if (st === "respawning") {
+              badgeBg = "#fef2f2";
+              badgeBorder = "#fecaca";
+              badgeText = "#b91c1c";
+              badgeLabel = "• ĐANG HỒI SINH";
+            } else if (st === "soon") {
+              badgeBg = "#fef3c7";
+              badgeBorder = "#fde68a";
+              badgeText = "#b45309";
+              badgeLabel = "• SẮP HỒI SINH";
+            }
+
+            ctx.fillStyle = badgeBg;
+            ctx.beginPath();
+            ctx.roundRect(740, y + 10, 115, 24, 12);
+            ctx.fill();
+            ctx.strokeStyle = badgeBorder;
+            ctx.stroke();
+            ctx.fillStyle = badgeText;
+            ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
+            ctx.fillText(badgeLabel, 752, y + 26);
+
+            // Map / Location
+            ctx.fillStyle = "#334155";
+            ctx.font = "500 12.5px -apple-system, BlinkMacSystemFont, sans-serif";
+            ctx.fillText(item.boss.map || "—", 895, y + 27);
+
+            y += rowHeight;
+          });
+
+          // Footer
+          ctx.fillStyle = "#94a3b8";
+          ctx.font = "11.5px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.fillText("Xuất tự động từ hệ thống Boss Timeline Pro", 24, height - 16);
+          const rightFoot = "Cập nhật lúc: " + new Date(now).toLocaleTimeString("vi-VN");
+          const rfWidth = ctx.measureText(rightFoot).width;
+          ctx.fillText(rightFoot, width - 24 - rfWidth, height - 16);
+
+          canvas.toBlob((blob) => resolve(blob), "image/png");
+        } catch (err) {
+          console.warn("Canvas generateScheduleImageBlob error:", err);
+          resolve(null);
+        }
+      });
+    }
+
     async function sendDiscordDailySchedule(forced = false) {
       if (!discordConfig.enabled || !discordConfig.webhookUrl) return false;
       if (!forced && discordConfig.notifyDailySchedule === false) return false;
@@ -4650,7 +4816,7 @@
             const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + alertId);
             const snap = await alertRef.once("value");
             if (snap.exists() && (Date.now() - Number(snap.val()) < 20 * 60 * 60 * 1000)) {
-              return false; // Máy khác đã gửi lịch ngày hôm nay rồi
+              return false;
             }
             await alertRef.set(Date.now());
           } catch (e) {
@@ -4688,7 +4854,7 @@
           avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
           embeds: [
             {
-              title: `📅 LỊCH BOSS HÔM NAY (${dateDisplay})`,
+              title: `📅 BÁO CÁO LỊCH BOSS HÔM NAY (${dateDisplay})`,
               description: "Hôm nay không có boss cố định nào theo lịch được thiết lập.",
               color: 3447003,
               footer: { text: "Boss Timeline Pro • Daily Schedule" },
@@ -4699,43 +4865,31 @@
         return await sendDiscordWebhook(emptyPayload);
       }
 
-      // Chia thành các đoạn tối đa 20 boss/embed (Discord giới hạn embed description 4096 ký tự)
-      const lines = items.map((item, idx) => {
-        const timeObj = new Date(item.eventTime);
-        const timeStr = timeObj.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        const st = getBossStatus(item.boss, now);
-        const stText = st === "alive" ? "🟢 ĐANG SỐNG" : (st === "soon" ? "🟡 SẮP RA" : "🔴 ĐANG HỒI SINH");
-        const fixedStar = item.boss.spawnMode === "fixed" ? "⭐ " : "";
-        return `\`${timeStr}\` | **Lv.${item.boss.level || 80}** | ${fixedStar}**${item.boss.name}** [${item.boss.map}] — *${stText}*`;
-      });
+      // Tạo file ảnh bảng lịch boss trực tiếp từ Canvas
+      const imgBlob = await generateScheduleImageBlob(items, dateDisplay, now);
 
-      // Tạo chunks tối đa 25 dòng mỗi chunk
-      const chunkSize = 25;
-      const chunks = [];
-      for (let i = 0; i < lines.length; i += chunkSize) {
-        chunks.push(lines.slice(i, i + chunkSize));
-      }
-
-      const embeds = chunks.map((chunk, index) => {
-        const isFirst = index === 0;
-        const pageStr = chunks.length > 1 ? ` (Phần ${index + 1}/${chunks.length})` : "";
-        return {
-          title: isFirst ? `📅 LỊCH HỒI SINH BOSS HÔM NAY — ${dateDisplay}` : `📅 Lịch Boss hôm nay (tiếp theo)${pageStr}`,
-          description: (isFirst ? `Tổng cộng: **${items.length} lượt boss** xuất hiện trong ngày hôm nay:\n\n` : "") + chunk.join("\n"),
-          color: 3447003, // Blue #3498db
-          footer: { text: `Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày${pageStr}` },
-          timestamp: new Date().toISOString()
-        };
-      });
-
+      const fileName = `lich_boss_${dateKey}.png`;
       const payload = {
         username: "Boss Tracker Alert",
         avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
-        content: (forced || discordConfig.tagEveryone) ? "@everyone 📢 **Lịch Boss ngày mới hôm nay đã sẵn sàng!**" : "📢 **Lịch Boss ngày mới hôm nay đã sẵn sàng!**",
-        embeds: embeds.slice(0, 10) // Discord cho tối đa 10 embeds/tin nhắn
+        content: (forced || discordConfig.tagEveryone) ? "@everyone 📢 **BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**" : "📢 **BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**",
+        embeds: [
+          {
+            title: `📅 BÁO CÁO LỊCH BOSS HÔM NAY — ${dateDisplay}`,
+            description: `Tổng số: **${items.length} lượt boss** xuất hiện trong ngày hôm nay.\nXem chi tiết trong bảng tổng hợp đính kèm bên dưới 👇`,
+            color: 3447003, // Blue #3498db
+            image: imgBlob ? { url: `attachment://${fileName}` } : undefined,
+            footer: { text: "Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày" },
+            timestamp: new Date().toISOString()
+          }
+        ]
       };
 
-      return await sendDiscordWebhook(payload);
+      if (imgBlob) {
+        return await sendDiscordWebhook(payload, imgBlob, fileName);
+      } else {
+        return await sendDiscordWebhook(payload);
+      }
     }
 
     function checkDailyScheduleAlert(now) {
