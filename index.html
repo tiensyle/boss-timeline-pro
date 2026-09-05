@@ -2958,10 +2958,92 @@
       align-items: center;
       font-size: 11.5px;
     }
-    .compact-timer-val {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-weight: 800;
-      font-size: 13.5px;
+    /* Discord Webhook Button & Modal Styles */
+    .discord-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      height: 38px;
+      border-radius: 8px;
+      background: rgba(88, 101, 242, 0.12);
+      border: 1px solid rgba(88, 101, 242, 0.35);
+      color: #7289da;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .discord-btn:hover {
+      background: rgba(88, 101, 242, 0.22);
+      border-color: #5865F2;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(88, 101, 242, 0.3);
+    }
+    .discord-btn.connected {
+      border-color: rgba(34, 197, 94, 0.5);
+      color: #22c55e;
+      background: rgba(34, 197, 94, 0.12);
+    }
+    .discord-btn svg {
+      width: 17px;
+      height: 17px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+    .discord-option-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: all 0.15s ease;
+    }
+    .discord-option-row:hover {
+      border-color: rgba(88, 101, 242, 0.4);
+    }
+    .discord-switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .discord-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .discord-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--surface-3, #3f4244);
+      border: 1px solid var(--line);
+      transition: .2s;
+      border-radius: 22px;
+    }
+    .discord-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    .discord-switch input:checked + .discord-slider {
+      background-color: #5865F2;
+      border-color: #5865F2;
+    }
+    .discord-switch input:checked + .discord-slider:before {
+      transform: translateX(16px);
     }
 
   </style>
@@ -3077,6 +3159,10 @@
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" stroke="currentColor" stroke-width="2"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
           </div>
+          <button class="discord-btn" id="discordSettingsBtn" type="button" title="Cài đặt thông báo Discord Webhook">
+            <svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            <span id="discordBtnText">Discord Bot</span>
+          </button>
           <div class="clock-box" aria-live="polite">
             <span data-i18n="systemClock">Giờ hệ thống</span>
             <strong id="headerClock">--:--:--</strong>
@@ -3732,6 +3818,128 @@
     </div>
   </div>
 
+  <!-- ── Discord Webhook Settings Modal ── -->
+  <div class="modal-backdrop" id="discordSettingsModal" role="dialog" aria-modal="true" aria-labelledby="discordModalTitle" style="z-index:10002;">
+    <div class="modal" style="max-width:520px;padding:0;overflow:hidden;">
+      <div style="padding:18px 22px;border-bottom:1px solid var(--line-soft);background:rgba(88, 101, 242, 0.08);display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:42px;height:42px;border-radius:10px;background:rgba(88, 101, 242, 0.18);border:1.5px solid rgba(88, 101, 242, 0.5);display:grid;place-items:center;color:#5865F2;flex:0 0 auto;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+          </div>
+          <div>
+            <h3 id="discordModalTitle" style="margin:0;font-size:16px;font-weight:700;color:var(--text);">Cài đặt Discord Webhook</h3>
+            <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Tự động bắn thông báo nhắc giờ boss vào nhóm Discord của Bang</p>
+          </div>
+        </div>
+        <button type="button" class="icon-button" id="closeDiscordModal" style="width:34px;height:34px;" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div style="padding:20px 24px;max-height:72vh;overflow-y:auto;">
+        <!-- Webhook URL Field -->
+        <div style="margin-bottom:16px;">
+          <label for="discordWebhookUrl" style="font-size:12.5px;font-weight:700;color:var(--text);display:block;margin-bottom:6px;">
+            Discord Webhook URL <span style="color:var(--red);">*</span>
+          </label>
+          <input type="url" id="discordWebhookUrl" placeholder="https://discord.com/api/webhooks/..." 
+            style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;font-family:monospace;">
+          <div style="font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4;">
+            💡 Vào kênh Discord $\rightarrow$ <strong>Edit Channel (Bánh răng ⚙️)</strong> $\rightarrow$ <strong>Integrations</strong> $\rightarrow$ <strong>Webhooks</strong> $\rightarrow$ <strong>Copy Webhook URL</strong> và dán vào đây.
+          </div>
+        </div>
+
+        <!-- Master Switch -->
+        <div class="discord-option-row" style="background:rgba(88, 101, 242, 0.08);border-color:rgba(88, 101, 242, 0.25);margin-bottom:14px;">
+          <div>
+            <strong style="display:block;font-size:13px;color:var(--text);">Bật thông báo tự động Discord</strong>
+            <span style="font-size:11.5px;color:var(--muted);">Kích hoạt tính năng gửi tin nhắn bot khi đến giờ boss</span>
+          </div>
+          <label class="discord-switch">
+            <input type="checkbox" id="discordEnableMaster">
+            <span class="discord-slider"></span>
+          </label>
+        </div>
+
+        <!-- Notification Triggers Options -->
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+          Tùy chọn mốc thông báo
+        </div>
+
+        <div class="discord-option-row">
+          <div>
+            <strong style="display:block;font-size:12.5px;color:var(--text);">⏳ Báo trước 10 phút</strong>
+            <span style="font-size:11px;color:var(--muted);">Gửi tin nhắn màu vàng cam để anh em chuẩn bị</span>
+          </div>
+          <label class="discord-switch">
+            <input type="checkbox" id="discordNotify10m" checked>
+            <span class="discord-slider"></span>
+          </label>
+        </div>
+
+        <div class="discord-option-row">
+          <div>
+            <strong style="display:block;font-size:12.5px;color:var(--text);">⚠️ Báo trước 5 phút</strong>
+            <span style="font-size:11px;color:var(--muted);">Gửi tin nhắn màu cam đậm để team di chuyển đến Map</span>
+          </div>
+          <label class="discord-switch">
+            <input type="checkbox" id="discordNotify5m" checked>
+            <span class="discord-slider"></span>
+          </label>
+        </div>
+
+        <div class="discord-option-row">
+          <div>
+            <strong style="display:block;font-size:12.5px;color:var(--text);">⚔️ Báo khi Boss xuất hiện (0 phút)</strong>
+            <span style="font-size:11px;color:var(--muted);">Gửi tin nhắn màu đỏ thông báo BOSS ĐÃ RA!</span>
+          </div>
+          <label class="discord-switch">
+            <input type="checkbox" id="discordNotify0m" checked>
+            <span class="discord-slider"></span>
+          </label>
+        </div>
+
+        <div class="discord-option-row">
+          <div>
+            <strong style="display:block;font-size:12.5px;color:var(--text);">💀 Báo khi Admin ghi nhận chết</strong>
+            <span style="font-size:11px;color:var(--muted);">Gửi tin nhắn xác nhận giờ chết và giờ hồi sinh lần tới</span>
+          </div>
+          <label class="discord-switch">
+            <input type="checkbox" id="discordNotifyKill" checked>
+            <span class="discord-slider"></span>
+          </label>
+        </div>
+
+        <div class="discord-option-row">
+          <div>
+            <strong style="display:block;font-size:12.5px;color:var(--text);">📢 Tag @everyone khi còn 5 phút & khi Boss ra</strong>
+            <span style="font-size:11px;color:var(--muted);">Rung chuông thông báo cho toàn bộ thành viên trong kênh Discord</span>
+          </div>
+          <label class="discord-switch">
+            <input type="checkbox" id="discordTagEveryone" checked>
+            <span class="discord-slider"></span>
+          </label>
+        </div>
+
+        <div id="discordTestResult" style="display:none;margin-top:12px;padding:10px 12px;border-radius:6px;font-size:12px;font-weight:600;"></div>
+      </div>
+
+      <div style="padding:14px 22px;border-top:1px solid var(--line-soft);background:var(--surface-2);display:flex;justify-content:space-between;align-items:center;">
+        <button type="button" class="button-ghost" id="discordTestBtn" style="display:inline-flex;align-items:center;gap:6px;color:#5865F2;border-color:rgba(88,101,242,0.3);">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Gửi thử Test Bot
+        </button>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="button-ghost" id="discordCancelBtn">Đóng</button>
+          <button type="button" class="button-primary" id="discordSaveBtn" style="background:#5865F2;border-color:#5865F2;display:inline-flex;align-items:center;gap:6px;">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Lưu cấu hình
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -4230,24 +4438,174 @@
       } catch (e) { console.warn("SpeechSynthesis error:", e); }
     }
 
-    function notifyBossAlert(boss, milestoneType) {
-      let toastMsg = "";
-      if (milestoneType === "10m") {
-        playChime("10m");
-        toastMsg = `⏳ [10 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
-      } else if (milestoneType === "5m") {
-        playChime("5m");
-        toastMsg = `⏳ [5 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
-      } else if (milestoneType === "0m") {
-        playChime("spawn");
-        toastMsg = `⚔️ [BOSS XUẤT HIỆN] ${boss.name} đã ra tại ${boss.map}`;
+    /* ── Discord Webhook Notification Engine ── */
+    const STORAGE_DISCORD_KEY = "bossTimelinePro.discordConfig";
+    const defaultDiscordConfig = {
+      enabled: false,
+      webhookUrl: "",
+      notify10m: true,
+      notify5m: true,
+      notify0m: true,
+      notifyKill: true,
+      tagEveryone: true
+    };
+
+    function loadDiscordConfig() {
+      try {
+        const raw = localStorage.getItem(STORAGE_DISCORD_KEY);
+        if (!raw) return { ...defaultDiscordConfig };
+        const parsed = JSON.parse(raw);
+        return { ...defaultDiscordConfig, ...parsed };
+      } catch (e) {
+        return { ...defaultDiscordConfig };
       }
-      showToast(toastMsg);
-      window.setTimeout(() => speakText("BOSS BOSS"), 300);
+    }
+
+    let discordConfig = loadDiscordConfig();
+    const activeDiscordNotified = {};
+
+    function saveDiscordConfigLocal(cfg) {
+      discordConfig = { ...defaultDiscordConfig, ...cfg };
+      try {
+        localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
+      } catch (e) {}
+      updateDiscordButtonUI();
+    }
+
+    function updateDiscordButtonUI() {
+      const btn = document.getElementById("discordSettingsBtn");
+      const text = document.getElementById("discordBtnText");
+      if (!btn) return;
+      const isConnected = Boolean(discordConfig.enabled && discordConfig.webhookUrl);
+      btn.classList.toggle("connected", isConnected);
+      if (text) {
+        text.textContent = isConnected ? "Discord: Bật" : "Discord Bot";
+      }
+    }
+
+    async function sendDiscordWebhook(payload) {
+      if (!discordConfig.enabled || !discordConfig.webhookUrl) return false;
+      const url = discordConfig.webhookUrl.trim();
+      if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) return false;
+
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        return res.ok || res.status === 204;
+      } catch (e) {
+        console.warn("Discord Webhook post error:", e);
+        return false;
+      }
+    }
+
+    async function sendDiscordBossAlert(boss, milestoneType) {
+      if (!discordConfig.enabled || !discordConfig.webhookUrl) return;
+      if (!isAdmin()) return; // Chỉ máy Admin gửi webhook để tránh trùng lặp tin nhắn
+
+      let title = "";
+      let desc = "";
+      let color = 5793266; // #5865F2 default
+      let mention = false;
+
+      if (milestoneType === "10m") {
+        if (!discordConfig.notify10m) return;
+        title = `⏳ [THÔNG BÁO] BOSS SẮP HỒI SINH SAU 10 PHÚT!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ xuất hiện tại **${boss.map}** sau 10 phút.`;
+        color = 16107019; // Amber #f59e0b
+      } else if (milestoneType === "5m") {
+        if (!discordConfig.notify5m) return;
+        title = `⚠️ [CẢNH BÁO] BOSS SẮP HỒI SINH SAU 5 PHÚT!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ xuất hiện tại **${boss.map}** sau 5 phút! Anh em di chuyển đến Map ngay!`;
+        color = 16347926; // Orange #f97316
+        if (discordConfig.tagEveryone) mention = true;
+      } else if (milestoneType === "0m") {
+        if (!discordConfig.notify0m) return;
+        title = `⚔️ [BOSS ĐÃ RA] TIÊU DIỆT BOSS NGAY!`;
+        desc = `Boss **${boss.name}** (Lv. ${boss.level}) **ĐÃ HỒI SINH** tại **${boss.map}**!`;
+        color = 15548997; // Red #ED4245
+        if (discordConfig.tagEveryone) mention = true;
+      }
+
+      const cycleLabel = boss.spawnMode === "fixed" ? "Cố định theo lịch" : formatCycleDuration(boss.respawnMinutes);
+      const payload = {
+        username: "Boss Tracker Alert",
+        avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
+        content: mention ? "@everyone" : "",
+        embeds: [
+          {
+            title: title,
+            description: desc,
+            color: color,
+            fields: [
+              { name: "👑 Boss", value: `**${boss.name}**`, inline: true },
+              { name: "📊 Level", value: `Lv. ${boss.level}`, inline: true },
+              { name: "📍 Bản đồ", value: `**${boss.map}**`, inline: true },
+              { name: "⏱️ Chu kỳ", value: cycleLabel, inline: true },
+              { name: "📝 Ghi chú", value: boss.notes || "Không có", inline: false }
+            ],
+            footer: { text: "Boss Timeline Pro • Live Alert System" },
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+
+      await sendDiscordWebhook(payload);
+    }
+
+    async function sendDiscordKillAlert(boss, diedAt, nextRespawn) {
+      if (!discordConfig.enabled || !discordConfig.webhookUrl || !discordConfig.notifyKill) return;
+      if (!isAdmin()) return;
+
+      const cycleLabel = boss.spawnMode === "fixed" ? "Cố định theo lịch" : formatCycleDuration(boss.respawnMinutes);
+      const nextStr = nextRespawn ? new Date(nextRespawn).toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit"}) + " (" + new Date(nextRespawn).toLocaleDateString("vi-VN") + ")" : "Đang chờ cập nhật";
+      const payload = {
+        username: "Boss Tracker Alert",
+        avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
+        embeds: [
+          {
+            title: `💀 [GHI NHẬN] BOSS ĐÃ BỊ TIÊU DIỆT!`,
+            description: `Admin **${currentAdminName || "Admin"}** vừa ghi nhận tiêu diệt Boss **${boss.name}** tại **${boss.map}**.`,
+            color: 6499839, // Indigo #6366f1
+            fields: [
+              { name: "👑 Boss", value: `**${boss.name}** (Lv. ${boss.level})`, inline: true },
+              { name: "📍 Map", value: boss.map, inline: true },
+              { name: "⏱️ Chu kỳ", value: cycleLabel, inline: true },
+              { name: "🕒 Giờ chết", value: new Date(diedAt || getNow()).toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit",second:"2-digit"}), inline: true },
+              { name: "⏳ Hồi sinh lần tới", value: `**${nextStr}**`, inline: true }
+            ],
+            footer: { text: "Boss Timeline Pro • Live Alert System" },
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+
+      await sendDiscordWebhook(payload);
+    }
+
+    function notifyBossAlert(boss, milestoneType) {
+      if (isSoundEnabled) {
+        let toastMsg = "";
+        if (milestoneType === "10m") {
+          playChime("10m");
+          toastMsg = `⏳ [10 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
+        } else if (milestoneType === "5m") {
+          playChime("5m");
+          toastMsg = `⏳ [5 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
+        } else if (milestoneType === "0m") {
+          playChime("spawn");
+          toastMsg = `⚔️ [BOSS XUẤT HIỆN] ${boss.name} đã ra tại ${boss.map}`;
+        }
+        showToast(toastMsg);
+        window.setTimeout(() => speakText("BOSS BOSS"), 300);
+      }
+      sendDiscordBossAlert(boss, milestoneType);
     }
 
     function checkBossSoundAlerts(now) {
-      if (!isSoundEnabled) return;
+      if (!isSoundEnabled && !discordConfig.enabled) return;
       state.bosses.forEach((boss) => {
         if (boss.spawnMode === "fixed") {
           const nextTime = getNextFixedSpawnTime(boss, now);
@@ -6268,6 +6626,7 @@
       pushHistory("death", boss, now);
       saveState();
       render();
+      sendDiscordKillAlert(boss, now, boss.respawnsAt);
       showToast(isEn ? `${boss.name} death recorded. Respawn countdown started.` : `${boss.name} đã bắt đầu countdown hồi sinh.`);
     }
 
@@ -6507,6 +6866,7 @@
       saveState();
       closeOffsetModal();
       render();
+      sendDiscordKillAlert(boss, diedAt, boss.respawnsAt);
       const diedFullStr = formatFullDateTime(diedAt, isEn);
       showToast(isEn
         ? `${boss.name} recorded as dead on ${diedFullStr}. Countdown started!`
@@ -7592,6 +7952,148 @@
       setLanguage(btn.dataset.lang);
     });
 
+    // ── Discord Settings Modal Event Handlers ──
+    function openDiscordModal() {
+      const urlInput = document.getElementById("discordWebhookUrl");
+      const enableMaster = document.getElementById("discordEnableMaster");
+      const n10m = document.getElementById("discordNotify10m");
+      const n5m = document.getElementById("discordNotify5m");
+      const n0m = document.getElementById("discordNotify0m");
+      const nKill = document.getElementById("discordNotifyKill");
+      const tagEv = document.getElementById("discordTagEveryone");
+      const resEl = document.getElementById("discordTestResult");
+
+      if (urlInput) urlInput.value = discordConfig.webhookUrl || "";
+      if (enableMaster) enableMaster.checked = Boolean(discordConfig.enabled);
+      if (n10m) n10m.checked = discordConfig.notify10m !== false;
+      if (n5m) n5m.checked = discordConfig.notify5m !== false;
+      if (n0m) n0m.checked = discordConfig.notify0m !== false;
+      if (nKill) nKill.checked = discordConfig.notifyKill !== false;
+      if (tagEv) tagEv.checked = discordConfig.tagEveryone !== false;
+      if (resEl) resEl.style.display = "none";
+
+      const modal = document.getElementById("discordSettingsModal");
+      if (modal) modal.classList.add("open");
+      syncModalScrollLock();
+      if (urlInput) urlInput.focus();
+    }
+
+    function closeDiscordModal() {
+      const modal = document.getElementById("discordSettingsModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    document.getElementById("discordSettingsBtn")?.addEventListener("click", openDiscordModal);
+    document.getElementById("closeDiscordModal")?.addEventListener("click", closeDiscordModal);
+    document.getElementById("discordCancelBtn")?.addEventListener("click", closeDiscordModal);
+
+    document.getElementById("discordSaveBtn")?.addEventListener("click", () => {
+      const urlInput = document.getElementById("discordWebhookUrl");
+      const enableMaster = document.getElementById("discordEnableMaster");
+      const n10m = document.getElementById("discordNotify10m");
+      const n5m = document.getElementById("discordNotify5m");
+      const n0m = document.getElementById("discordNotify0m");
+      const nKill = document.getElementById("discordNotifyKill");
+      const tagEv = document.getElementById("discordTagEveryone");
+
+      const newConfig = {
+        enabled: enableMaster ? enableMaster.checked : false,
+        webhookUrl: urlInput ? urlInput.value.trim() : "",
+        notify10m: n10m ? n10m.checked : true,
+        notify5m: n5m ? n5m.checked : true,
+        notify0m: n0m ? n0m.checked : true,
+        notifyKill: nKill ? nKill.checked : true,
+        tagEveryone: tagEv ? tagEv.checked : true
+      };
+
+      if (newConfig.enabled && !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(newConfig.webhookUrl)) {
+        alert("⚠️ Vui lòng nhập đúng đường dẫn Discord Webhook (bắt đầu bằng https://discord.com/api/webhooks/ hoặc https://discordapp.com/api/webhooks/)");
+        if (urlInput) urlInput.focus();
+        return;
+      }
+
+      saveDiscordConfigLocal(newConfig);
+      closeDiscordModal();
+      showToast(newConfig.enabled ? "🤖 Đã lưu & kích hoạt Discord Bot thành công!" : "🤖 Đã lưu cấu hình Discord.");
+    });
+
+    document.getElementById("discordTestBtn")?.addEventListener("click", async () => {
+      const urlInput = document.getElementById("discordWebhookUrl");
+      const tagEv = document.getElementById("discordTagEveryone");
+      const resEl = document.getElementById("discordTestResult");
+      const url = urlInput ? urlInput.value.trim() : "";
+
+      if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) {
+        if (resEl) {
+          resEl.style.display = "block";
+          resEl.style.background = "var(--red-soft)";
+          resEl.style.color = "var(--red)";
+          resEl.style.border = "1px solid var(--red)";
+          resEl.textContent = "❌ Đường dẫn Webhook không hợp lệ (phải bắt đầu bằng https://discord.com/api/webhooks/ hoặc discordapp.com)";
+        }
+        return;
+      }
+
+      if (resEl) {
+        resEl.style.display = "block";
+        resEl.style.background = "var(--surface-3)";
+        resEl.style.color = "var(--text)";
+        resEl.style.border = "1px solid var(--line)";
+        resEl.textContent = "⏳ Đang gửi tin nhắn thử nghiệm sang Discord...";
+      }
+
+      const testPayload = {
+        username: "Boss Tracker Alert",
+        avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
+        content: tagEv?.checked ? "@everyone [Test Bot]" : "",
+        embeds: [
+          {
+            title: "🎉 KẾT NỐI DISCORD WEBHOOK THÀNH CÔNG!",
+            description: "Hệ thống **Boss Timeline Pro** đã kết nối thành công với kênh Discord của Bang hội!",
+            color: 5793266, // #5865F2
+            fields: [
+              { name: "👑 Trạng thái", value: "🟢 Đang hoạt động", inline: true },
+              { name: "⚡ Tự động thông báo", value: "10m, 5m, 0m & Ghi nhận chết", inline: true },
+              { name: "🕒 Thời gian", value: new Date().toLocaleTimeString("vi-VN") + " - " + new Date().toLocaleDateString("vi-VN"), inline: false }
+            ],
+            footer: { text: "Boss Timeline Pro • Discord Integration" },
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(testPayload)
+        });
+
+        if (res.ok || res.status === 204) {
+          if (resEl) {
+            resEl.style.display = "block";
+            resEl.style.background = "var(--green-soft)";
+            resEl.style.color = "var(--green)";
+            resEl.style.border = "1px solid var(--green)";
+            resEl.textContent = "✅ Gửi tin nhắn Test thành công! Hãy kiểm tra kênh Discord của bạn.";
+          }
+          showToast("✅ Gửi tin nhắn Test Discord thành công!");
+        } else {
+          throw new Error("Discord API trả về mã lỗi: " + res.status);
+        }
+      } catch (err) {
+        if (resEl) {
+          resEl.style.display = "block";
+          resEl.style.background = "var(--red-soft)";
+          resEl.style.color = "var(--red)";
+          resEl.style.border = "1px solid var(--red)";
+          resEl.textContent = "❌ Gửi thất bại: " + err.message;
+        }
+      }
+    });
+
+    updateDiscordButtonUI();
     setLanguage(currentLang);
     updateRoleUI();
     render();
