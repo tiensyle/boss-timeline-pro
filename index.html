@@ -4543,38 +4543,79 @@
         return; // Khi không có Firebase, chỉ Admin gửi
       }
 
+      let contentText = "";
       let title = "";
       let desc = "";
-      let color = 5793266; // #5865F2 default
+      let color = 5793266;
       let mention = false;
+      let thumbnailUrl = "https://cdn-icons-png.flaticon.com/512/10329/10329997.png";
 
       if (milestoneType === "10m") {
         if (!discordConfig.notify10m) return;
-        title = `⏳ [THÔNG BÁO] BOSS SẮP HỒI SINH SAU 10 PHÚT!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ hồi sinh tại **${boss.map}** sau 10 phút.`;
-        color = 16107019; // Amber #f59e0b
+        contentText = ">>> **[THONG BAO]** Boss sap hoi sinh sau 10 phut!";
+        title = "BOSS SAP HOI SINH SAU 10 PHUT";
+        desc = [
+          "**" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai **" + boss.map + "** sau **10 phut**.",
+          "",
+          "Anh em di chuyen den khu vuc boss som!"
+        ].join("\n");
+        color = 16107019; // Amber
+        mention = false;
       } else if (milestoneType === "5m") {
         if (!discordConfig.notify5m) return;
-        title = `⚠️ [CẢNH BÁO] BOSS SẮP HỒI SINH SAU 5 PHÚT!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ hồi sinh tại **${boss.map}** sau 5 phút! Anh em di chuyển đến Map ngay!`;
-        color = 16347926; // Orange #f97316
-        if (discordConfig.tagEveryone) mention = true;
+        contentText = [
+          "# CANH BAO - BOSS SAP HOI SINH SAU 5 PHUT!",
+          "",
+          (discordConfig.tagEveryone ? "@everyone" : ""),
+          "**>> Di chuyen den ban do " + boss.map + " NGAY! <<**"
+        ].filter(Boolean).join("\n");
+        title = "BOSS SAP HOI SINH SAU 5 PHUT!";
+        desc = [
+          "**" + boss.name + "** (Lv. " + boss.level + ") se hoi sinh tai",
+          "**" + boss.map + "** sau **5 PHUT**!",
+          "",
+          "Tap ket vi tri boss gap!"
+        ].join("\n");
+        color = 16347926; // Orange
+        mention = false; // mention da o contentText
       } else if (milestoneType === "1m") {
-        title = `🚨 [KHẨN CẤP] BOSS SẮP HỒI SINH SAU 1 PHÚT!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) sẽ hồi sinh tại **${boss.map}** sau 1 PHÚT! Anh em tập trung tại điểm boss ngay!`;
-        color = 15548997; // Red #ED4245
-        if (discordConfig.tagEveryone) mention = true;
+        contentText = [
+          "# BOSS SAP RA - 1 PHUT NUA!",
+          "",
+          (discordConfig.tagEveryone ? "@everyone" : ""),
+          "**== CHUAN BI NGAY =="
+        ].filter(Boolean).join("\n");
+        title = "KHAN CAP - 1 PHUT NUA BOSS RA!";
+        desc = [
+          "**" + boss.name + "** (Lv. " + boss.level + ") se xuat hien tai",
+          "**" + boss.map + "** SAU **1 PHUT**!",
+          "",
+          "Tat ca focus boss ngay lap tuc!"
+        ].join("\n");
+        color = 15548997; // Red
+        mention = false;
       } else if (milestoneType === "0m") {
         if (!discordConfig.notify0m) return;
-        title = `⚔️ [BOSS ĐÃ RA] TIÊU DIỆT BOSS NGAY!`;
-        desc = `Boss **${boss.name}** (Lv. ${boss.level}) **ĐÃ HỒI SINH** tại **${boss.map}**!`;
-        color = 15548997; // Red #ED4245
-        if (discordConfig.tagEveryone) mention = true;
+        contentText = [
+          "# BOSS DA XUAT HIEN - TIEU DIET NGAY!",
+          "",
+          (discordConfig.tagEveryone ? "@everyone" : ""),
+          "**== BOSS RA ROI == GO NGAY =="
+        ].filter(Boolean).join("\n");
+        title = "BOSS DA HOI SINH - TIEU DIET NGAY!";
+        desc = [
+          "**" + boss.name + "** (Lv. " + boss.level + ") **DA HOI SINH** tai",
+          "**" + boss.map + "**!",
+          "",
+          "Tap trung tieu diet boss ngay!"
+        ].join("\n");
+        color = 15548997; // Red
+        mention = false;
       } else {
         return;
       }
 
-      // cycleLabel: với boss fixed hiển thị giờ cụ thể thay vì "Cố định theo lịch"
+      // cycleLabel: hien thi gio cu the cho boss fixed
       let cycleLabel;
       if (boss.spawnMode === "fixed") {
         const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
@@ -4586,25 +4627,25 @@
         cycleLabel = formatCycleDuration(boss.respawnMinutes);
       }
 
-      // Giờ hồi sinh dự kiến
       const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 
       const payload = {
         username: "Boss Tracker Alert",
-        avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
-        content: mention ? "@everyone" : "",
+        avatar_url: thumbnailUrl,
+        content: contentText,
         embeds: [
           {
             title: title,
             description: desc,
             color: color,
+            thumbnail: { url: thumbnailUrl },
             fields: [
-              { name: "Boss", value: `**${boss.name}**`, inline: true },
-              { name: "Level", value: `Lv. ${boss.level}`, inline: true },
-              { name: "Ban do", value: `**${boss.map}**`, inline: true },
+              { name: "Boss", value: "**" + boss.name + "**", inline: true },
+              { name: "Level", value: "Lv. " + boss.level, inline: true },
+              { name: "Ban do", value: "**" + boss.map + "**", inline: true },
+              { name: "Gio hoi sinh", value: "**" + spawnTimeStr + "**", inline: true },
               { name: "Chu ky", value: cycleLabel, inline: true },
-              { name: "Gio hoi sinh", value: `**${spawnTimeStr}**`, inline: true },
-              { name: "Ghi chu", value: boss.notes || "Khong co", inline: false }
+              { name: "Ghi chu", value: boss.notes || "Khong co", inline: true }
             ],
             footer: { text: "Boss Timeline Pro • Live Alert System" },
             timestamp: new Date().toISOString()
