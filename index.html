@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <style>
     :root,
@@ -8735,6 +8738,25 @@
     }
     initRealtimeSync();
     window.setInterval(render, 1000);
+
+    // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
+    const CURRENT_APP_VERSION = "2026.09.06.v3";
+    window.setInterval(async () => {
+      try {
+        const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
+        const etag = res.headers.get("etag") || res.headers.get("last-modified");
+        const storedEtag = sessionStorage.getItem("boss_app_etag");
+        if (etag) {
+          if (storedEtag && storedEtag !== etag) {
+            console.log("[App Updater] Phat hien phien ban moi, dang tu reload...");
+            sessionStorage.setItem("boss_app_etag", etag);
+            window.location.reload();
+          } else if (!storedEtag) {
+            sessionStorage.setItem("boss_app_etag", etag);
+          }
+        }
+      } catch (e) {}
+    }, 60000);
 
   </script>
 
