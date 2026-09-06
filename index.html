@@ -2767,26 +2767,35 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      background: var(--surface-2, rgba(255,255,255,0.04));
-      border: 1px solid var(--line, rgba(255,255,255,0.1));
+      background: var(--surface-2);
+      border: 1px solid var(--line);
       border-radius: var(--radius, 8px);
       padding: 8px 10px;
     }
     .fixed-slot-row select,
-    .fixed-slot-row input[type="time"] {
-      padding: 6px 10px;
+    .fixed-slot-row input {
+      padding: 8px 10px;
       font-size: 13.5px;
       border-radius: 6px;
-      border: 1px solid var(--line-soft, rgba(255,255,255,0.15));
-      background: var(--surface-1, #121824);
-      color: var(--text, #f1f5f9);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+    }
+    .fixed-slot-row select:focus,
+    .fixed-slot-row input:focus {
+      border-color: var(--cyan);
+    }
+    .fixed-slot-row select option {
+      background: var(--surface);
+      color: var(--text);
     }
     .fixed-slot-row select {
       flex: 1;
       min-width: 140px;
     }
-    .fixed-slot-row input[type="time"] {
-      width: 120px;
+    .fixed-slot-row input.fixed-time-input {
+      width: 110px;
     }
     .fixed-slot-row .btn-remove-slot {
       background: rgba(239, 68, 68, 0.12);
@@ -3849,6 +3858,17 @@
           </div>
         </div>
 
+        <div style="margin-bottom:16px;">
+          <label for="discordLogoUrl" style="font-size:12.5px;font-weight:700;color:var(--text);display:block;margin-bottom:6px;">
+            Link ảnh Logo Bot (Thumbnail góc phải - tùy chọn)
+          </label>
+          <input type="url" id="discordLogoUrl" placeholder="Để trống để dùng logo mặc định hoặc dán link ảnh PNG..." 
+            style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;">
+          <div style="font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4;">
+            💡 Mặc định bot sử dụng logo Boss của web. Bạn có thể dán link ảnh tùy thích vào đây.
+          </div>
+        </div>
+
         <!-- Master Switch -->
         <div class="discord-option-row" style="background:rgba(88, 101, 242, 0.08);border-color:rgba(88, 101, 242, 0.25);margin-bottom:14px;">
           <div>
@@ -4471,6 +4491,7 @@
     const defaultDiscordConfig = {
       enabled: false,
       webhookUrl: "",
+      logoUrl: "",
       notify10m: true,
       notify5m: true,
       notify1m: true,
@@ -4602,54 +4623,52 @@
           }
         }
 
-        let title = "";
-        let desc = "";
-        let color = 5793266;
-        let contentText = "";
-        const thumbnailUrl = "https://cdn-icons-png.flaticon.com/512/10329/10329997.png";
+        const baseUrl = (window.location && window.location.origin && window.location.origin.startsWith("http"))
+          ? window.location.origin
+          : "https://bosschill.vercel.app";
+        const soonLogoUrl = `${baseUrl}/assets/boss-logo-soon.png`;
+        const spawnedLogoUrl = `${baseUrl}/assets/boss-logo-spawned.png`;
 
         const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
         const remainMs = Number(eventKey) - Date.now();
         const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
 
+        let title = "";
+        let color = 16007006; // Pink / Red (#f43f5e)
+        let contentText = discordConfig.tagEveryone ? "@everyone" : "";
+        let logoToUse = soonLogoUrl;
+
         if (milestoneType === "10m") {
           if (discordConfig.notify10m === false) return;
-          title = `[THONG BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
-          desc = `Boss **${boss.name}** (Lv. ${boss.level || 80}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut).\nAnh em di chuyen den khu vuc boss som!`;
-          color = 16107019; // Amber
-          contentText = discordConfig.tagEveryone ? "@everyone" : "";
+          title = `⚠️ [CẢNH BÁO] BOSS SẮP RA (còn ${remainMinutes} PHÚT)`;
+          color = 16007006; // Pink / Red
+          logoToUse = soonLogoUrl;
         } else if (milestoneType === "5m") {
           if (discordConfig.notify5m === false) return;
-          title = `[CANH BAO] BOSS SAP HOI SINH (CON ~${remainMinutes} PHUT)!`;
-          desc = `Boss **${boss.name}** (Lv. ${boss.level || 80}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}** (con khoang ${remainMinutes} phut)!\nAnh em di chuyen den Map ngay!`;
-          color = 16347926; // Orange
-          contentText = discordConfig.tagEveryone ? "@everyone" : "";
+          title = `⚠️ [CẢNH BÁO] BOSS SẮP RA (còn ${remainMinutes} PHÚT)`;
+          color = 16007006; // Pink / Red
+          logoToUse = soonLogoUrl;
         } else if (milestoneType === "1m") {
           if (discordConfig.notify1m === false) return;
-          title = `[KHAN CAP] BOSS SAP HOI SINH (CON ~1 PHUT)!`;
-          desc = `Boss **${boss.name}** (Lv. ${boss.level || 80}) se hoi sinh tai **${boss.map}** vao luc **${spawnTimeStr}**!\nAnh em tap trung tai diem boss ngay!`;
-          color = 15548997; // Red
-          contentText = discordConfig.tagEveryone ? "@everyone" : "";
+          title = `⚠️ [CẢNH BÁO] BOSS SẮP RA (còn 1 PHÚT)`;
+          color = 16007006; // Pink / Red
+          logoToUse = soonLogoUrl;
         } else if (milestoneType === "0m") {
           if (discordConfig.notify0m === false) return;
-          title = "[BOSS DA RA] TIEU DIET BOSS NGAY!";
-          desc = `Boss **${boss.name}** (Lv. ${boss.level || 80}) **DA HOI SINH** tai **${boss.map}**!\nTap trung tieu diet boss ngay!`;
-          color = 15548997; // Red
-          contentText = discordConfig.tagEveryone ? "@everyone" : "";
+          title = "⚠️ [CẢNH BÁO] BOSS ĐÃ RA";
+          color = 16107019; // Gold / Amber (#f59e0b)
+          logoToUse = spawnedLogoUrl;
         } else {
           return;
         }
 
-        // cycleLabel: hien thi gio cu the cho boss fixed
-        let cycleLabel;
-        if (boss.spawnMode === "fixed") {
-          const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
-            ? boss.fixedSchedules
-            : [{ day: "all", time: boss.fixedTime || "18:00" }];
-          const timeList = schedules.map(s => s.time || "18:00").join(", ");
-          cycleLabel = "Co dinh " + timeList;
-        } else {
-          cycleLabel = typeof formatRespawnMinutes === "function" ? formatRespawnMinutes(boss.respawnMinutes) : ((boss.respawnMinutes || 30) + " phút");
+        const thumbnailUrl = (discordConfig.logoUrl && discordConfig.logoUrl.trim())
+          ? discordConfig.logoUrl.trim()
+          : logoToUse;
+
+        let desc = `👑 **BOSS:** **${boss.name || "Boss"}** **(Lv:${boss.level || 80})**\n\n📍 **MAP:** **${boss.map || "Chưa rõ"}**\n\n🕒 **TIME:** **${spawnTimeStr}**`;
+        if (boss.notes && boss.notes.trim()) {
+          desc += `\n\n📝 **Ghi chú:** ${boss.notes.trim()}`;
         }
 
         const payload = {
@@ -4662,14 +4681,6 @@
               description: desc,
               color: color,
               thumbnail: { url: thumbnailUrl },
-              fields: [
-                { name: "Boss", value: "**" + (boss.name || "Boss") + "**", inline: true },
-                { name: "Level", value: "Lv. " + (boss.level || 80), inline: true },
-                { name: "Ban do", value: "**" + (boss.map || "Chua ro") + "**", inline: true },
-                { name: "Chu ky", value: cycleLabel, inline: true },
-                { name: "Gio hoi sinh", value: "**" + spawnTimeStr + "**", inline: true },
-                { name: "Ghi chu", value: boss.notes || "Khong co", inline: false }
-              ],
               footer: { text: "Boss Timeline Pro • Live Alert System" },
               timestamp: new Date().toISOString()
             }
@@ -8409,6 +8420,7 @@
       }
 
       const urlInput = document.getElementById("discordWebhookUrl");
+      const logoInput = document.getElementById("discordLogoUrl");
       const enableMaster = document.getElementById("discordEnableMaster");
       const n10m = document.getElementById("discordNotify10m");
       const n5m = document.getElementById("discordNotify5m");
@@ -8420,6 +8432,7 @@
       const resEl = document.getElementById("discordTestResult");
 
       if (urlInput) urlInput.value = discordConfig.webhookUrl || "";
+      if (logoInput) logoInput.value = discordConfig.logoUrl || "";
       if (enableMaster) enableMaster.checked = Boolean(discordConfig.enabled);
       if (n10m) n10m.checked = discordConfig.notify10m !== false;
       if (n5m) n5m.checked = discordConfig.notify5m !== false;
@@ -8454,6 +8467,7 @@
       }
 
       const urlInput = document.getElementById("discordWebhookUrl");
+      const logoInput = document.getElementById("discordLogoUrl");
       const enableMaster = document.getElementById("discordEnableMaster");
       const n10m = document.getElementById("discordNotify10m");
       const n5m = document.getElementById("discordNotify5m");
@@ -8466,6 +8480,7 @@
       const newConfig = {
         enabled: enableMaster ? enableMaster.checked : false,
         webhookUrl: urlInput ? urlInput.value.trim() : "",
+        logoUrl: logoInput ? logoInput.value.trim() : "",
         notify10m: n10m ? n10m.checked : true,
         notify5m: n5m ? n5m.checked : true,
         notify1m: n1m ? n1m.checked : true,
