@@ -4542,49 +4542,65 @@
     }
 
     async function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png") {
-      if (!discordConfig.enabled || !discordConfig.webhookUrl) {
-        console.warn("[Discord Bot] Bỏ qua gửi: bot chưa bật hoặc chưa có webhookUrl", discordConfig);
+      if (!discordConfig.enabled) {
+        console.warn("[Discord Bot] Bỏ qua gửi: bot chưa bật trong cài đặt", discordConfig);
         return false;
       }
-      const url = discordConfig.webhookUrl.trim();
-      if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) {
-        console.warn("[Discord Bot] Webhook URL không hợp lệ:", url);
-        return false;
-      }
-      try {
-        let res;
-        if (fileBlob) {
+      const url = (discordConfig.webhookUrl || "").trim();
+
+      // Neu co fileBlob thi gui truc tiep (FormData)
+      if (fileBlob) {
+        if (!url) return false;
+        try {
           const fd = new FormData();
           fd.append("payload_json", JSON.stringify(payload));
           fd.append("file", fileBlob, fileName);
-          res = await fetch(url, {
-            method: "POST",
-            body: fd
-          });
-        } else {
-          res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
+          const res = await fetch(url, { method: "POST", body: fd });
+          return res.ok || res.status === 204;
+        } catch (e) {
+          console.warn("[Discord Bot] Webhook attachment fetch error:", e);
+          return false;
         }
+      }
+
+      // 1. Uu tien gui qua Backend Serverless Proxy (/api/discord) de bao mat Webhook
+      try {
+        const proxyRes = await fetch("/api/discord", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payload, webhookUrl: url })
+        });
+        if (proxyRes.ok || proxyRes.status === 204) {
+          console.log("[Discord Bot] Gửi webhook thành công qua /api/discord!");
+          return true;
+        }
+      } catch (proxyErr) {
+        // Neu chay offline / localhost khong co serverless function thi fallback gui truc tiep
+      }
+
+      // 2. Fallback gui truc tiep bang client neu /api/discord khong kha dung
+      if (!url || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) {
+        return false;
+      }
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
 
         if (res.status === 429) {
-          const data = await res.json().catch(() => ({}));
-          console.warn("[Discord Bot] Bị Discord giới hạn tần suất (Rate limit 429):", data);
+          console.warn("[Discord Bot] Bị Discord giới hạn tần suất (Rate limit 429)");
           return false;
         }
 
         const success = res.ok || res.status === 204;
-        if (!success) {
-          const errText = await res.text().catch(() => "");
-          console.warn(`[Discord Bot] Lỗi gửi Webhook HTTP ${res.status}:`, errText);
-        } else {
-          console.log("[Discord Bot] Gửi webhook thành công!", payload?.embeds?.[0]?.title || payload?.content || "");
+        if (success) {
+          console.log("[Discord Bot] Gửi webhook thành công (Direct)!", payload?.embeds?.[0]?.title || "");
         }
         return success;
       } catch (e) {
-        console.warn("[Discord Bot] Webhook fetch error:", e);
+        console.warn("[Discord Bot] Webhook direct fetch error:", e);
         return false;
       }
     }
@@ -5342,8 +5358,41 @@
 
     let lastLocalEditTime = 0;
 
+    // Cap nhat rieng 1 boss len Firebase de chong xung dot khi nhieu nguoi thao tac
+    async function syncSingleBoss(boss) {
+      if (!boss || !boss.id) return;
+      saveStateLocal(true);
+      if (!REALTIME_ENABLED || !firebaseDb || !remoteStateReady) return;
+      try {
+        const normalized = normalizeBoss(boss);
+        const updates = {};
+        updates["boss_timeline_state/bosses_map/" + boss.id] = normalized;
+        updates["boss_timeline_state/updated_at"] = new Date(getNow()).toISOString();
+        updates["boss_timeline_state/last_editor"] = CLIENT_ID;
+        await firebaseDb.ref().update(updates);
+      } catch (err) {
+        console.warn("[Realtime] syncSingleBoss error:", err);
+      }
+    }
+
+    // Xoa rieng 1 boss tren Firebase
+    async function removeSingleBossRemote(bossId) {
+      if (!bossId) return;
+      saveStateLocal(true);
+      if (!REALTIME_ENABLED || !firebaseDb || !remoteStateReady) return;
+      try {
+        const updates = {};
+        updates["boss_timeline_state/bosses_map/" + bossId] = null;
+        updates["boss_timeline_state/updated_at"] = new Date(getNow()).toISOString();
+        updates["boss_timeline_state/last_editor"] = CLIENT_ID;
+        await firebaseDb.ref().update(updates);
+      } catch (err) {
+        console.warn("[Realtime] removeSingleBossRemote error:", err);
+      }
+    }
+
     async function saveState() {
-      // Luôn giữ local cache để app vẫn mở được khi mất mạng.
+      // Luon giu local cache de app van mo duoc khi mat mang.
       lastLocalEditTime = Date.now();
       saveStateLocal(true);
       if (!REALTIME_ENABLED || !stateDbRef || !remoteStateReady) return;
@@ -5355,12 +5404,20 @@
 
       remoteSaveInFlight = true;
       try {
+        const normalizedBosses = state.bosses.map(normalizeBoss);
+        const bossesMap = {};
+        normalizedBosses.forEach(b => {
+          bossesMap[b.id] = b;
+        });
+
         const payload = {
           data: {
             _clientId: CLIENT_ID,
-            bosses: state.bosses.map(normalizeBoss),
+            bosses: normalizedBosses,
             history: state.history.slice(0, 30)
           },
+          bosses_map: bossesMap,
+          last_editor: CLIENT_ID,
           updated_at: new Date(getNow()).toISOString()
         };
         await stateDbRef.set(payload);
@@ -5386,24 +5443,47 @@
         type === "online" ? "Realtime" : type === "connecting" ? "Đang kết nối…" : "Offline";
     }
 
-    function applyRemoteState(data, updatedAt) {
-      if (!data || !Array.isArray(data.bosses)) return;
-      // Chống ghi đè nếu admin vừa bấm thao tác tại máy trong vòng 3.5 giây
-      if (lastLocalEditTime && (Date.now() - lastLocalEditTime < 3500)) return;
+    function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId) {
+      if (!Array.isArray(incomingBosses)) return;
 
       if (updatedAt) {
         updateServerTimeOffset(updatedAt);
         const remoteTime = new Date(updatedAt).getTime();
-        if (remoteTime && remoteTime < lastLocalEditTime - 1000) return;
         lastRemoteUpdatedAt = remoteTime || getNow();
       }
-      state = {
-        bosses: data.bosses.map(normalizeBoss),
-        history: Array.isArray(data.history) ? data.history.slice(0, 30) : []
-      };
+
+      // Smart Merge: Neu admin vua thao tac con boss nao trong 3 giay qua, giu nguyen con boss do
+      const localRecentMap = new Map();
+      if (lastLocalEditTime && (Date.now() - lastLocalEditTime < 3000)) {
+        state.bosses.forEach(b => localRecentMap.set(b.id, b));
+      }
+
+      const mergedBosses = incomingBosses.map(remoteBoss => {
+        const local = localRecentMap.get(remoteBoss.id);
+        if (local) {
+          return local; // Giu lai trang thai local vua sua
+        }
+        return normalizeBoss(remoteBoss);
+      });
+
+      // Neu co boss moi vua them o local ma remote chua co (trong 3s), giu lai
+      if (localRecentMap.size > 0) {
+        const remoteIds = new Set(mergedBosses.map(b => b.id));
+        state.bosses.forEach(localB => {
+          if (!remoteIds.has(localB.id)) {
+            mergedBosses.unshift(localB);
+          }
+        });
+      }
+
+      state.bosses = mergedBosses;
+      if (Array.isArray(incomingHistory)) {
+        state.history = incomingHistory.slice(0, 30);
+      }
+
       remoteStateReady = true;
-      lastRenderedGridKey = ""; // Bắt buộc render lại giao diện mới
-      saveStateLocal(false); // Lưu vào cache nhưng KHÔNG broadcast ngược lại để triệt tiêu loop
+      lastRenderedGridKey = ""; // Bat buoc render lai giao dien moi
+      saveStateLocal(false); // Luu vao cache nhung KHONG broadcast nguoc lai de triet tieu loop
       render();
     }
 
@@ -5415,7 +5495,7 @@
 
       setRealtimeStatus("connecting", "Đang kết nối Google Firebase Realtime…");
 
-      // Giám sát kết nối Firebase connection state
+      // Giam sat ket noi Firebase connection state
       firebaseDb.ref(".info/connected").on("value", (snap) => {
         if (snap.val() === true) {
           setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
@@ -5424,17 +5504,34 @@
         }
       });
 
-      // Lắng nghe thay đổi trực tiếp từ Firebase Realtime Database
+      // Lang nghe thay doi truc tiep tu Firebase Realtime Database
       stateDbRef.on("value", (snapshot) => {
         const val = snapshot.val();
-        if (val && val.data && Array.isArray(val.data.bosses)) {
-          if (val.data._clientId === CLIENT_ID) return; // Bỏ qua nếu là thay đổi từ chính tab này
-          applyRemoteState(val.data, val.updated_at);
-          showToast("🔄 Team vừa cập nhật Boss Timeline.");
+        if (val) {
+          const senderId = val.last_editor || val.data?._clientId;
+          if (senderId === CLIENT_ID) return; // Bo qua neu la thay doi tu chinh tab nay
+
+          let incomingBosses = null;
+          // Uu tien lay tu bosses_map de dong bo tung boss
+          if (val.bosses_map && typeof val.bosses_map === "object") {
+            incomingBosses = Object.values(val.bosses_map);
+          } else if (val.data && Array.isArray(val.data.bosses)) {
+            incomingBosses = val.data.bosses;
+          }
+
+          if (incomingBosses) {
+            applyRemoteState(incomingBosses, val.data?.history || [], val.updated_at, senderId);
+            showToast("🔄 Team vừa cập nhật Boss Timeline.");
+          }
         } else if (!val) {
-          // Chưa có dữ liệu trên Firebase -> Tự động Seed dữ liệu từ local lên!
+          // Chua co du lieu tren Firebase -> Tu dong Seed du lieu tu local len!
+          const normalized = state.bosses.map(normalizeBoss);
+          const bMap = {};
+          normalized.forEach(b => { bMap[b.id] = b; });
           const seed = {
-            data: { _clientId: CLIENT_ID, bosses: state.bosses.map(normalizeBoss), history: state.history.slice(0, 30) },
+            data: { _clientId: CLIENT_ID, bosses: normalized, history: state.history.slice(0, 30) },
+            bosses_map: bMap,
+            last_editor: CLIENT_ID,
             updated_at: new Date(getNow()).toISOString()
           };
           stateDbRef.set(seed);
@@ -5445,7 +5542,7 @@
         setRealtimeStatus("offline", "Lỗi kết nối Firebase — đang dùng localStorage");
       });
 
-      // Lắng nghe cấu hình Discord Webhook từ Firebase
+      // Lang nghe cau hinh Discord Webhook tu Firebase
       firebaseDb.ref("boss_timeline_discord_config").on("value", (snapshot) => {
         const remoteCfg = snapshot.val();
         if (remoteCfg && typeof remoteCfg === "object" && remoteCfg.webhookUrl) {
@@ -7102,6 +7199,7 @@
       pushHistory("death", boss, now);
       lastLocalEditTime = Date.now();
       lastRenderedGridKey = ""; // Bắt buộc render cập nhật nút và countdown tức thì
+      syncSingleBoss(boss);
       saveState();
       render();
       sendDiscordKillAlert(boss, now, boss.respawnsAt);
@@ -7121,6 +7219,7 @@
       performRespawn(boss, now, "manual");
       lastLocalEditTime = Date.now();
       lastRenderedGridKey = ""; // Bắt buộc render cập nhật nút tức thì
+      syncSingleBoss(boss);
       saveState();
       render();
       showToast(isEn ? `✨ ${boss.name} revived (READY 100%).` : `✨ Đã cho ${boss.name} hồi sinh (READY 100%)!`);
@@ -7321,6 +7420,8 @@
         boss.respawnsAt = diedAt + boss.respawnMinutes * 60 * 1000;
       }
       pushHistory("death", boss, diedAt);
+      lastLocalEditTime = Date.now();
+      syncSingleBoss(boss);
       saveState();
       closeOffsetModal();
       render();
@@ -7603,6 +7704,7 @@
         const boss = state.bosses.find((item) => item.id === editingBossId);
         if (boss) {
           Object.assign(boss, normalizeBoss({ ...boss, ...payload }));
+          syncSingleBoss(boss);
           showToast("Đã cập nhật thông tin boss.");
         }
       } else {
@@ -7614,6 +7716,7 @@
           lastRespawnAt: null
         });
         state.bosses.unshift(newBoss);
+        syncSingleBoss(newBoss);
         showToast("Đã thêm boss mới.");
       }
 
@@ -7692,7 +7795,9 @@
       });
       if (!confirmed) return;
 
-      state.bosses = state.bosses.filter((item) => item.id !== editingBossId);
+      const deletedId = editingBossId;
+      state.bosses = state.bosses.filter((item) => item.id !== deletedId);
+      removeSingleBossRemote(deletedId);
       saveState();
       closeModal();
       render();
