@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
@@ -3058,6 +3058,371 @@
       transform: translateX(16px);
     }
 
+    /* Multi-Server Switcher Styles */
+    .server-switcher {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .server-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 13px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .server-btn:hover {
+      border-color: var(--cyan);
+      background: var(--surface-3);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+    }
+    .server-btn svg.chevron {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.2s ease;
+      color: var(--muted);
+    }
+    .server-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      min-width: 240px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+      z-index: 10005;
+      padding: 6px;
+      display: none;
+      animation: fadeInDown 0.15s ease-out;
+    }
+    .server-dropdown.open {
+      display: block;
+    }
+    .server-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s ease;
+    }
+    .server-item:hover {
+      background: var(--surface-2);
+    }
+    .server-item.active {
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--cyan);
+      font-weight: 700;
+    }
+    .server-dropdown-divider {
+      height: 1px;
+      background: var(--line-soft);
+      margin: 5px 0;
+    }
+    .server-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+    }
+    .server-action-btn:hover {
+      background: var(--surface-2);
+      color: var(--cyan);
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       VIEW SWITCHING: TRANG SĂN BOSS vs TRANG CHẤM CÔNG & LƯƠNG
+       ========================================================================== */
+    body:not(.view-mode-attendance) #attendance-salary {
+      display: none !important;
+    }
+
+    body.view-mode-attendance #metrics,
+    body.view-mode-attendance #boss-schedule,
+    body.view-mode-attendance #weekly-boss-schedule,
+    body.view-mode-attendance #boss-list,
+    body.view-mode-attendance #timeline {
+      display: none !important;
+    }
+
+    body.view-mode-attendance #addBossBtn {
+      display: none !important;
+    }
+
+    body.view-mode-attendance .attendance-panel {
+      margin-top: 14px;
+      min-height: calc(100vh - 120px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .back-to-boss-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .back-to-boss-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      transform: translateX(-2px);
+    }
+    .back-to-boss-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2.2;
+    }
+
+    /* Attendance & Salary Spreadsheet Styling */
+    .attendance-panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      margin-bottom: 24px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .attendance-header {
+      padding: 16px 20px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      cursor: pointer;
+    }
+    .attendance-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .attendance-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(34, 211, 238, 0.15);
+      color: var(--cyan);
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+    }
+    .attendance-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+    }
+    .attendance-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .attendance-content {
+      padding: 16px;
+    }
+    .attendance-top-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .att-stat-card {
+      background: var(--surface-2);
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .att-stat-card label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .att-stat-card .att-stat-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .att-pool-input {
+      width: 100px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text);
+      text-align: right;
+    }
+    .att-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .att-actions-left, .att-actions-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .att-table-scroll-wrap {
+      width: 100%;
+      max-height: 600px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      position: relative;
+      background: var(--surface);
+    }
+    .att-table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: max-content;
+      font-size: 12.5px;
+    }
+    .att-table th, .att-table td {
+      border-right: 1px solid var(--line-soft);
+      border-bottom: 1px solid var(--line-soft);
+      padding: 6px 10px;
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .att-table thead tr th {
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .att-col-stt { width: 38px; min-width: 38px; max-width: 38px; position: sticky; left: 0; z-index: 5; background: var(--surface); font-weight: 700; }
+    .att-col-name { width: 140px; min-width: 140px; max-width: 170px; text-align: left !important; position: sticky; left: 38px; z-index: 5; background: var(--surface); font-weight: 600; }
+    .att-col-mult { width: 68px; min-width: 68px; position: sticky; left: 178px; z-index: 5; background: var(--surface); }
+    .att-col-usdt { width: 72px; min-width: 72px; position: sticky; left: 246px; z-index: 5; background: var(--surface); color: var(--green); font-weight: 700; }
+    .att-col-dias { width: 85px; min-width: 85px; position: sticky; left: 318px; z-index: 5; background: var(--surface); color: var(--cyan); font-weight: 700; }
+    .att-col-ppts { width: 75px; min-width: 75px; position: sticky; left: 403px; z-index: 5; background: var(--surface); font-weight: 700; }
+    .att-col-rawpts { width: 65px; min-width: 65px; position: sticky; left: 478px; z-index: 5; background: var(--surface); }
+    .att-col-pct { width: 75px; min-width: 75px; position: sticky; left: 543px; z-index: 5; background: var(--surface); box-shadow: 2px 0 5px rgba(0,0,0,0.08); font-weight: 700; }
+    
+    .att-table thead tr:nth-child(1) th.att-col-stt,
+    .att-table thead tr:nth-child(1) th.att-col-name,
+    .att-table thead tr:nth-child(1) th.att-col-mult,
+    .att-table thead tr:nth-child(1) th.att-col-usdt,
+    .att-table thead tr:nth-child(1) th.att-col-dias,
+    .att-table thead tr:nth-child(1) th.att-col-ppts,
+    .att-table thead tr:nth-child(1) th.att-col-rawpts,
+    .att-table thead tr:nth-child(1) th.att-col-pct,
+    .att-table thead tr:nth-child(2) th.att-col-stt,
+    .att-table thead tr:nth-child(2) th.att-col-name,
+    .att-table thead tr:nth-child(2) th.att-col-mult,
+    .att-table thead tr:nth-child(2) th.att-col-usdt,
+    .att-table thead tr:nth-child(2) th.att-col-dias,
+    .att-table thead tr:nth-child(2) th.att-col-ppts,
+    .att-table thead tr:nth-child(2) th.att-col-rawpts,
+    .att-table thead tr:nth-child(2) th.att-col-pct {
+      z-index: 25 !important;
+      background: var(--surface-2) !important;
+    }
+    
+    .att-table tr:hover td {
+      background: rgba(34, 211, 238, 0.04);
+    }
+    .att-table tr:hover td.att-col-stt,
+    .att-table tr:hover td.att-col-name,
+    .att-table tr:hover td.att-col-mult,
+    .att-table tr:hover td.att-col-usdt,
+    .att-table tr:hover td.att-col-dias,
+    .att-table tr:hover td.att-col-ppts,
+    .att-table tr:hover td.att-col-rawpts,
+    .att-table tr:hover td.att-col-pct {
+      background: var(--surface-2);
+    }
+    .att-checkbox {
+      width: 17px;
+      height: 17px;
+      cursor: pointer;
+      accent-color: var(--cyan);
+    }
+    .att-checkbox:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .att-badge-low {
+      background: #ef4444 !important;
+      color: #ffffff !important;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .att-badge-mid {
+      background: rgba(245, 158, 11, 0.15) !important;
+      color: var(--amber) !important;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .att-badge-high {
+      background: rgba(34, 211, 238, 0.15) !important;
+      color: var(--cyan) !important;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+    }
   </style>
 </head>
 <body>
@@ -3102,6 +3467,10 @@
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h4l3 6 3-6h6M4 18h6l3-6 3 6h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span data-i18n="navTimeline">Timeline</span>
         </a>
+        <a class="nav-item" href="#attendance-salary" id="navAttendanceBtn">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 8h10M7 12h10M7 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span data-i18n="navAttendance">Chấm Công & Lương</span>
+        </a>
       </nav>
 
       <div class="sidebar-spacer"></div>
@@ -3136,6 +3505,27 @@
           <h1 data-i18n="dashboardTitle">Dashboard theo dõi boss chết và hồi sinh</h1>
         </div>
         <div class="topbar-actions">
+          <div class="server-switcher" id="serverSwitcher">
+            <button class="server-btn" id="serverSelectBtn" type="button" title="Chọn máy chủ (Server)">
+              <span id="currentServerIcon">🌐</span>
+              <span id="currentServerName">Server 1</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="server-dropdown" id="serverDropdown">
+              <div id="serverListContainer">
+                <!-- Dynamically filled with server items -->
+              </div>
+              <div class="server-dropdown-divider"></div>
+              <button type="button" class="server-action-btn" id="addServerBtn">
+                <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                <span>Thêm Server mới</span>
+              </button>
+              <button type="button" class="server-action-btn" id="manageServersBtn">
+                <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Quản lý & Đổi tên</span>
+              </button>
+            </div>
+          </div>
           <div class="theme-switcher" id="themeSwitcher">
             <button class="theme-btn" id="themeToggleBtn" type="button" title="Chuyển đổi Chế độ Sáng / Tối">
               <span id="themeToggleIcon">🌙</span>
@@ -3277,6 +3667,131 @@
             <div class="weekly-grid" id="weeklyGrid">
               <!-- Populated dynamically -->
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BẢNG CHẤM CÔNG & TỰ ĐỘNG TÍNH LƯƠNG HOẠT ĐỘNG / BOSS -->
+      <section class="attendance-panel open" id="attendance-salary" aria-label="Chấm công và tính lương Boss, Hoạt động">
+        <div class="attendance-header" id="attendanceHeaderToggle">
+          <div class="attendance-title-wrap">
+            <div class="attendance-icon-badge">
+              <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="attendance-title-row">
+                <h2 class="attendance-title">Chấm Công & Lương Boss / Hoạt Động</h2>
+                <span class="attendance-badge-week" id="attWeekLabel">Tuần Này</span>
+                <span class="attendance-badge-server" id="attServerBadge">Server 1</span>
+              </div>
+              <div class="attendance-subtitle">Tự động tính điểm, tỷ lệ tham gia và chia thưởng Kim Cương (DIAS) & USDT theo hệ số</div>
+            </div>
+          </div>
+          <div class="attendance-header-actions">
+            <button type="button" class="back-to-boss-btn" id="attBackToBossBtn" title="Quay lại Bảng theo dõi Boss">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              <span>Quay lại Săn Boss</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="attendance-content" id="attendanceContent">
+          <!-- Top KPI / Pool Cards -->
+          <div class="attendance-top-stats">
+            <div class="att-stat-card pool-dias">
+              <div class="att-stat-label">
+                <span>💎 Quỹ Kim Cương (DIAS)</span>
+                <span class="att-admin-tag" id="attDiasAdminTag" style="display:none;">Admin</span>
+              </div>
+              <div class="att-stat-val-row">
+                <input type="number" class="att-pool-input" id="attDiasPoolInput" value="52500" min="0" step="100" title="Nhập tổng quỹ DIAS tuần này">
+                <span class="att-pool-unit">DIAS</span>
+              </div>
+              <div class="att-stat-sub">Hệ số: <strong id="attDiasRateText">0</strong> DIAS / Điểm quy đổi</div>
+            </div>
+
+            <div class="att-stat-card pool-usdt">
+              <div class="att-stat-label">
+                <span>💵 Quỹ USDT</span>
+                <span class="att-admin-tag" id="attUsdtAdminTag" style="display:none;">Admin</span>
+              </div>
+              <div class="att-stat-val-row">
+                <input type="number" class="att-pool-input" id="attUsdtPoolInput" value="867" min="0" step="1" title="Nhập tổng quỹ USDT tuần này">
+                <span class="att-pool-unit">USDT</span>
+              </div>
+              <div class="att-stat-sub">Hệ số: <strong id="attUsdtRateText">0</strong> USDT / Điểm quy đổi</div>
+            </div>
+
+            <div class="att-stat-card stat-members">
+              <div class="att-stat-label">👥 Thành Viên Tham Gia</div>
+              <div class="att-stat-number"><span id="attTotalMembersCount">0</span> <span style="font-size:13px; font-weight:normal; color:var(--muted);">thành viên</span></div>
+              <div class="att-stat-sub">Tổng hoạt động: <strong id="attTotalActivitiesCount">0</strong> mục (<strong id="attMaxPossiblePoints">0</strong> điểm max)</div>
+            </div>
+
+            <div class="att-stat-card stat-points">
+              <div class="att-stat-label">⭐ Tổng Điểm Quy Đổi (Guild)</div>
+              <div class="att-stat-number" id="attTotalGuildPPoints">0</div>
+              <div class="att-stat-sub">Tổng điểm thực tế: <strong id="attTotalGuildRawPoints">0</strong> điểm</div>
+            </div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="att-toolbar">
+            <div class="att-toolbar-left">
+              <div class="att-search-wrap">
+                <input type="text" id="attSearchInput" placeholder="Tìm tên thành viên..." class="att-search-input">
+              </div>
+              <div class="att-filter-wrap">
+                <select id="attFilterMultiplier" class="att-select">
+                  <option value="all">Tất cả hệ số</option>
+                  <option value="1">Hệ số x1</option>
+                  <option value="1.5">Hệ số x1.5</option>
+                  <option value="2">Hệ số x2</option>
+                  <option value="2.5">Hệ số x2.5</option>
+                  <option value="3">Hệ số x3</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="att-toolbar-right">
+              <!-- Admin Only Actions -->
+              <button type="button" class="btn btn-primary att-admin-btn" id="attAddMemberBtn" style="display:none;">
+                <span>+ Thêm Thành Viên</span>
+              </button>
+              <button type="button" class="btn btn-secondary att-admin-btn" id="attAddActivityBtn" style="display:none;">
+                <span>+ Thêm Boss / Hoạt Động</span>
+              </button>
+              <button type="button" class="btn btn-secondary att-admin-btn" id="attResetWeekBtn" style="display:none;" title="Xóa toàn bộ tích điểm để chấm công cho tuần mới">
+                <span>🔄 Reset Tuần Mới</span>
+              </button>
+
+              <!-- Common Actions (All can use) -->
+              <button type="button" class="btn btn-secondary" id="attExportDiscordBtn" title="Sao chép bảng tổng kết lương để gửi Discord">
+                <span>📋 Xuất Discord</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Spreadsheet Table Container -->
+          <div class="att-table-scroll-wrap" id="attTableScrollWrap">
+            <table class="att-table" id="attendanceTable">
+              <thead id="attTableHead">
+                <!-- Injected dynamically -->
+              </thead>
+              <tbody id="attTableBody">
+                <!-- Injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div class="att-table-legend">
+            <span><strong>Ghi chú:</strong></span>
+            <span class="legend-item"><span class="badge-dot badge-red"></span> &lt; 25% tham gia (Cần cảnh báo/kích hoạt)</span>
+            <span class="legend-item"><span class="badge-dot badge-blue"></span> &ge; 50% tham gia (Đạt chỉ tiêu tích cực)</span>
+            <span class="legend-item"><em>Chỉ Admin mới có quyền tích chấm công, sửa điểm và thêm/bớt boss hay thành viên. Thành viên chỉ được xem.</em></span>
           </div>
         </div>
       </section>
@@ -3991,6 +4506,176 @@
     </div>
   </div>
 
+  <!-- ── Multi-Server Management Modal ── -->
+  <div class="modal-backdrop" id="serverModal" role="dialog" aria-modal="true" aria-labelledby="serverModalTitle" style="z-index:10003;">
+    <div class="modal" style="max-width:480px; padding:0; overflow:hidden;">
+      <div style="background:var(--surface-2); border-bottom:1px solid var(--line-soft); padding:16px 20px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:8px; background:rgba(34, 211, 238, 0.15); color:var(--cyan); display:grid; place-items:center; font-size:18px;">
+            🌐
+          </div>
+          <div>
+            <h3 id="serverModalTitle" style="margin:0; font-size:16px; font-weight:700; color:var(--text);">Quản lý Máy Chủ (Server)</h3>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--muted);">Tạo hoặc chuyển đổi giữa các máy chủ</p>
+          </div>
+        </div>
+        <button type="button" class="icon-button" id="closeServerModal" style="width:32px; height:32px;" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div style="padding:18px 20px; max-height:75vh; overflow-y:auto;">
+        <!-- Danh sách Server hiện có -->
+        <label style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:8px;">
+          Danh sách Server đang có:
+        </label>
+        <div id="modalServerList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:18px;">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Form Thêm Server mới -->
+        <div id="modalAddServerSection" style="background:var(--surface-2); border:1px solid var(--line-soft); border-radius:8px; padding:14px; margin-top:10px;">
+          <h4 style="margin:0 0 10px; font-size:13.5px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
+            <span>➕ Thêm Server mới</span>
+          </h4>
+          <div style="margin-bottom:10px;">
+            <label for="newServerName" style="font-size:12px; font-weight:600; color:var(--text-2); display:block; margin-bottom:4px;">Tên Server:</label>
+            <input type="text" id="newServerName" placeholder="Ví dụ: Server 2 - Noria..." maxlength="40" style="width:100%; padding:8px 12px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:13px;">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label class="discord-option-row" style="margin-bottom:0; padding:8px 10px; cursor:pointer;">
+              <div>
+                <strong style="display:block; font-size:12.5px; color:var(--text);">Sao chép 29 boss mẫu có sẵn</strong>
+                <span style="display:block; font-size:11px; color:var(--muted);">Tạo sẵn danh sách boss giống Server 1 (ở trạng thái SỐNG)</span>
+              </div>
+              <input type="checkbox" id="cloneBossTemplate" checked style="width:16px; height:16px; cursor:pointer;">
+            </label>
+          </div>
+          <div id="newServerError" style="display:none; margin-bottom:10px; font-size:12px; color:var(--red); font-weight:600; padding:6px 10px; background:var(--red-soft); border-radius:6px;"></div>
+          <button type="button" class="button-primary" id="confirmAddServerBtn" style="width:100%; justify-content:center; padding:8px; font-size:13px;">
+            <span>Tạo Server này</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: THÊM / SỬA THÀNH VIÊN CHẤM CÔNG -->
+  <div class="modal-backdrop" id="attMemberModal" role="dialog" aria-modal="true" aria-labelledby="attMemberModalTitle" style="z-index: 10005;">
+    <div class="modal" style="max-width: 440px; padding: 0; overflow: hidden;">
+      <div class="modal-head" style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 id="attMemberModalTitle" style="font-size: 17px; font-weight: 700; margin: 0; color: var(--text);">Thêm Thành Viên Mới</h2>
+          <p id="attMemberModalSub" style="font-size: 12px; color: var(--muted); margin: 3px 0 0 0;">Cài đặt tên và hệ số nhân lương thưởng</p>
+        </div>
+        <button type="button" class="btn-ghost icon-button" id="closeAttMemberModal" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div style="padding: 20px;">
+        <input type="hidden" id="attMemberEditId" value="">
+        <div class="field" style="margin-bottom: 14px;">
+          <label for="attMemberNameInput" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Tên Thành Viên <span style="color: var(--red);">*</span></label>
+          <input type="text" id="attMemberNameInput" class="input" placeholder="Ví dụ: Venarius, Ông3Bi, ..." required style="width: 100%;">
+        </div>
+        <div class="field" style="margin-bottom: 14px;">
+          <label for="attMemberMultiplierInput" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Hệ Số Nhân Lương (x1, x1.5, x2, x2.5, x3, ...)</label>
+          <input type="number" id="attMemberMultiplierInput" class="input" value="1.0" min="0.1" max="10" step="0.5" style="width: 100%;">
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button type="button" class="btn btn-secondary att-quick-mult-btn" data-val="1">x1</button>
+            <button type="button" class="btn btn-secondary att-quick-mult-btn" data-val="1.5">x1.5</button>
+            <button type="button" class="btn btn-secondary att-quick-mult-btn" data-val="2">x2</button>
+            <button type="button" class="btn btn-secondary att-quick-mult-btn" data-val="2.5">x2.5</button>
+            <button type="button" class="btn btn-secondary att-quick-mult-btn" data-val="3">x3</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom: 16px;">
+          <label for="attMemberRoleInput" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Ghi chú / Vai trò (Không bắt buộc)</label>
+          <input type="text" id="attMemberRoleInput" class="input" placeholder="Ví dụ: Core DPS, Tanker, Phụ trách Call..." style="width: 100%;">
+        </div>
+        <div id="attMemberModalError" style="display: none; margin-bottom: 12px; font-size: 12px; color: var(--red); font-weight: 600; padding: 6px 10px; background: var(--red-soft); border-radius: 6px;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <button type="button" class="btn btn-danger" id="attDeleteMemberBtn" style="display: none;">
+            <span>Xóa thành viên</span>
+          </button>
+          <div style="display: flex; gap: 8px; margin-left: auto;">
+            <button type="button" class="btn btn-secondary" id="attCancelMemberBtn">Hủy</button>
+            <button type="button" class="button-primary" id="attSaveMemberBtn">Lưu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: THÊM / SỬA BOSS HOẶC HOẠT ĐỘNG CHẤM CÔNG -->
+  <div class="modal-backdrop" id="attActivityModal" role="dialog" aria-modal="true" aria-labelledby="attActivityModalTitle" style="z-index: 10005;">
+    <div class="modal" style="max-width: 440px; padding: 0; overflow: hidden;">
+      <div class="modal-head" style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 id="attActivityModalTitle" style="font-size: 17px; font-weight: 700; margin: 0; color: var(--text);">Thêm Hoạt Động / Boss</h2>
+          <p id="attActivityModalSub" style="font-size: 12px; color: var(--muted); margin: 3px 0 0 0;">Cài đặt ngày diễn ra, tên boss và điểm số khi tham gia</p>
+        </div>
+        <button type="button" class="btn-ghost icon-button" id="closeAttActivityModal" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div style="padding: 20px;">
+        <input type="hidden" id="attActivityEditId" value="">
+        <div class="field" style="margin-bottom: 14px;">
+          <label for="attActivityDateInput" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Thời Gian / Ngày <span style="color: var(--red);">*</span></label>
+          <input type="text" id="attActivityDateInput" class="input" placeholder="Ví dụ: T2 22/09, T3 23/09, CN 28/09..." required style="width: 100%;">
+        </div>
+        <div class="field" style="margin-bottom: 14px;">
+          <label for="attActivityNameInput" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Tên Boss / Hoạt Động <span style="color: var(--red);">*</span></label>
+          <input type="text" id="attActivityNameInput" class="input" placeholder="Ví dụ: Amentis, Kataphron, Công Thành Chiến..." required style="width: 100%;">
+        </div>
+        <div class="field" style="margin-bottom: 16px;">
+          <label for="attActivityPointsInput" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Điểm Số Tham Gia</label>
+          <input type="number" id="attActivityPointsInput" class="input" value="1" min="1" max="50" step="1" style="width: 100%;">
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button type="button" class="btn btn-secondary att-quick-pt-btn" data-val="1">1 Điểm</button>
+            <button type="button" class="btn btn-secondary att-quick-pt-btn" data-val="2">2 Điểm</button>
+            <button type="button" class="btn btn-secondary att-quick-pt-btn" data-val="3">3 Điểm</button>
+            <button type="button" class="btn btn-secondary att-quick-pt-btn" data-val="5">5 Điểm</button>
+          </div>
+        </div>
+        <div id="attActivityModalError" style="display: none; margin-bottom: 12px; font-size: 12px; color: var(--red); font-weight: 600; padding: 6px 10px; background: var(--red-soft); border-radius: 6px;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <button type="button" class="btn btn-danger" id="attDeleteActivityBtn" style="display: none;">
+            <span>Xóa mục này</span>
+          </button>
+          <div style="display: flex; gap: 8px; margin-left: auto;">
+            <button type="button" class="btn btn-secondary" id="attCancelActivityBtn">Hủy</button>
+            <button type="button" class="button-primary" id="attSaveActivityBtn">Lưu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: XUẤT BẢNG LƯƠNG DISCORD -->
+  <div class="modal-backdrop" id="attExportModal" role="dialog" aria-modal="true" aria-labelledby="attExportModalTitle" style="z-index: 10005;">
+    <div class="modal" style="max-width: 580px; padding: 0; overflow: hidden;">
+      <div class="modal-head" style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 id="attExportModalTitle" style="font-size: 17px; font-weight: 700; margin: 0; color: var(--text);">Bảng Lương Thưởng Discord</h2>
+          <p style="font-size: 12px; color: var(--muted); margin: 3px 0 0 0;">Sao chép văn bản định dạng Discord để dán trực tiếp vào kênh thông báo Guild</p>
+        </div>
+        <button type="button" class="btn-ghost icon-button" id="closeAttExportModal" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div style="padding: 20px;">
+        <textarea id="attExportTextarea" class="input" rows="14" readonly style="width: 100%; font-family: monospace; font-size: 12px; line-height: 1.5; resize: vertical;"></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+          <button type="button" class="btn btn-secondary" id="attCloseExportBtn">Đóng</button>
+          <button type="button" class="button-primary" id="attCopyExportBtn">
+            <span>📋 Sao chép vào Clipboard</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -4002,7 +4687,48 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script>
-    const STORAGE_KEY = "bossTimelinePro.v1";
+    // Multi-Server Configuration
+    const STORAGE_SERVERS_KEY = "bossTimelinePro.servers";
+    const STORAGE_CURRENT_SERVER_KEY = "bossTimelinePro.currentServerId";
+    const DEFAULT_SERVERS = [
+      { id: "s1", name: "Server 1", icon: "🌐" }
+    ];
+
+    function getQueryParam(param) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(param);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function loadServerList() {
+      try {
+        const raw = localStorage.getItem(STORAGE_SERVERS_KEY);
+        if (!raw) return [...DEFAULT_SERVERS];
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        return [...DEFAULT_SERVERS];
+      } catch (e) {
+        return [...DEFAULT_SERVERS];
+      }
+    }
+
+    let serverList = loadServerList();
+    const urlServerId = getQueryParam("sv") || getQueryParam("server");
+    let currentServerId = urlServerId && serverList.some(s => s.id === urlServerId)
+      ? urlServerId
+      : (localStorage.getItem(STORAGE_CURRENT_SERVER_KEY) || "s1");
+
+    // Neu urlServerId hop le nhung chua co trong serverList -> tu them vao
+    if (urlServerId && !serverList.some(s => s.id === urlServerId)) {
+      serverList.push({ id: urlServerId, name: "Server " + urlServerId.toUpperCase(), icon: "🌐" });
+      currentServerId = urlServerId;
+      try { localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList)); } catch (e) {}
+    }
+
+    let STORAGE_KEY = `bossTimelinePro.v1_${currentServerId}`;
     const SOON_LIMIT_MS = 5 * 60 * 1000;
     let currentLang = localStorage.getItem("bossTimelinePro.lang") || "vi";
 
@@ -4234,11 +4960,40 @@
     let firebaseApp = null;
     let firebaseDb = null;
     let stateDbRef = null;
+    let discordConfigDbRef = null;
+    let alertsDbRef = null;
+    let attendanceDbRef = null;
     let remoteStateReady = false;
     let remoteSaveInFlight = false;
     let pendingRemoteSave = false;
     let lastRemoteUpdatedAt = 0;
     const CLIENT_ID = "client_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+
+    function getFirebaseServerPaths(svId) {
+      if (svId === "s1") {
+        return {
+          statePath: "boss_timeline_state",
+          discordPath: "boss_timeline_discord_config",
+          alertsPath: "boss_timeline_discord_alerts",
+          attendancePath: "boss_timeline_attendance"
+        };
+      }
+      return {
+        statePath: `boss_timeline_servers/${svId}/state`,
+        discordPath: `boss_timeline_servers/${svId}/discord_config`,
+        alertsPath: `boss_timeline_servers/${svId}/discord_alerts`,
+        attendancePath: `boss_timeline_servers/${svId}/attendance`
+      };
+    }
+
+    function updateServerDatabaseRefs(svId) {
+      if (!firebaseDb) return;
+      const paths = getFirebaseServerPaths(svId);
+      stateDbRef = firebaseDb.ref(paths.statePath);
+      discordConfigDbRef = firebaseDb.ref(paths.discordPath);
+      alertsDbRef = firebaseDb.ref(paths.alertsPath);
+      attendanceDbRef = firebaseDb.ref(paths.attendancePath);
+    }
 
     if (REALTIME_ENABLED) {
       try {
@@ -4248,7 +5003,7 @@
           firebaseApp = firebase.app();
         }
         firebaseDb = firebase.database();
-        stateDbRef = firebaseDb.ref("boss_timeline_state");
+        updateServerDatabaseRefs(currentServerId);
       } catch (e) {
         console.error("Firebase init error:", e);
       }
@@ -4304,7 +5059,23 @@
       soundToggleBtn: document.getElementById("soundToggleBtn"),
       soundToggleText: document.getElementById("soundToggleText"),
       soundTestBtn: document.getElementById("soundTestBtn"),
-      toast: document.getElementById("toast")
+      toast: document.getElementById("toast"),
+      serverSwitcher: document.getElementById("serverSwitcher"),
+      serverSelectBtn: document.getElementById("serverSelectBtn"),
+      currentServerIcon: document.getElementById("currentServerIcon"),
+      currentServerName: document.getElementById("currentServerName"),
+      serverDropdown: document.getElementById("serverDropdown"),
+      serverListContainer: document.getElementById("serverListContainer"),
+      addServerBtn: document.getElementById("addServerBtn"),
+      manageServersBtn: document.getElementById("manageServersBtn"),
+      serverModal: document.getElementById("serverModal"),
+      closeServerModal: document.getElementById("closeServerModal"),
+      modalServerList: document.getElementById("modalServerList"),
+      newServerName: document.getElementById("newServerName"),
+      cloneBossTemplate: document.getElementById("cloneBossTemplate"),
+      newServerError: document.getElementById("newServerError"),
+      confirmAddServerBtn: document.getElementById("confirmAddServerBtn"),
+      modalAddServerSection: document.getElementById("modalAddServerSection")
     };
 
     const iconSvg = {
@@ -4410,6 +5181,25 @@
       if (elements.resetAllTimersBtn) {
         elements.resetAllTimersBtn.style.display = isAdmin() ? "inline-flex" : "none";
       }
+      if (elements.addServerBtn) {
+        elements.addServerBtn.style.display = isAdmin() ? "flex" : "none";
+      }
+      if (elements.manageServersBtn) {
+        elements.manageServersBtn.style.display = isAdmin() ? "flex" : "none";
+      }
+      const svDivider = document.querySelector(".server-dropdown-divider");
+      if (svDivider) {
+        svDivider.style.display = isAdmin() ? "block" : "none";
+      }
+      if (elements.modalAddServerSection) {
+        elements.modalAddServerSection.style.display = isAdmin() ? "block" : "none";
+      }
+      if (typeof renderServerListUI === "function") {
+        renderServerListUI();
+      }
+      if (typeof updateAttendanceRoleUI === "function") {
+        updateAttendanceRoleUI();
+      }
     }
 
     /* ── Sound & Voice Notification Engine ── */
@@ -4489,8 +5279,7 @@
       } catch (e) { console.warn("SpeechSynthesis error:", e); }
     }
 
-    /* ── Discord Webhook Notification Engine ── */
-    const STORAGE_DISCORD_KEY = "bossTimelinePro.discordConfig";
+    let STORAGE_DISCORD_KEY = `bossTimelinePro.discordConfig_${currentServerId}`;
     const defaultDiscordConfig = {
       enabled: false,
       webhookUrl: "",
@@ -4507,7 +5296,14 @@
     function loadDiscordConfig() {
       try {
         const raw = localStorage.getItem(STORAGE_DISCORD_KEY);
-        if (!raw) return { ...defaultDiscordConfig };
+        if (!raw) {
+          // Fallback doc tu storage cu neu la server 1
+          if (currentServerId === "s1") {
+            const oldRaw = localStorage.getItem("bossTimelinePro.discordConfig");
+            if (oldRaw) return { ...defaultDiscordConfig, ...JSON.parse(oldRaw) };
+          }
+          return { ...defaultDiscordConfig };
+        }
         const parsed = JSON.parse(raw);
         return { ...defaultDiscordConfig, ...parsed };
       } catch (e) {
@@ -4525,7 +5321,10 @@
       } catch (e) {}
       if (firebaseDb && isAdmin()) {
         try {
-          firebaseDb.ref("boss_timeline_discord_config").set(discordConfig);
+          const path = currentServerId === "s1"
+            ? "boss_timeline_discord_config"
+            : `boss_timeline_servers/${currentServerId}/discord_config`;
+          firebaseDb.ref(path).set(discordConfig);
         } catch (e) {
           console.warn("Firebase save discord config error:", e);
         }
@@ -4627,11 +5426,12 @@
         activeDiscordNotified[alertId] = true;
 
         const safeKey = alertId.replace(/[.#$\[\]\/]/g, "_");
+        const alertsPath = getFirebaseServerPaths(currentServerId).alertsPath;
 
         // Kiem tra xem alert nay da duoc gui thanh cong trong 5 phut qua chua (tranh 2 tab gui trung)
         if (firebaseDb) {
           try {
-            const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey);
+            const alertRef = firebaseDb.ref(alertsPath + "/" + safeKey);
             const snap = await alertRef.once("value");
             if (snap.exists() && (Date.now() - Number(snap.val()) < 5 * 60 * 1000)) {
               console.log("[Discord Bot] Alert nay da duoc tab khac gui:", alertId);
@@ -4710,7 +5510,7 @@
         // Chi danh dau da gui KHI Discord thuc su nhan thanh cong (tranh chan oan)
         if (sentOk && firebaseDb) {
           try {
-            firebaseDb.ref("boss_timeline_discord_alerts/" + safeKey).set(Date.now()).catch(function() {});
+            firebaseDb.ref(alertsPath + "/" + safeKey).set(Date.now()).catch(function() {});
           } catch (e) {}
         }
       } catch (err) {
@@ -4888,7 +5688,8 @@
 
         if (firebaseDb) {
           try {
-            const alertRef = firebaseDb.ref("boss_timeline_discord_alerts/" + alertId);
+            const alertsPath = getFirebaseServerPaths(currentServerId).alertsPath;
+            const alertRef = firebaseDb.ref(alertsPath + "/" + alertId);
             const snap = await alertRef.once("value");
             if (snap.exists() && (Date.now() - Number(snap.val()) < 20 * 60 * 60 * 1000)) {
               return false;
@@ -5295,7 +6096,14 @@
 
     function loadState() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        let raw = localStorage.getItem(STORAGE_KEY);
+        // Fallback backward-compat neu la server s1 va chua co key s1 moi
+        if (!raw && currentServerId === "s1") {
+          raw = localStorage.getItem("bossTimelinePro.v1");
+          if (raw) {
+            try { localStorage.setItem(STORAGE_KEY, raw); } catch (e) {}
+          }
+        }
         if (!raw) return createDefaultState();
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed.bosses)) return createDefaultState();
@@ -5317,7 +6125,8 @@
       broadcastChannel.onmessage = (event) => {
         if (!event.data || !Array.isArray(event.data.bosses)) return;
         if (event.data._clientId === CLIENT_ID) return;
-        applyRemoteState(event.data, getNow());
+        if (event.data.serverId && event.data.serverId !== currentServerId) return;
+        applyRemoteState(event.data.bosses, event.data.history || [], getNow());
         showToast("🔄 Đã đồng bộ từ cửa sổ/tab khác trên máy.");
       };
     }
@@ -5328,6 +6137,7 @@
         if (broadcast && broadcastChannel) {
           broadcastChannel.postMessage({
             _clientId: CLIENT_ID,
+            serverId: currentServerId,
             bosses: state.bosses.map(normalizeBoss),
             history: state.history.slice(0, 30)
           });
@@ -5368,10 +6178,11 @@
       if (!REALTIME_ENABLED || !firebaseDb || !remoteStateReady) return;
       try {
         const normalized = normalizeBoss(boss);
+        const paths = getFirebaseServerPaths(currentServerId);
         const updates = {};
-        updates["boss_timeline_state/bosses_map/" + boss.id] = normalized;
-        updates["boss_timeline_state/updated_at"] = new Date(getNow()).toISOString();
-        updates["boss_timeline_state/last_editor"] = CLIENT_ID;
+        updates[paths.statePath + "/bosses_map/" + boss.id] = normalized;
+        updates[paths.statePath + "/updated_at"] = new Date(getNow()).toISOString();
+        updates[paths.statePath + "/last_editor"] = CLIENT_ID;
         await firebaseDb.ref().update(updates);
       } catch (err) {
         console.warn("[Realtime] syncSingleBoss error:", err);
@@ -5384,10 +6195,11 @@
       saveStateLocal(true);
       if (!REALTIME_ENABLED || !firebaseDb || !remoteStateReady) return;
       try {
+        const paths = getFirebaseServerPaths(currentServerId);
         const updates = {};
-        updates["boss_timeline_state/bosses_map/" + bossId] = null;
-        updates["boss_timeline_state/updated_at"] = new Date(getNow()).toISOString();
-        updates["boss_timeline_state/last_editor"] = CLIENT_ID;
+        updates[paths.statePath + "/bosses_map/" + bossId] = null;
+        updates[paths.statePath + "/updated_at"] = new Date(getNow()).toISOString();
+        updates[paths.statePath + "/last_editor"] = CLIENT_ID;
         await firebaseDb.ref().update(updates);
       } catch (err) {
         console.warn("[Realtime] removeSingleBossRemote error:", err);
@@ -5490,25 +6302,42 @@
       render();
     }
 
+    let activeStateRef = null;
+    let activeDiscordConfigRef = null;
+    let connectedRefBound = false;
+
     function initRealtimeSync() {
       if (!REALTIME_ENABLED || !stateDbRef) {
         setRealtimeStatus("offline", "Chưa cấu hình Firebase — kiểm tra firebase-config.js");
         return;
       }
 
+      if (activeStateRef) {
+        try { activeStateRef.off(); } catch (e) {}
+        activeStateRef = null;
+      }
+      if (activeDiscordConfigRef) {
+        try { activeDiscordConfigRef.off(); } catch (e) {}
+        activeDiscordConfigRef = null;
+      }
+
       setRealtimeStatus("connecting", "Đang kết nối Google Firebase Realtime…");
 
-      // Giam sat ket noi Firebase connection state
-      firebaseDb.ref(".info/connected").on("value", (snap) => {
-        if (snap.val() === true) {
-          setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
-        } else {
-          setRealtimeStatus("connecting", "Đang kết nối lại Firebase Realtime…");
-        }
-      });
+      // Giam sat ket noi Firebase connection state (chi can gan 1 lan)
+      if (!connectedRefBound && firebaseDb) {
+        firebaseDb.ref(".info/connected").on("value", (snap) => {
+          if (snap.val() === true) {
+            setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
+          } else {
+            setRealtimeStatus("connecting", "Đang kết nối lại Firebase Realtime…");
+          }
+        });
+        connectedRefBound = true;
+      }
 
-      // Lang nghe thay doi truc tiep tu Firebase Realtime Database
-      stateDbRef.on("value", (snapshot) => {
+      // Lang nghe thay doi truc tiep tu Firebase Realtime Database cua server hien tai
+      activeStateRef = stateDbRef;
+      activeStateRef.on("value", (snapshot) => {
         const val = snapshot.val();
         if (val) {
           const senderId = val.last_editor || val.data?._clientId;
@@ -5527,7 +6356,7 @@
             showToast("🔄 Team vừa cập nhật Boss Timeline.");
           }
         } else if (!val) {
-          // Chua co du lieu tren Firebase -> Tu dong Seed du lieu tu local len!
+          // Chua co du lieu tren Firebase cho server nay -> Tu dong Seed du lieu tu local len!
           const normalized = state.bosses.map(normalizeBoss);
           const bMap = {};
           normalized.forEach(b => { bMap[b.id] = b; });
@@ -5545,17 +6374,20 @@
         setRealtimeStatus("offline", "Lỗi kết nối Firebase — đang dùng localStorage");
       });
 
-      // Lang nghe cau hinh Discord Webhook tu Firebase
-      firebaseDb.ref("boss_timeline_discord_config").on("value", (snapshot) => {
-        const remoteCfg = snapshot.val();
-        if (remoteCfg && typeof remoteCfg === "object" && remoteCfg.webhookUrl) {
-          discordConfig = { ...defaultDiscordConfig, ...remoteCfg };
-          try {
-            localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
-          } catch (e) {}
-          updateDiscordButtonUI();
-        }
-      });
+      // Lang nghe cau hinh Discord Webhook tu Firebase cua server hien tai
+      if (discordConfigDbRef) {
+        activeDiscordConfigRef = discordConfigDbRef;
+        activeDiscordConfigRef.on("value", (snapshot) => {
+          const remoteCfg = snapshot.val();
+          if (remoteCfg && typeof remoteCfg === "object" && remoteCfg.webhookUrl) {
+            discordConfig = { ...defaultDiscordConfig, ...remoteCfg };
+            try {
+              localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
+            } catch (e) {}
+            updateDiscordButtonUI();
+          }
+        });
+      }
     }
 
 
@@ -8424,13 +9256,20 @@
     });
 
     document.querySelectorAll(".nav-item").forEach((link) => {
-      link.addEventListener("click", () => {
+      link.addEventListener("click", (e) => {
+        const href = link.getAttribute("href");
+        if (href === "#attendance-salary" || href === "#attendance") {
+          e.preventDefault();
+          if (typeof switchPageView === "function") switchPageView("attendance");
+          return;
+        }
+        if (typeof switchPageView === "function") switchPageView("boss");
         document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
         link.classList.add("active");
-        if (link.getAttribute("href") === "#boss-schedule") {
+        if (href === "#boss-schedule") {
           toggleTodaySchedule(true);
         }
-        if (link.getAttribute("href") === "#weekly-boss-schedule") {
+        if (href === "#weekly-boss-schedule") {
           toggleWeeklySchedule(true);
         }
       });
@@ -8729,10 +9568,1521 @@
       }
     });
 
+    // ==========================================
+    // MULTI-SERVER MANAGEMENT & SWITCHER LOGIC
+    // ==========================================
+
+    function updateServerSwitcherButton() {
+      const activeServer = serverList.find(s => s.id === currentServerId) || { id: currentServerId, name: "Server " + currentServerId, icon: "⚔️" };
+      if (elements.currentServerName) elements.currentServerName.textContent = activeServer.name;
+      if (elements.currentServerIcon) elements.currentServerIcon.textContent = activeServer.icon || "⚔️";
+      if (elements.serverSelectBtn) elements.serverSelectBtn.title = `Máy chủ hiện tại: ${activeServer.name} (sv=${activeServer.id})`;
+    }
+
+    function renderServerListUI() {
+      // 1. Dropdown items
+      if (elements.serverListContainer) {
+        elements.serverListContainer.innerHTML = serverList.map(sv => {
+          const isActive = sv.id === currentServerId;
+          return `
+            <div class="server-item ${isActive ? "active" : ""}" data-server-id="${escapeHtml(sv.id)}" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; gap:8px;">
+              <div class="sv-select-target" data-server-id="${escapeHtml(sv.id)}" style="display:flex; align-items:center; gap:8px; flex:1; min-width:0; cursor:pointer;" title="Bấm để chuyển sang ${escapeHtml(sv.name)}">
+                <span style="font-size:16px;">${sv.icon || "⚔️"}</span>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:${isActive ? "700" : "500"};">${escapeHtml(sv.name)}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                ${isActive ? '<span style="font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(34, 211, 238, 0.15); color:var(--cyan);">Đang xem</span>' : ""}
+                ${isAdmin() ? `
+                  <button type="button" class="rename-sv-quick-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" title="Đổi tên ${escapeHtml(sv.name)}" style="background:transparent; border:none; color:var(--muted); cursor:pointer; padding:3px 5px; border-radius:4px; font-size:12px; display:inline-flex; align-items:center;" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--muted)'">
+                    ✏️
+                  </button>
+                ` : ""}
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        elements.serverListContainer.querySelectorAll(".sv-select-target").forEach(item => {
+          item.addEventListener("click", () => {
+            const svId = item.dataset.serverId;
+            if (svId && svId !== currentServerId) {
+              switchServer(svId);
+            }
+            if (elements.serverDropdown) elements.serverDropdown.classList.remove("open");
+          });
+        });
+
+        elements.serverListContainer.querySelectorAll(".rename-sv-quick-btn").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const svId = btn.dataset.svId;
+            const svName = btn.dataset.svName;
+            promptRenameServer(svId, svName);
+          });
+        });
+      }
+
+      // 2. Modal server list
+      if (elements.modalServerList) {
+        elements.modalServerList.innerHTML = serverList.map(sv => {
+          const isActive = sv.id === currentServerId;
+          const isDefault = sv.id === "s1";
+          return `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border:1px solid ${isActive ? "var(--cyan)" : "var(--line-soft)"}; border-radius:10px; margin-bottom:8px; background:${isActive ? "rgba(34, 211, 238, 0.05)" : "var(--surface-2)"}; gap:8px;">
+              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+                <span style="font-size:20px;">${sv.icon || "⚔️"}</span>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-weight:700; color:var(--text); font-size:14px; display:flex; align-items:center; gap:6px;">
+                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(sv.name)}</span>
+                    ${isDefault ? '<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:rgba(245, 158, 11, 0.15); color:var(--amber); font-weight:700; flex-shrink:0;">Mặc định</span>' : ""}
+                  </div>
+                  <div style="font-size:11px; color:var(--muted); font-family:monospace; margin-top:2px;">URL: ?sv=${escapeHtml(sv.id)}</div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                ${isAdmin() ? `
+                  <button type="button" class="btn btn-secondary rename-sv-modal-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" style="padding:5px 10px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Đổi tên máy chủ này">
+                    ✏️ Đổi tên
+                  </button>
+                ` : ""}
+                ${isActive
+                  ? '<span style="font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px; background:rgba(34, 211, 238, 0.15); color:var(--cyan);">Đang chọn</span>'
+                  : `<button type="button" class="btn btn-secondary switch-to-sv-btn" data-sv-id="${escapeHtml(sv.id)}" style="padding:5px 12px; font-size:12px; cursor:pointer;">Chuyển tới</button>`
+                }
+                ${!isDefault && isAdmin() ? `
+                  <button type="button" class="btn delete-sv-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" style="padding:5px 8px; font-size:12px; color:var(--red); background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); border-radius:6px; cursor:pointer;" title="Xóa máy chủ này">
+                    🗑️
+                  </button>
+                ` : ""}
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        elements.modalServerList.querySelectorAll(".rename-sv-modal-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const svId = btn.dataset.svId;
+            const svName = btn.dataset.svName;
+            promptRenameServer(svId, svName);
+          });
+        });
+
+        elements.modalServerList.querySelectorAll(".switch-to-sv-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const svId = btn.dataset.svId;
+            if (svId) {
+              switchServer(svId);
+              closeServerModal();
+            }
+          });
+        });
+
+        elements.modalServerList.querySelectorAll(".delete-sv-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const svId = btn.dataset.svId;
+            const svName = btn.dataset.svName;
+            if (svId && svId !== "s1") {
+              if (confirm(`Bạn có chắc chắn muốn xóa máy chủ "${svName}" (sv=${svId}) không? Dữ liệu boss của server này sẽ bị xóa khỏi danh sách.`)) {
+                deleteServer(svId);
+              }
+            }
+          });
+        });
+      }
+    }
+
+    async function switchServer(newServerId) {
+      if (!newServerId) return;
+      if (!serverList.some(s => s.id === newServerId)) {
+        showToast("âŒ Server khÃ´ng tá»“n táº¡i trong danh sÃ¡ch.");
+        return;
+      }
+      currentServerId = newServerId;
+      try {
+        localStorage.setItem(STORAGE_CURRENT_SERVER_KEY, currentServerId);
+      } catch (e) {}
+
+      // Cáº­p nháº­t URL tham sá»‘ ?sv= khÃ´ng lÃ m reload trang
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("sv", currentServerId);
+        window.history.pushState({}, "", url.toString());
+      } catch (e) {}
+
+      STORAGE_KEY = "bossTimelinePro.v1_" + currentServerId;
+      STORAGE_DISCORD_KEY = "bossTimelinePro.discordConfig_" + currentServerId;
+      if (typeof STORAGE_ATTENDANCE_KEY !== "undefined") {
+        STORAGE_ATTENDANCE_KEY = "bossTimelinePro.attendance_" + currentServerId;
+      }
+
+      updateServerDatabaseRefs(currentServerId);
+
+      // Náº¡p dá»¯ liá»‡u cá»§a Server má»›i
+      state = loadState();
+      discordConfig = loadDiscordConfig();
+      activeDiscordNotified = {};
+      if (typeof loadAttendanceState === "function") {
+        attendanceState = loadAttendanceState();
+        if (typeof initAttendanceRealtimeSync === "function") initAttendanceRealtimeSync();
+        if (typeof renderAttendanceTable === "function") renderAttendanceTable();
+      }
+
+      updateServerSwitcherButton();
+      renderServerListUI();
+      updateDiscordButtonUI();
+
+      initRealtimeSync();
+      render();
+
+      const svObj = serverList.find(s => s.id === currentServerId);
+      showToast(ðŸŒ ÄÃ£ chuyá»ƒn sang:  + (svObj ? svObj.name : currentServerId));
+    }
+
+    async function createNewServer(name, cloneTemplate = true) {
+      if (!isAdmin()) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền tạo máy chủ mới.");
+        requestAdminLogin();
+        return;
+      }
+
+      const trimmed = (name || "").trim();
+      if (!trimmed) {
+        if (elements.newServerError) {
+          elements.newServerError.textContent = "Vui lòng nhập tên máy chủ!";
+          elements.newServerError.style.display = "block";
+        }
+        return;
+      }
+
+      if (serverList.some(s => s.name.toLowerCase() === trimmed.toLowerCase())) {
+        if (elements.newServerError) {
+          elements.newServerError.textContent = "Tên máy chủ này đã tồn tại!";
+          elements.newServerError.style.display = "block";
+        }
+        return;
+      }
+
+      // Tạo ID duy nhất (s2, s3, ...)
+      let nextNum = serverList.length + 1;
+      let newId = "s" + nextNum;
+      while (serverList.some(s => s.id === newId)) {
+        nextNum++;
+        newId = "s" + nextNum;
+      }
+
+      const icons = ["⚔️", "🛡️", "🔥", "⚡", "🌟", "👑", "🏹", "🔮", "🏰", "🐉"];
+      const randomIcon = icons[(serverList.length) % icons.length];
+
+      const newServerObj = {
+        id: newId,
+        name: trimmed,
+        icon: randomIcon
+      };
+
+      serverList.push(newServerObj);
+      try {
+        localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
+      } catch (e) {}
+
+      // Đồng bộ danh sách server lên Firebase
+      if (firebaseDb) {
+        try {
+          firebaseDb.ref("boss_timeline_servers_list").set(serverList).catch(e => console.warn(e));
+        } catch (e) {}
+      }
+
+      // Khởi tạo state cho server mới
+      let newBosses = [];
+      if (cloneTemplate) {
+        const baseBosses = (state.bosses && state.bosses.length > 0) ? state.bosses : createDefaultState().bosses;
+        newBosses = baseBosses.map(b => {
+          const copy = JSON.parse(JSON.stringify(b));
+          copy.diedAt = null;
+          copy.respawnsAt = null;
+          copy.lastRespawnAt = null;
+          copy.respawnHistory = [];
+          return normalizeBoss(copy);
+        });
+      } else {
+        newBosses = createDefaultState().bosses.map(normalizeBoss);
+      }
+
+      const newState = {
+        bosses: newBosses,
+        history: []
+      };
+
+      const newStorageKey = `bossTimelinePro.v1_${newId}`;
+      try {
+        localStorage.setItem(newStorageKey, JSON.stringify(newState));
+      } catch (e) {}
+
+      // Đẩy state lên Firebase node của server mới
+      if (firebaseDb) {
+        try {
+          const paths = getFirebaseServerPaths(newId);
+          const bMap = {};
+          newBosses.forEach(b => { bMap[b.id] = b; });
+          const seed = {
+            data: { _clientId: CLIENT_ID, bosses: newBosses, history: [] },
+            bosses_map: bMap,
+            last_editor: CLIENT_ID,
+            updated_at: new Date(getNow()).toISOString()
+          };
+          firebaseDb.ref(paths.statePath).set(seed).catch(e => console.warn(e));
+        } catch (e) {}
+      }
+
+      // Đóng modal và chuyển ngay sang server mới
+      closeServerModal();
+      await switchServer(newId);
+      showToast(`🎉 Đã tạo thành công máy chủ: ${trimmed}`);
+    }
+
+    async function renameServer(serverId, newName) {
+      if (!isAdmin()) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền đổi tên máy chủ.");
+        requestAdminLogin();
+        return;
+      }
+
+      const sv = serverList.find(s => s.id === serverId);
+      if (!sv) return;
+      const trimmed = (newName || "").trim();
+      if (!trimmed) {
+        showToast("❌ Tên máy chủ không được để trống!");
+        return;
+      }
+      if (serverList.some(s => s.id !== serverId && s.name.toLowerCase() === trimmed.toLowerCase())) {
+        showToast("❌ Tên máy chủ này đã bị trùng lặp với một server khác!");
+        return;
+      }
+
+      const oldName = sv.name;
+      sv.name = trimmed;
+      try {
+        localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
+      } catch (e) {}
+
+      if (firebaseDb) {
+        try {
+          firebaseDb.ref("boss_timeline_servers_list").set(serverList).catch(e => console.warn(e));
+        } catch (e) {}
+      }
+
+      /* ==========================================================================
+       BẢNG CHẤM CÔNG & TỰ ĐỘNG TÍNH LƯƠNG HOẠT ĐỘNG / BOSS
+      renderServerListUI();
+      showToast(`✅ Đã đổi tên máy chủ thành: "${trimmed}"`);
+    }
+
+    function promptRenameServer(serverId, currentName) {
+      if (!isAdmin()) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền đổi tên máy chủ.");
+        requestAdminLogin();
+        return;
+      }
+
+      const newName = prompt(`Nhập tên mới cho máy chủ (${currentName}):`, currentName);
+      if (newName !== null) {
+        const trimmed = newName.trim();
+        if (trimmed && trimmed !== currentName) {
+          renameServer(serverId, trimmed);
+        }
+      }
+    }
+
+    async function deleteServer(serverId) {
+      if (!isAdmin()) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền xóa máy chủ.");
+        requestAdminLogin();
+        return;
+      }
+
+      if (serverId === "s1") {
+        showToast("❌ Không thể xóa máy chủ mặc định (Server 1)!");
+        return;
+      }
+      serverList = serverList.filter(s => s.id !== serverId);
+      try {
+        localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
+      } catch (e) {}
+
+      if (firebaseDb) {
+        try {
+          firebaseDb.ref("boss_timeline_servers_list").set(serverList).catch(e => console.warn(e));
+        } catch (e) {}
+      }
+
+      if (currentServerId === serverId) {
+        await switchServer("s1");
+      } else {
+        renderServerListUI();
+      }
+      showToast("🗑️ Đã xóa máy chủ thành công.");
+    }
+
+    function initServerListSync() {
+      if (!REALTIME_ENABLED || !firebaseDb) return;
+      try {
+        firebaseDb.ref("boss_timeline_servers_list").on("value", (snap) => {
+          const remoteList = snap.val();
+          if (Array.isArray(remoteList) && remoteList.length > 0) {
+            let changed = false;
+            remoteList.forEach(rSv => {
+              if (rSv && rSv.id && !serverList.some(l => l.id === rSv.id)) {
+                serverList.push(rSv);
+                changed = true;
+              }
+            });
+            if (changed) {
+              try {
+                localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
+              } catch (e) {}
+              renderServerListUI();
+              updateServerSwitcherButton();
+            }
+          }
+        });
+      } catch (e) {}
+    }
+
+    function openServerModal() {
+      if (elements.serverModal) {
+        elements.serverModal.classList.add("open");
+        syncModalScrollLock();
+        renderServerListUI();
+        if (elements.modalAddServerSection) {
+          elements.modalAddServerSection.style.display = isAdmin() ? "block" : "none";
+        }
+        if (elements.newServerName) {
+          elements.newServerName.value = "";
+          if (isAdmin()) {
+            setTimeout(() => elements.newServerName.focus(), 100);
+          }
+        }
+        if (elements.newServerError) {
+          elements.newServerError.style.display = "none";
+        }
+      }
+    }
+
+    function closeServerModal() {
+      if (elements.serverModal) {
+        elements.serverModal.classList.remove("open");
+        syncModalScrollLock();
+      }
+    }
+
+    // Modal & Dropdown Event Listeners
+    if (elements.serverSelectBtn) {
+      elements.serverSelectBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (elements.serverDropdown) {
+          elements.serverDropdown.classList.toggle("open");
+        }
+      });
+    }
+
+    document.addEventListener("click", (e) => {
+      if (elements.serverDropdown && elements.serverSwitcher && !elements.serverSwitcher.contains(e.target)) {
+        elements.serverDropdown.classList.remove("open");
+      }
+    });
+
+    if (elements.addServerBtn) {
+      elements.addServerBtn.addEventListener("click", () => {
+        if (!isAdmin()) {
+          showToast("Chỉ Quản trị viên (Admin) mới có quyền thêm máy chủ.");
+          requestAdminLogin();
+          return;
+        }
+        if (elements.serverDropdown) elements.serverDropdown.classList.remove("open");
+        openServerModal();
+      });
+    }
+
+    if (elements.manageServersBtn) {
+      elements.manageServersBtn.addEventListener("click", () => {
+        if (!isAdmin()) {
+          showToast("Chỉ Quản trị viên (Admin) mới có quyền quản lý & đổi tên máy chủ.");
+          requestAdminLogin();
+          return;
+        }
+        if (elements.serverDropdown) elements.serverDropdown.classList.remove("open");
+        openServerModal();
+      });
+    }
+
+    if (elements.closeServerModal) {
+      elements.closeServerModal.addEventListener("click", closeServerModal);
+    }
+
+    if (elements.serverModal) {
+      elements.serverModal.addEventListener("click", (e) => {
+        if (e.target === elements.serverModal) closeServerModal();
+      });
+    }
+
+    if (elements.confirmAddServerBtn) {
+      elements.confirmAddServerBtn.addEventListener("click", () => {
+        if (!isAdmin()) {
+          showToast("Chỉ Quản trị viên (Admin) mới có quyền thêm máy chủ.");
+          requestAdminLogin();
+          return;
+        }
+        const name = elements.newServerName ? elements.newServerName.value : "";
+        const clone = elements.cloneBossTemplate ? elements.cloneBossTemplate.checked : true;
+        createNewServer(name, clone);
+      });
+    }
+
+    if (elements.newServerName) {
+      elements.newServerName.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (!isAdmin()) {
+            showToast("Chỉ Quản trị viên (Admin) mới có quyền thêm máy chủ.");
+            requestAdminLogin();
+            return;
+          }
+          const name = elements.newServerName.value;
+          const clone = elements.cloneBossTemplate ? elements.cloneBossTemplate.checked : true;
+          createNewServer(name, clone);
+        }
+      });
+    }
+
+    /* ==========================================================================
+       BẢNG CHẤM CÔNG & TỰ ĐỘNG TÍNH LƯƠNG HOẠT ĐỘNG / BOSS
+       ========================================================================== */
+    let STORAGE_ATTENDANCE_KEY = `bossTimelinePro.attendance_${currentServerId}`;
+
+    const DEFAULT_ATTENDANCE_STATE = {
+      diasPool: 52500,
+      usdtPool: 867,
+      updatedAt: Date.now(),
+      updatedBy: "system",
+      activities: [
+        { id: "act_1", date: "T2 22/09", name: "Amentis 19h", points: 3 },
+        { id: "act_2", date: "T2 22/09", name: "Kataphron 21h", points: 2 },
+        { id: "act_3", date: "T3 23/09", name: "Boss Bang", points: 1 },
+        { id: "act_4", date: "T3 23/09", name: "Thần Điện", points: 2 },
+        { id: "act_5", date: "T4 24/09", name: "Amentis 19h", points: 3 },
+        { id: "act_6", date: "T5 25/09", name: "Kataphron 21h", points: 2 },
+        { id: "act_7", date: "T6 26/09", name: "Boss Bang", points: 1 },
+        { id: "act_8", date: "T7 27/09", name: "Công Thành Chiến", points: 5 },
+        { id: "act_9", date: "CN 28/09", name: "Thần Điện", points: 2 }
+      ],
+      members: [
+        { id: "m_1", name: "Venarius", multiplier: 3, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
+        { id: "m_2", name: "Ông3Bi", multiplier: 3, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
+        { id: "m_3", name: "VoiLười", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_4", name: "TraiBao", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_5", name: "LongThần", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_8: true } },
+        { id: "m_6", name: "KhắcTiệp", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_8: true } },
+        { id: "m_7", name: "BạchLong", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_8", name: "Ken", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_9", name: "MèoBéo", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_10", name: "KẻHủyDiệt", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_11", name: "Bự", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_12", name: "HùngHổ", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_13", name: "Zeref", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
+        { id: "m_14", name: "TuấnKhang", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_15", name: "SơnTùng", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
+        { id: "m_16", name: "HắcBạch", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_7: true } },
+        { id: "m_17", name: "BéNa", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
+        { id: "m_18", name: "TrùmCuối", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_19", name: "BéBự", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_20", name: "HổBáo", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
+        { id: "m_21", name: "ThầnGió", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+        { id: "m_22", name: "SátThủ", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_7: true } },
+        { id: "m_23", name: "ĐộcCô", multiplier: 1, role: "Newbie", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true } },
+        { id: "m_24", name: "VôDanh", multiplier: 1, role: "Newbie", records: { act_1: true, act_2: true, act_3: true, act_4: true } },
+        { id: "m_25", name: "TânThủ", multiplier: 1, role: "Newbie", records: { act_1: true, act_3: true } }
+      ]
+    };
+
+    let attendanceState = null;
+    let attendanceSearchTerm = "";
+    let attendanceMultiplierFilter = "all";
+    let attendanceRemoteSaveInFlight = false;
+    let attendancePendingRemoteSave = false;
+
+    function loadAttendanceState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_ATTENDANCE_KEY);
+        if (!raw) {
+          const fresh = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+          fresh.updatedAt = Date.now();
+          return fresh;
+        }
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.members) && Array.isArray(parsed.activities)) {
+          if (typeof parsed.diasPool !== "number") parsed.diasPool = DEFAULT_ATTENDANCE_STATE.diasPool;
+          if (typeof parsed.usdtPool !== "number") parsed.usdtPool = DEFAULT_ATTENDANCE_STATE.usdtPool;
+          return parsed;
+        }
+        return JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+      } catch (e) {
+        console.error("Error loading attendance state:", e);
+        return JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+      }
+    }
+
+    function saveAttendanceState(newState, syncRemote = true) {
+      if (!newState) return;
+      attendanceState = newState;
+      try {
+        localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
+      } catch (e) {
+        console.error("Error saving attendance to localStorage:", e);
+      }
+
+      if (syncRemote && attendanceDbRef && isAdmin()) {
+        attendanceState.updatedAt = Date.now();
+        attendanceState.updatedBy = CLIENT_ID;
+        pushAttendanceToFirebase();
+      }
+    }
+
+    async function pushAttendanceToFirebase() {
+      if (!attendanceDbRef || !isAdmin() || attendanceRemoteSaveInFlight) {
+        if (attendanceRemoteSaveInFlight) attendancePendingRemoteSave = true;
+        return;
+      }
+      attendanceRemoteSaveInFlight = true;
+      attendancePendingRemoteSave = false;
+      try {
+        await attendanceDbRef.set(attendanceState);
+      } catch (err) {
+        console.error("Firebase attendance sync error:", err);
+      } finally {
+        attendanceRemoteSaveInFlight = false;
+        if (attendancePendingRemoteSave) {
+          pushAttendanceToFirebase();
+        }
+      }
+    }
+
+    function initAttendanceRealtimeSync() {
+      if (!attendanceDbRef) return;
+      try {
+        attendanceDbRef.off();
+      } catch (e) {}
+
+      attendanceDbRef.on("value", (snapshot) => {
+        const remoteData = snapshot.val();
+        if (!remoteData) {
+          // If remote is empty and this user is Admin, seed remote with local data
+          if (isAdmin() && attendanceState) {
+            pushAttendanceToFirebase();
+          }
+          return;
+        }
+
+        // If update was made by another client, merge
+        if (remoteData.updatedBy !== CLIENT_ID) {
+          attendanceState = remoteData;
+          try {
+            localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
+          } catch (e) {}
+          renderAttendanceTable();
+        }
+      });
+    }
+
+    function calculateAttendanceData(stateObj) {
+      const activities = stateObj?.activities || [];
+      const members = stateObj?.members || [];
+      const diasPool = Math.max(0, Number(stateObj?.diasPool) || 0);
+      const usdtPool = Math.max(0, Number(stateObj?.usdtPool) || 0);
+
+      const maxPossiblePoints = activities.reduce((sum, act) => sum + (Number(act.points) || 0), 0);
+
+      let totalGuildRawPoints = 0;
+      let totalGuildPPoints = 0;
+
+      const membersCalc = members.map(m => {
+        const records = m.records || {};
+        let rawPoints = 0;
+        activities.forEach(act => {
+          if (records[act.id]) {
+            rawPoints += (Number(act.points) || 0);
+          }
+        });
+
+        const multiplier = Number(m.multiplier) || 1.0;
+        const pPoints = Math.round(rawPoints * multiplier);
+        const percent = maxPossiblePoints > 0 ? (rawPoints / maxPossiblePoints) * 100 : 0;
+
+        totalGuildRawPoints += rawPoints;
+        totalGuildPPoints += pPoints;
+
+        return {
+          ...m,
+          rawPoints,
+          multiplier,
+          pPoints,
+          percent
+        };
+      });
+
+      const diasRate = totalGuildPPoints > 0 ? (diasPool / totalGuildPPoints) : 0;
+      const usdtRate = totalGuildPPoints > 0 ? (usdtPool / totalGuildPPoints) : 0;
+
+      // Final rewards
+      membersCalc.forEach(m => {
+        m.dias = Math.round(m.pPoints * diasRate);
+        m.usdt = Math.round(m.pPoints * usdtRate);
+      });
+
+      return {
+        membersCalc,
+        totalGuildRawPoints,
+        totalGuildPPoints,
+        maxPossiblePoints,
+        diasPool,
+        usdtPool,
+        diasRate,
+        usdtRate,
+        activitiesCount: activities.length,
+        membersCount: members.length
+      };
+    }
+
+    function renderAttendanceTable() {
+      if (!attendanceState) attendanceState = loadAttendanceState();
+
+      const calc = calculateAttendanceData(attendanceState);
+
+      // 1. Update Top Stat Cards
+      const diasInput = document.getElementById("attDiasPoolInput");
+      if (diasInput && document.activeElement !== diasInput) {
+        diasInput.value = calc.diasPool;
+        diasInput.readOnly = !isAdmin();
+      }
+      const diasRateEl = document.getElementById("attDiasRateText");
+      if (diasRateEl) diasRateEl.textContent = calc.diasRate.toFixed(2);
+
+      const usdtInput = document.getElementById("attUsdtPoolInput");
+      if (usdtInput && document.activeElement !== usdtInput) {
+        usdtInput.value = calc.usdtPool;
+        usdtInput.readOnly = !isAdmin();
+      }
+      const usdtRateEl = document.getElementById("attUsdtRateText");
+      if (usdtRateEl) usdtRateEl.textContent = calc.usdtRate.toFixed(4);
+
+      const membersCountEl = document.getElementById("attTotalMembersCount");
+      if (membersCountEl) membersCountEl.textContent = calc.membersCount;
+
+      const actCountEl = document.getElementById("attTotalActivitiesCount");
+      if (actCountEl) actCountEl.textContent = calc.activitiesCount;
+
+      const maxPtsEl = document.getElementById("attMaxPossiblePoints");
+      if (maxPtsEl) maxPtsEl.textContent = calc.maxPossiblePoints;
+
+      const guildPPointsEl = document.getElementById("attTotalGuildPPoints");
+      if (guildPPointsEl) guildPPointsEl.textContent = calc.totalGuildPPoints.toLocaleString("vi-VN");
+
+      const guildRawPointsEl = document.getElementById("attTotalGuildRawPoints");
+      if (guildRawPointsEl) guildRawPointsEl.textContent = calc.totalGuildRawPoints.toLocaleString("vi-VN");
+
+      const serverBadge = document.getElementById("attServerBadge");
+      if (serverBadge) {
+        const curSv = serverList.find(s => s.id === currentServerId);
+        serverBadge.textContent = curSv ? curSv.name : currentServerId;
+      }
+
+      // Update Role permissions on top cards
+      const diasTag = document.getElementById("attDiasAdminTag");
+      if (diasTag) diasTag.style.display = isAdmin() ? "inline-block" : "none";
+      const usdtTag = document.getElementById("attUsdtAdminTag");
+      if (usdtTag) usdtTag.style.display = isAdmin() ? "inline-block" : "none";
+
+      // 2. Render Table Header
+      const headEl = document.getElementById("attTableHead");
+      if (!headEl) return;
+
+      const activities = attendanceState.activities || [];
+      const adminMode = isAdmin();
+
+      let headHtml = `<tr>
+        <th class="col-sticky col-stt">#</th>
+        <th class="col-sticky col-name">Thành Viên</th>
+        <th class="col-sticky col-mult">Hệ Số</th>
+        <th class="col-sticky col-usdt">💵 USDT</th>
+        <th class="col-sticky col-dias">💎 DIAS</th>
+        <th class="col-sticky col-ppoints">⭐ Điểm QĐ</th>
+        <th class="col-sticky col-raw">📊 Điểm Thô</th>
+        <th class="col-sticky col-percent">🎯 % Tham Gia</th>`;
+
+      activities.forEach((act, actIdx) => {
+        headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
+          <div class="act-th-inner">
+            <span class="act-th-date">${escapeHtml(act.date || "")}</span>
+            <span class="act-th-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</span>
+            <span class="act-th-points">${act.points}đ</span>
+            ${adminMode ? `
+              <div class="act-th-actions">
+                <label class="act-check-all-label" title="Tích chọn tất cả thành viên cột này">
+                  <input type="checkbox" class="att-check-all-box" data-act-id="${escapeHtml(act.id)}">
+                  <span>Tất cả</span>
+                </label>
+                <div class="act-btn-row">
+                  <button type="button" class="att-btn-micro att-edit-act-btn" data-act-id="${escapeHtml(act.id)}" title="Sửa tên/điểm">✏️</button>
+                  <button type="button" class="att-btn-micro att-del-act-btn" data-act-id="${escapeHtml(act.id)}" title="Xóa cột này">🗑️</button>
+                </div>
+              </div>` : ""
+            }
+          </div>
+        </th>`;
+      });
+
+      if (adminMode) {
+        headHtml += `<th class="col-actions">Thao tác</th>`;
+      }
+      headHtml += `</tr>`;
+      headEl.innerHTML = headHtml;
+
+      // 3. Filter Members
+      let filteredMembers = calc.membersCalc;
+      if (attendanceSearchTerm.trim()) {
+        const q = attendanceSearchTerm.trim().toLowerCase();
+        filteredMembers = filteredMembers.filter(m => m.name.toLowerCase().includes(q));
+      }
+      if (attendanceMultiplierFilter !== "all") {
+        const targetMult = Number(attendanceMultiplierFilter);
+        filteredMembers = filteredMembers.filter(m => Math.abs(m.multiplier - targetMult) < 0.05);
+      }
+
+      // 4. Render Table Body
+      const bodyEl = document.getElementById("attTableBody");
+      if (!bodyEl) return;
+
+      if (filteredMembers.length === 0) {
+        const colSpanTotal = 8 + activities.length + (adminMode ? 1 : 0);
+        bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
+          Không tìm thấy thành viên nào phù hợp.
+        </td></tr>`;
+        return;
+      }
+
+      let bodyHtml = "";
+      filteredMembers.forEach((m, idx) => {
+        let badgeClass = "att-badge-mid";
+        if (m.percent < 25) badgeClass = "att-badge-low";
+        else if (m.percent >= 50) badgeClass = "att-badge-high";
+
+        bodyHtml += `<tr data-member-id="${escapeHtml(m.id)}">
+          <td class="col-sticky col-stt">${idx + 1}</td>
+          <td class="col-sticky col-name">
+            <span class="member-display-name">${escapeHtml(m.name)}</span>
+            ${m.role ? `<span class="member-sub-role">${escapeHtml(m.role)}</span>` : ""}
+          </td>
+          <td class="col-sticky col-mult">
+            <span class="att-mult-tag">x${m.multiplier}</span>
+          </td>
+          <td class="col-sticky col-usdt">
+            <span class="val-usdt">${m.usdt.toLocaleString("vi-VN")}</span>
+          </td>
+          <td class="col-sticky col-dias">
+            <span class="val-dias">${m.dias.toLocaleString("vi-VN")}</span>
+          </td>
+          <td class="col-sticky col-ppoints">
+            <span class="val-ppoints">${m.pPoints.toLocaleString("vi-VN")}</span>
+          </td>
+          <td class="col-sticky col-raw">
+            <span class="val-raw">${m.rawPoints}</span>
+          </td>
+          <td class="col-sticky col-percent">
+            <span class="att-badge ${badgeClass}">${m.percent.toFixed(0)}%</span>
+          </td>`;
+
+        const records = m.records || {};
+        activities.forEach(act => {
+          const isChecked = Boolean(records[act.id]);
+          bodyHtml += `<td class="col-act-cell ${isChecked ? "checked" : ""}">
+            <input type="checkbox" class="att-checkbox"
+              data-member-id="${escapeHtml(m.id)}"
+              data-act-id="${escapeHtml(act.id)}"
+              ${isChecked ? "checked" : ""}
+              ${adminMode ? "" : "disabled"}
+              title="${escapeHtml(m.name)} - ${escapeHtml(act.name)} (${act.points}đ)">
+          </td>`;
+        });
+
+        if (adminMode) {
+          bodyHtml += `<td class="col-actions">
+            <div class="row-actions-wrap">
+              <button type="button" class="att-btn-micro att-edit-member-btn" data-member-id="${escapeHtml(m.id)}" title="Sửa tên & hệ số">✏️</button>
+              <button type="button" class="att-btn-micro att-del-member-btn" data-member-id="${escapeHtml(m.id)}" title="Xóa thành viên này">🗑️</button>
+            </div>
+          </td>`;
+        }
+
+        bodyHtml += `</tr>`;
+      });
+
+      bodyEl.innerHTML = bodyHtml;
+      bindAttendanceTableEvents();
+    }
+
+    function bindAttendanceTableEvents() {
+      const adminMode = isAdmin();
+
+      // Checkbox click
+      document.querySelectorAll(".att-table .att-checkbox").forEach(chk => {
+        chk.addEventListener("change", (e) => {
+          if (!adminMode) {
+            e.preventDefault();
+            showToast("Chỉ Quản trị viên (Admin) mới có quyền tích chấm công.");
+            requestAdminLogin();
+            return;
+          }
+          const memberId = chk.dataset.memberId;
+          const actId = chk.dataset.actId;
+          toggleAttendanceCheck(memberId, actId, chk.checked);
+        });
+      });
+
+      // Check All column
+      document.querySelectorAll(".att-check-all-box").forEach(chkAll => {
+        chkAll.addEventListener("change", (e) => {
+          if (!adminMode) {
+            e.preventDefault();
+            return;
+          }
+          const actId = chkAll.dataset.actId;
+          toggleAllAttendanceForActivity(actId, chkAll.checked);
+        });
+      });
+
+      // Edit Member buttons
+      document.querySelectorAll(".att-edit-member-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (!adminMode) return;
+          const memberId = btn.dataset.memberId;
+          openAttendanceMemberModal(memberId);
+        });
+      });
+
+      // Delete Member buttons
+      document.querySelectorAll(".att-del-member-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (!adminMode) return;
+          const memberId = btn.dataset.memberId;
+          const member = attendanceState.members.find(m => m.id === memberId);
+          if (!member) return;
+          const confirmed = await showConfirmModal({
+            title: "Xóa thành viên?",
+            subtitle: "Hành động này sẽ xóa thành viên khỏi bảng chấm công",
+            message: `Bạn có chắc muốn xóa thành viên "${member.name}"? Dữ liệu điểm của thành viên này trong tuần sẽ bị mất.`,
+            confirmText: "Xóa thành viên",
+            cancelText: "Hủy bỏ",
+            isDanger: true
+          });
+          if (confirmed) {
+            deleteAttendanceMember(memberId);
+          }
+        });
+      });
+
+      // Edit Activity buttons
+      document.querySelectorAll(".att-edit-act-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (!adminMode) return;
+          const actId = btn.dataset.actId;
+          openAttendanceActivityModal(actId);
+        });
+      });
+
+      // Delete Activity buttons
+      document.querySelectorAll(".att-del-act-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (!adminMode) return;
+          const actId = btn.dataset.actId;
+          const act = attendanceState.activities.find(a => a.id === actId);
+          if (!act) return;
+          const confirmed = await showConfirmModal({
+            title: "Xóa hoạt động / boss?",
+            subtitle: "Cột điểm sẽ bị xóa khỏi bảng",
+            message: `Bạn có chắc muốn xóa cột "${act.name} (${act.points}đ)"? Điểm đã chấm ở cột này của tất cả thành viên sẽ bị xóa.`,
+            confirmText: "Xóa cột",
+            cancelText: "Hủy bỏ",
+            isDanger: true
+          });
+          if (confirmed) {
+            deleteAttendanceActivity(actId);
+          }
+        });
+      });
+    }
+
+    function toggleAttendanceCheck(memberId, actId, isChecked) {
+      if (!attendanceState) return;
+      const member = attendanceState.members.find(m => m.id === memberId);
+      if (!member) return;
+      if (!member.records) member.records = {};
+      if (isChecked) {
+        member.records[actId] = true;
+      } else {
+        delete member.records[actId];
+      }
+      saveAttendanceState(attendanceState, true);
+      renderAttendanceTable();
+    }
+
+    function toggleAllAttendanceForActivity(actId, isChecked) {
+      if (!attendanceState) return;
+      attendanceState.members.forEach(m => {
+        if (!m.records) m.records = {};
+        if (isChecked) {
+          m.records[actId] = true;
+        } else {
+          delete m.records[actId];
+        }
+      });
+      saveAttendanceState(attendanceState, true);
+      renderAttendanceTable();
+      showToast(isChecked ? "✅ Đã tích chọn tất cả cho hoạt động này" : "Đã bỏ chọn tất cả");
+    }
+
+    // Modal Member Functions
+    function openAttendanceMemberModal(memberId = null) {
+      const modal = document.getElementById("attMemberModal");
+      if (!modal) return;
+      const titleEl = document.getElementById("attMemberModalTitle");
+      const nameInput = document.getElementById("attMemberNameInput");
+      const multInput = document.getElementById("attMemberMultiplierInput");
+      const roleInput = document.getElementById("attMemberRoleInput");
+      const editIdInput = document.getElementById("attMemberEditId");
+      const delBtn = document.getElementById("attDeleteMemberBtn");
+      const errEl = document.getElementById("attMemberModalError");
+
+      if (errEl) errEl.style.display = "none";
+
+      if (memberId) {
+        const member = attendanceState.members.find(m => m.id === memberId);
+        if (!member) return;
+        if (titleEl) titleEl.textContent = "Chỉnh Sửa Thành Viên";
+        if (editIdInput) editIdInput.value = member.id;
+        if (nameInput) nameInput.value = member.name || "";
+        if (multInput) multInput.value = member.multiplier || 1.0;
+        if (roleInput) roleInput.value = member.role || "";
+        if (delBtn) delBtn.style.display = "inline-flex";
+      } else {
+        if (titleEl) titleEl.textContent = "Thêm Thành Viên Mới";
+        if (editIdInput) editIdInput.value = "";
+        if (nameInput) nameInput.value = "";
+        if (multInput) multInput.value = "1.0";
+        if (roleInput) roleInput.value = "";
+        if (delBtn) delBtn.style.display = "none";
+      }
+
+      modal.classList.add("open");
+      syncModalScrollLock();
+      setTimeout(() => nameInput?.focus(), 50);
+    }
+
+    function closeAttendanceMemberModal() {
+      const modal = document.getElementById("attMemberModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    function saveAttendanceMember() {
+      if (!isAdmin()) return;
+      const nameInput = document.getElementById("attMemberNameInput");
+      const multInput = document.getElementById("attMemberMultiplierInput");
+      const roleInput = document.getElementById("attMemberRoleInput");
+      const editIdInput = document.getElementById("attMemberEditId");
+      const errEl = document.getElementById("attMemberModalError");
+
+      const name = (nameInput?.value || "").trim();
+      const mult = parseFloat(multInput?.value) || 1.0;
+      const role = (roleInput?.value || "").trim();
+      const editId = (editIdInput?.value || "").trim();
+
+      if (!name) {
+        if (errEl) {
+          errEl.textContent = "Vui lòng nhập tên thành viên.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (editId) {
+        const member = attendanceState.members.find(m => m.id === editId);
+        if (member) {
+          member.name = name;
+          member.multiplier = mult;
+          member.role = role;
+          showToast(`✅ Đã cập nhật thành viên: ${name}`);
+        }
+      } else {
+        const newId = "m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        attendanceState.members.push({
+          id: newId,
+          name,
+          multiplier: mult,
+          role,
+          records: {}
+        });
+        showToast(`✅ Đã thêm thành viên mới: ${name}`);
+      }
+
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceMemberModal();
+      renderAttendanceTable();
+    }
+
+    function deleteAttendanceMember(memberId) {
+      if (!isAdmin() || !attendanceState) return;
+      attendanceState.members = attendanceState.members.filter(m => m.id !== memberId);
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceMemberModal();
+      renderAttendanceTable();
+      showToast("🗑️ Đã xóa thành viên.");
+    }
+
+    // Modal Activity Functions
+    function openAttendanceActivityModal(actId = null) {
+      const modal = document.getElementById("attActivityModal");
+      if (!modal) return;
+      const titleEl = document.getElementById("attActivityModalTitle");
+      const dateInput = document.getElementById("attActivityDateInput");
+      const nameInput = document.getElementById("attActivityNameInput");
+      const ptsInput = document.getElementById("attActivityPointsInput");
+      const editIdInput = document.getElementById("attActivityEditId");
+      const delBtn = document.getElementById("attDeleteActivityBtn");
+      const errEl = document.getElementById("attActivityModalError");
+
+      if (errEl) errEl.style.display = "none";
+
+      if (actId) {
+        const act = attendanceState.activities.find(a => a.id === actId);
+        if (!act) return;
+        if (titleEl) titleEl.textContent = "Sửa Boss / Hoạt Động";
+        if (editIdInput) editIdInput.value = act.id;
+        if (dateInput) dateInput.value = act.date || "";
+        if (nameInput) nameInput.value = act.name || "";
+        if (ptsInput) ptsInput.value = act.points || 1;
+        if (delBtn) delBtn.style.display = "inline-flex";
+      } else {
+        if (titleEl) titleEl.textContent = "Thêm Boss / Hoạt Động Mới";
+        if (editIdInput) editIdInput.value = "";
+        // Pre-fill current day
+        const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+        const d = new Date();
+        const dateStr = `${days[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (dateInput) dateInput.value = dateStr;
+        if (nameInput) nameInput.value = "";
+        if (ptsInput) ptsInput.value = "2";
+        if (delBtn) delBtn.style.display = "none";
+      }
+
+      modal.classList.add("open");
+      syncModalScrollLock();
+      setTimeout(() => nameInput?.focus(), 50);
+    }
+
+    function closeAttendanceActivityModal() {
+      const modal = document.getElementById("attActivityModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    function saveAttendanceActivity() {
+      if (!isAdmin()) return;
+      const dateInput = document.getElementById("attActivityDateInput");
+      const nameInput = document.getElementById("attActivityNameInput");
+      const ptsInput = document.getElementById("attActivityPointsInput");
+      const editIdInput = document.getElementById("attActivityEditId");
+      const errEl = document.getElementById("attActivityModalError");
+
+      const dateStr = (dateInput?.value || "").trim();
+      const name = (nameInput?.value || "").trim();
+      const points = parseInt(ptsInput?.value, 10) || 1;
+      const editId = (editIdInput?.value || "").trim();
+
+      if (!name) {
+        if (errEl) {
+          errEl.textContent = "Vui lòng nhập tên boss hoặc hoạt động.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (editId) {
+        const act = attendanceState.activities.find(a => a.id === editId);
+        if (act) {
+          act.date = dateStr;
+          act.name = name;
+          act.points = points;
+          showToast(`✅ Đã cập nhật: ${name} (${points}đ)`);
+        }
+      } else {
+        const newId = "act_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        attendanceState.activities.push({
+          id: newId,
+          date: dateStr,
+          name,
+          points
+        });
+        showToast(`✅ Đã thêm hoạt động: ${name} (${points}đ)`);
+      }
+
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceActivityModal();
+      renderAttendanceTable();
+    }
+
+    function deleteAttendanceActivity(actId) {
+      if (!isAdmin() || !attendanceState) return;
+      attendanceState.activities = attendanceState.activities.filter(a => a.id !== actId);
+      // Clean up records for this activity
+      attendanceState.members.forEach(m => {
+        if (m.records && m.records[actId]) delete m.records[actId];
+      });
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceActivityModal();
+      renderAttendanceTable();
+      showToast("🗑️ Đã xóa cột hoạt động.");
+    }
+
+    async function resetAttendanceWeek() {
+      if (!isAdmin() || !attendanceState) {
+        requestAdminLogin();
+        return;
+      }
+      const confirmed = await showConfirmModal({
+        title: "🔄 Reset chấm công tuần mới?",
+        subtitle: "Hành động này sẽ xóa toàn bộ tích điểm trong tuần",
+        message: "Bạn có chắc chắn muốn làm mới cho tuần này không? Danh sách thành viên và các cột hoạt động vẫn được giữ nguyên, chỉ có các ô tích điểm được đặt lại về 0.",
+        confirmText: "Reset toàn bộ điểm",
+        cancelText: "Hủy bỏ",
+        isDanger: true
+      });
+      if (!confirmed) return;
+
+      attendanceState.members.forEach(m => {
+        m.records = {};
+      });
+      saveAttendanceState(attendanceState, true);
+      renderAttendanceTable();
+      showToast("🔄 Đã reset chấm công cho tuần mới thành công!");
+    }
+
+    // Export Discord
+    function exportAttendanceToDiscord() {
+      if (!attendanceState) attendanceState = loadAttendanceState();
+      const calc = calculateAttendanceData(attendanceState);
+      const curSv = serverList.find(s => s.id === currentServerId);
+      const svName = curSv ? curSv.name : currentServerId;
+
+      let md = `📊 **BẢNG TỔNG KẾT CHẤM CÔNG & LƯƠNG THƯỞNG GUILD**\n`;
+      md += `🌐 **Máy Chủ:** ${svName}\n`;
+      md += `💎 **Quỹ Kim Cương (DIAS):** ${calc.diasPool.toLocaleString("vi-VN")} DIAS (Hệ số: ${calc.diasRate.toFixed(2)})\n`;
+      md += `💵 **Quỹ USDT:** ${calc.usdtPool.toLocaleString("vi-VN")} USDT (Hệ số: ${calc.usdtRate.toFixed(4)})\n`;
+      md += `⭐ **Tổng Điểm Quy Đổi Guild:** ${calc.totalGuildPPoints.toLocaleString("vi-VN")} P.Points\n`;
+      md += `👥 **Số lượng thành viên:** ${calc.membersCount} | **Hoạt động:** ${calc.activitiesCount} mục\n`;
+      md += `─────────────────────────────────────────\n`;
+      md += `\`\`\`\n`;
+      md += `STT | Tên Thành Viên | Hệ Số | % Tham Gia | P.Points | DIAS  | USDT\n`;
+      md += `----+----------------+-------+------------+----------+-------+-----\n`;
+
+      calc.membersCalc.forEach((m, idx) => {
+        const stt = String(idx + 1).padEnd(3, " ");
+        const name = String(m.name).padEnd(14, " ");
+        const mult = (`x${m.multiplier}`).padEnd(5, " ");
+        const pct = (`${m.percent.toFixed(0)}%`).padEnd(10, " ");
+        const pPts = String(m.pPoints).padEnd(8, " ");
+        const dias = String(m.dias).padEnd(5, " ");
+        const usdt = String(m.usdt).padEnd(5, " ");
+        md += `${stt} | ${name} | ${mult} | ${pct} | ${pPts} | ${dias} | ${usdt}\n`;
+      });
+      md += `\`\`\`\n`;
+      md += `*Lưu ý: % Tham gia < 25% cần lưu ý tham gia Boss đầy đủ hơn để đạt thưởng tối đa.*`;
+
+      const textarea = document.getElementById("attExportTextarea");
+      if (textarea) textarea.value = md;
+
+      const modal = document.getElementById("attExportModal");
+      if (modal) {
+        modal.classList.add("open");
+        syncModalScrollLock();
+      }
+    }
+
+    function updateAttendanceRoleUI() {
+      const adminMode = isAdmin();
+      const addMemBtn = document.getElementById("attAddMemberBtn");
+      if (addMemBtn) addMemBtn.style.display = adminMode ? "inline-flex" : "none";
+
+      const addActBtn = document.getElementById("attAddActivityBtn");
+      if (addActBtn) addActBtn.style.display = adminMode ? "inline-flex" : "none";
+
+      const resetBtn = document.getElementById("attResetWeekBtn");
+      if (resetBtn) resetBtn.style.display = adminMode ? "inline-flex" : "none";
+
+      const diasTag = document.getElementById("attDiasAdminTag");
+      if (diasTag) diasTag.style.display = adminMode ? "inline-block" : "none";
+
+      const usdtTag = document.getElementById("attUsdtAdminTag");
+      if (usdtTag) usdtTag.style.display = adminMode ? "inline-block" : "none";
+
+      const diasInput = document.getElementById("attDiasPoolInput");
+      if (diasInput) diasInput.readOnly = !adminMode;
+
+      const usdtInput = document.getElementById("attUsdtPoolInput");
+      if (usdtInput) usdtInput.readOnly = !adminMode;
+
+      // Re-render table to toggle disabled states on checkboxes and show/hide admin columns
+      renderAttendanceTable();
+    }
+
+    function switchPageView(view) {
+      const isAtt = (view === "attendance" || view === "salary" || view === "attendance-salary");
+      const dashboardTitle = document.querySelector("#dashboard h1");
+      const dashboardEyebrow = document.querySelector("#dashboard .eyebrow");
+      const realtimeStatus = document.getElementById("realtimeStatus");
+      const addBossBtn = document.getElementById("addBossBtn");
+      const navItems = document.querySelectorAll(".nav .nav-item");
+      const attNav = document.getElementById("navAttendanceBtn");
+
+      if (isAtt) {
+        document.body.classList.add("view-mode-attendance");
+        navItems.forEach(item => item.classList.remove("active"));
+        if (attNav) attNav.classList.add("active");
+
+        if (dashboardTitle) dashboardTitle.textContent = "Bảng Chấm Công & Tự Động Tính Lương Boss / Hoạt Động";
+        if (dashboardEyebrow) dashboardEyebrow.innerHTML = `<span class="server-pulse" aria-hidden="true"></span> Guild Management & Rewards`;
+        if (realtimeStatus) realtimeStatus.style.display = "none";
+        if (addBossBtn) addBossBtn.style.display = "none";
+
+        if (window.location.hash !== "#attendance") {
+          try {
+            history.pushState(null, "", "#attendance");
+          } catch (e) {
+            window.location.hash = "attendance";
+          }
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        if (typeof renderAttendanceTable === "function") {
+          renderAttendanceTable();
+        }
+      } else {
+        document.body.classList.remove("view-mode-attendance");
+        navItems.forEach(item => {
+          const href = item.getAttribute("href") || "";
+          if (href === "#" + (view || "dashboard") || (view === "boss" && href === "#dashboard")) {
+            item.classList.add("active");
+          } else {
+            item.classList.remove("active");
+          }
+        });
+        if (attNav) attNav.classList.remove("active");
+
+        if (dashboardTitle) dashboardTitle.setAttribute("data-i18n", "dashboardTitle");
+        if (dashboardTitle && typeof TRANSLATIONS !== "undefined" && TRANSLATIONS[currentLang]) {
+          dashboardTitle.textContent = TRANSLATIONS[currentLang].dashboardTitle || "Dashboard theo dõi boss chết và hồi sinh";
+        }
+        if (dashboardEyebrow) dashboardEyebrow.innerHTML = `<span class="server-pulse" aria-hidden="true"></span> Realtime countdown`;
+        if (realtimeStatus) realtimeStatus.style.display = "inline-flex";
+        if (addBossBtn) addBossBtn.style.display = isAdmin() ? "inline-flex" : "none";
+
+        if (window.location.hash === "#attendance" || window.location.hash === "#salary" || window.location.hash === "#attendance-salary") {
+          try {
+            history.pushState(null, "", "#" + (view === "boss" ? "dashboard" : (view || "dashboard")));
+          } catch (e) {
+            window.location.hash = (view === "boss" ? "dashboard" : (view || "dashboard"));
+          }
+        }
+      }
+    }
+
+    function initAttendanceEvents() {
+      // Back to Boss Tracker
+      const backBtn = document.getElementById("attBackToBossBtn");
+      if (backBtn) {
+        backBtn.addEventListener("click", () => {
+          switchPageView("boss");
+        });
+      }
+
+      // Hash change listener for browser back/forward and direct links
+      window.addEventListener("hashchange", () => {
+        const hash = window.location.hash.replace("#", "");
+        if (hash === "attendance" || hash === "salary" || hash === "attendance-salary") {
+          switchPageView("attendance");
+        } else {
+          switchPageView(hash || "boss");
+        }
+      });
+
+      // Sidebar link
+      const navBtn = document.getElementById("navAttendanceBtn");
+      if (navBtn) {
+        navBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          switchPageView("attendance");
+        });
+      }
+
+      // Pool Inputs
+      const diasInput = document.getElementById("attDiasPoolInput");
+      if (diasInput) {
+        diasInput.addEventListener("change", () => {
+          if (!isAdmin()) {
+            showToast("Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa Quỹ.");
+            requestAdminLogin();
+            diasInput.value = attendanceState.diasPool;
+            return;
+          }
+          const val = Math.max(0, parseInt(diasInput.value, 10) || 0);
+          attendanceState.diasPool = val;
+          saveAttendanceState(attendanceState, true);
+          renderAttendanceTable();
+          showToast(`💎 Đã cập nhật Quỹ DIAS: ${val.toLocaleString("vi-VN")}`);
+        });
+      }
+
+      const usdtInput = document.getElementById("attUsdtPoolInput");
+      if (usdtInput) {
+        usdtInput.addEventListener("change", () => {
+          if (!isAdmin()) {
+            showToast("Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa Quỹ.");
+            requestAdminLogin();
+            usdtInput.value = attendanceState.usdtPool;
+            return;
+          }
+          const val = Math.max(0, parseInt(usdtInput.value, 10) || 0);
+          attendanceState.usdtPool = val;
+          saveAttendanceState(attendanceState, true);
+          renderAttendanceTable();
+          showToast(`💵 Đã cập nhật Quỹ USDT: ${val.toLocaleString("vi-VN")}`);
+        });
+      }
+
+      // Search & Filter
+      const searchInput = document.getElementById("attSearchInput");
+      if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+          attendanceSearchTerm = e.target.value;
+          renderAttendanceTable();
+        });
+      }
+
+      const multFilter = document.getElementById("attFilterMultiplier");
+      if (multFilter) {
+        multFilter.addEventListener("change", (e) => {
+          attendanceMultiplierFilter = e.target.value;
+          renderAttendanceTable();
+        });
+      }
+
+      // Toolbar Buttons
+      const addMemBtn = document.getElementById("attAddMemberBtn");
+      if (addMemBtn) addMemBtn.addEventListener("click", () => openAttendanceMemberModal());
+
+      const addActBtn = document.getElementById("attAddActivityBtn");
+      if (addActBtn) addActBtn.addEventListener("click", () => openAttendanceActivityModal());
+
+      const resetBtn = document.getElementById("attResetWeekBtn");
+      if (resetBtn) resetBtn.addEventListener("click", () => resetAttendanceWeek());
+
+      const exportBtn = document.getElementById("attExportDiscordBtn");
+      if (exportBtn) exportBtn.addEventListener("click", () => exportAttendanceToDiscord());
+
+      // Member Modal Events
+      document.getElementById("closeAttMemberModal")?.addEventListener("click", closeAttendanceMemberModal);
+      document.getElementById("attCancelMemberBtn")?.addEventListener("click", closeAttendanceMemberModal);
+      document.getElementById("attSaveMemberBtn")?.addEventListener("click", saveAttendanceMember);
+      document.getElementById("attDeleteMemberBtn")?.addEventListener("click", () => {
+        const editId = document.getElementById("attMemberEditId")?.value;
+        if (editId) deleteAttendanceMember(editId);
+      });
+      document.querySelectorAll(".att-quick-mult-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const val = btn.dataset.val;
+          const input = document.getElementById("attMemberMultiplierInput");
+          if (input) input.value = val;
+        });
+      });
+
+      // Activity Modal Events
+      document.getElementById("closeAttActivityModal")?.addEventListener("click", closeAttendanceActivityModal);
+      document.getElementById("attCancelActivityBtn")?.addEventListener("click", closeAttendanceActivityModal);
+      document.getElementById("attSaveActivityBtn")?.addEventListener("click", saveAttendanceActivity);
+      document.getElementById("attDeleteActivityBtn")?.addEventListener("click", () => {
+        const editId = document.getElementById("attActivityEditId")?.value;
+        if (editId) deleteAttendanceActivity(editId);
+      });
+      document.querySelectorAll(".att-quick-pt-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const val = btn.dataset.val;
+          const input = document.getElementById("attActivityPointsInput");
+          if (input) input.value = val;
+        });
+      });
+
+      // Export Modal Events
+      document.getElementById("closeAttExportModal")?.addEventListener("click", () => {
+        document.getElementById("attExportModal")?.classList.remove("open");
+        syncModalScrollLock();
+      });
+      document.getElementById("attCloseExportBtn")?.addEventListener("click", () => {
+        document.getElementById("attExportModal")?.classList.remove("open");
+        syncModalScrollLock();
+      });
+      document.getElementById("attCopyExportBtn")?.addEventListener("click", async () => {
+        const textarea = document.getElementById("attExportTextarea");
+        if (textarea) {
+          try {
+            await navigator.clipboard.writeText(textarea.value);
+            showToast("📋 Đã sao chép bảng lương vào Clipboard!");
+          } catch (e) {
+            textarea.select();
+            document.execCommand("copy");
+            showToast("📋 Đã sao chép bảng lương vào Clipboard!");
+          }
+        }
+      });
+
+      // Backdrop dismiss
+      ["attMemberModal", "attActivityModal", "attExportModal"].forEach(modalId => {
+        const modalEl = document.getElementById(modalId);
+        if (modalEl) {
+          modalEl.addEventListener("click", (e) => {
+            if (e.target === modalEl) {
+              modalEl.classList.remove("open");
+              syncModalScrollLock();
+            }
+          });
+        }
+      });
+    }
+
+
+    updateServerSwitcherButton();
+    renderServerListUI();
+    initServerListSync();
     updateDiscordButtonUI();
     setLanguage(currentLang);
     updateRoleUI();
     render();
+    initAttendanceEvents();
+    renderAttendanceTable();
+    initAttendanceRealtimeSync();
+
+    const initialHash = window.location.hash.replace("#", "");
+    if (initialHash === "attendance" || initialHash === "salary" || initialHash === "attendance-salary") {
+      switchPageView("attendance");
+    } else {
+      switchPageView("boss");
+    }
+
     if (!localStorage.getItem(STORAGE_ROLE_KEY)) {
       openAuthModal("choose");
     }
@@ -8740,7 +11090,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.09.06.v3";
+    const CURRENT_APP_VERSION = "2026.10.02.v3";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
