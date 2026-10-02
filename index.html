@@ -4685,9 +4685,9 @@
               Đăng nhập Admin
             </button>
           </div>
-          <div style="display:none;">
+          <div style="display:flex;justify-content:center;width:100%;margin-top:4px;">
             <button type="button" class="button-ghost" id="gotoRegisterBtn" style="font-size:12.5px;color:var(--cyan);border-color:transparent;background:transparent;">
-              📝 Chưa có tài khoản Admin? Gửi yêu cầu đăng ký tại đây
+              📝 Chưa có tài khoản? Đăng ký Admin phụ
             </button>
           </div>
         </form>
@@ -4700,10 +4700,15 @@
             <svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </div>
           <h2 class="auth-title">Đăng ký Tài khoản Admin</h2>
-          <p class="auth-sub">Gửi yêu cầu khởi tạo tài khoản Admin phụ. Super Admin sẽ phê duyệt trước khi bạn có thể đăng nhập.</p>
+          <p class="auth-sub">Tạo tài khoản Firebase và gửi yêu cầu. Admin chính phải phê duyệt trước khi tài khoản có quyền quản trị.</p>
         </div>
 
         <form id="adminRegForm" class="auth-form">
+          <div class="form-field full" style="margin-bottom:12px;">
+            <label for="regAdminEmail">Email đăng nhập</label>
+            <input type="email" id="regAdminEmail" placeholder="admin@example.com" autocomplete="email" required
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
+          </div>
           <div class="form-field full" style="margin-bottom:12px;">
             <label for="regAdminName">Tên Admin mong muốn</label>
             <input type="text" id="regAdminName" placeholder="Ví dụ: Admin 1, Admin Boss, Hùng..." maxlength="24" required
@@ -4715,9 +4720,9 @@
               style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
           </div>
           <div class="form-field full" style="margin-bottom:12px;">
-            <label for="regAdminNote">Ghi chú / Lý do (Tuỳ chọn)</label>
-            <input type="text" id="regAdminNote" placeholder="Ví dụ: Admin ca đêm, Leader Clan..." maxlength="60"
-              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;">
+            <label for="regAdminPassConfirm">Nhập lại mật khẩu</label>
+            <input type="password" id="regAdminPassConfirm" placeholder="Nhập lại mật khẩu..." minlength="6" maxlength="64" required
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
           </div>
           <div id="regAdminError" style="display:none;margin-bottom:12px;font-size:12px;color:var(--red);font-weight:600;padding:8px 12px;background:var(--red-soft);border-radius:6px;"></div>
 
@@ -9694,10 +9699,61 @@
       showAuthStep("admin");
     });
 
-    document.getElementById("adminRegForm")?.addEventListener("submit", (e) => {
+    document.getElementById("adminRegForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      showToast("Hãy đăng nhập bằng tài khoản đã tạo trong Firebase Authentication để gửi yêu cầu tự động.");
-      showAuthStep("admin");
+      const form = e.currentTarget;
+      const emailInput = document.getElementById("regAdminEmail");
+      const nameInput = document.getElementById("regAdminName");
+      const passInput = document.getElementById("regAdminPass");
+      const confirmInput = document.getElementById("regAdminPassConfirm");
+      const errEl = document.getElementById("regAdminError");
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const email = emailInput?.value.trim();
+      const name = nameInput?.value.trim();
+      const pass = passInput?.value || "";
+      const confirmPass = confirmInput?.value || "";
+
+      if (!email || !name || !pass || !confirmPass) {
+        errEl.textContent = "Vui lòng nhập đầy đủ thông tin.";
+        errEl.style.display = "block";
+        return;
+      }
+      if (pass.length < 6) {
+        errEl.textContent = "Mật khẩu phải có ít nhất 6 ký tự.";
+        errEl.style.display = "block";
+        return;
+      }
+      if (pass !== confirmPass) {
+        errEl.textContent = "Hai mật khẩu không giống nhau.";
+        errEl.style.display = "block";
+        return;
+      }
+      if (!firebaseAuth) return;
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const credential = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
+        await credential.user.updateProfile({ displayName: name });
+        await credential.user.getIdToken(true);
+        await submitAdminAccessRequest(credential.user);
+        await firebaseAuth.signOut();
+        form.reset();
+        errEl.style.display = "none";
+        elements.adminEmailInput.value = email;
+        showAuthStep("admin");
+        showToast("⏳ Đã tạo tài khoản và gửi yêu cầu. Hãy chờ Admin chính phê duyệt.");
+      } catch (error) {
+        console.error("Firebase secondary admin registration error:", error?.code || error);
+        const messages = {
+          "auth/email-already-in-use": "Email này đã có tài khoản. Hãy đăng nhập để gửi yêu cầu.",
+          "auth/invalid-email": "Email không hợp lệ.",
+          "auth/weak-password": "Mật khẩu quá yếu, cần ít nhất 6 ký tự.",
+          "auth/operation-not-allowed": "Firebase chưa cho phép đăng ký bằng Email/Password."
+        };
+        errEl.textContent = messages[error?.code] || "Không thể tạo tài khoản. Vui lòng thử lại.";
+        errEl.style.display = "block";
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
     });
 
     // ── Kill Confirm Modal Listeners ──
@@ -13016,7 +13072,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.02.v10-password-reset";
+    const CURRENT_APP_VERSION = "2026.10.02.v11-secondary-admin-signup";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
