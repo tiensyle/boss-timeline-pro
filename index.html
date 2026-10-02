@@ -10843,8 +10843,11 @@
     let attendanceSearchTerm = "";
     let attendanceServerFilter = "all";
     let attendanceMultiplierFilter = "all";
+    let attendanceRoleUIMode = null;
     let attendanceRemoteSaveInFlight = false;
     let attendancePendingRemoteSave = false;
+    let attendanceRemotePermissionDenied = false;
+    let attendanceFirebaseSeedAttempted = false;
     let attendanceFirebaseMigrationInFlight = false;
 
     function getDefaultAttendanceServerId() {
@@ -11440,22 +11443,36 @@
       }
     }
 
+    function handleAttendanceSyncError(err) {
+      const permissionDenied = /permission[_ -]denied/i.test(String(err?.code || err?.message || ""));
+      if (permissionDenied && attendanceRemotePermissionDenied) return;
+      if (permissionDenied) attendanceRemotePermissionDenied = true;
+      attendancePendingRemoteSave = false;
+      console.error("Firebase attendance sync error:", err);
+      showToast(permissionDenied
+        ? "Attendance chưa đồng bộ: Firebase từ chối quyền truy cập. Dữ liệu vẫn được lưu trên trình duyệt này."
+        : "Attendance chưa đồng bộ lên Firebase. Dữ liệu vẫn được lưu trên trình duyệt này.");
+    }
+
     async function pushAttendanceToFirebase() {
-      if (!attendanceDbRef || !isAdmin() || attendanceRemoteSaveInFlight) {
-        if (attendanceRemoteSaveInFlight) attendancePendingRemoteSave = true;
+      if (!attendanceDbRef || !isAdmin() || attendanceRemotePermissionDenied) return;
+      if (attendanceRemoteSaveInFlight) {
+        attendancePendingRemoteSave = true;
         return;
       }
       attendanceRemoteSaveInFlight = true;
       attendancePendingRemoteSave = false;
+      let saved = false;
       try {
         await attendanceDbRef.set(attendanceState);
+        saved = true;
       } catch (err) {
-        console.error("Firebase attendance sync error:", err);
+        handleAttendanceSyncError(err);
       } finally {
         attendanceRemoteSaveInFlight = false;
-        if (attendancePendingRemoteSave) {
-          pushAttendanceToFirebase();
-        }
+        const savePending = attendancePendingRemoteSave;
+        attendancePendingRemoteSave = false;
+        if (saved && savePending) pushAttendanceToFirebase();
       }
     }
 
@@ -11466,10 +11483,15 @@
       } catch (e) {}
 
       attendanceDbRef.on("value", (snapshot) => {
+        // Ignore optimistic writes and their rollback so failed saves cannot replace local edits.
+        if (attendanceRemotePermissionDenied || attendanceRemoteSaveInFlight) return;
         const remoteData = snapshot.val();
         if (!remoteData) {
-          if (isAdmin() && attendanceState) {
+          if (isAdmin() && attendanceState && !attendanceFirebaseSeedAttempted) {
+            // A rejected Firebase write emits the empty value again; seed only once per page load.
+            attendanceFirebaseSeedAttempted = true;
             migrateLegacyFirebaseAttendanceIfNeeded().then(migrated => {
+              if (attendanceRemotePermissionDenied) return;
               if (migrated) {
                 attendanceState = migrated;
                 try {
@@ -11478,7 +11500,7 @@
                 renderAttendanceTable();
               }
               pushAttendanceToFirebase();
-            });
+            }).catch(handleAttendanceSyncError);
           }
           return;
         }
@@ -11491,7 +11513,7 @@
           } catch (e) {}
           renderAttendanceTable();
         }
-      });
+      }, handleAttendanceSyncError);
     }
 
     function formatPoints(val) {
@@ -12402,6 +12424,10 @@
 
     function updateAttendanceRoleUI() {
       const adminMode = isAdmin();
+      // The Boss timer calls this every second; refresh Attendance only when permissions change.
+      if (attendanceRoleUIMode === adminMode) return;
+      attendanceRoleUIMode = adminMode;
+
       const addMemBtn = document.getElementById("attAddMemberBtn");
       if (addMemBtn) addMemBtn.style.display = adminMode ? "inline-flex" : "none";
 
