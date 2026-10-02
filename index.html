@@ -5692,6 +5692,41 @@
     let lastRemoteUpdatedAt = 0;
     const CLIENT_ID = "client_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 
+    function cloneRealtimeValue(value) {
+      return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+    }
+
+    // Apply only the local difference to the latest server value, including deletion by ID.
+    function mergeRealtimeChanges(base, local, remote) {
+      if (JSON.stringify(base) === JSON.stringify(local)) return cloneRealtimeValue(remote);
+      if (local === null || typeof local !== "object") return cloneRealtimeValue(local);
+      if (Array.isArray(local)) {
+        const baseList = Array.isArray(base) ? base : [];
+        const remoteList = Array.isArray(remote) ? remote : [];
+        if (![...baseList, ...local, ...remoteList].every(item => item && typeof item === "object" && item.id)) {
+          return cloneRealtimeValue(local);
+        }
+        const baseMap = new Map(baseList.map(item => [item.id, item]));
+        const localMap = new Map(local.map(item => [item.id, item]));
+        const remoteIds = new Set(remoteList.map(item => item.id));
+        const merged = remoteList.filter(item => !baseMap.has(item.id) || localMap.has(item.id)).map(item => {
+          if (!localMap.has(item.id)) return cloneRealtimeValue(item);
+          return mergeRealtimeChanges(baseMap.get(item.id), localMap.get(item.id), item);
+        });
+        // A remotely deleted item is not recreated by a stale local edit.
+        const added = local.filter(item => !baseMap.has(item.id) && !remoteIds.has(item.id)).map(cloneRealtimeValue);
+        return local[0] && !baseMap.has(local[0].id) ? [...added, ...merged] : [...merged, ...added];
+      }
+      const before = base && typeof base === "object" && !Array.isArray(base) ? base : {};
+      const merged = remote && typeof remote === "object" && !Array.isArray(remote) ? cloneRealtimeValue(remote) : {};
+      for (const key of new Set([...Object.keys(before), ...Object.keys(local)])) {
+        if (!Object.prototype.hasOwnProperty.call(local, key)) delete merged[key];
+        else merged[key] = mergeRealtimeChanges(before[key], local[key], merged[key]);
+        if (merged[key] === undefined) delete merged[key];
+      }
+      return merged;
+    }
+
     function getFirebaseServerPaths(svId) {
       if (svId === "s1") {
         return {
@@ -6039,7 +6074,7 @@
     }
 
     let discordConfig = loadDiscordConfig();
-    const activeDiscordNotified = {};
+    let activeDiscordNotified = {};
 
     function saveDiscordConfigLocal(cfg) {
       discordConfig = { ...defaultDiscordConfig, ...cfg };
@@ -6689,6 +6724,10 @@
     }
 
     let state = loadState();
+    let bossSyncBase = loadBossSyncBase();
+    let bossDeferredRemoteData = null;
+    let bossSyncGeneration = 0;
+    let bossFirebaseSeedAttempted = false;
     let activeFilter = "all";
     let activeLevelFilter = "all";
     const STORAGE_VIEW_KEY = "bossTimelinePro.viewMode";
@@ -6861,6 +6900,7 @@
     function saveStateLocal(broadcast = true) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (bossSyncBase) localStorage.setItem(STORAGE_KEY + ".syncBase", JSON.stringify(bossSyncBase));
         if (broadcast && broadcastChannel) {
           broadcastChannel.postMessage({
             _clientId: CLIENT_ID,
@@ -6898,80 +6938,92 @@
 
     let lastLocalEditTime = 0;
 
-    // Cap nhat rieng 1 boss len Firebase de chong xung dot khi nhieu nguoi thao tac
-    async function syncSingleBoss(boss) {
-      if (!boss || !boss.id) return;
-      saveStateLocal(true);
-      if (!REALTIME_ENABLED || !firebaseDb || !remoteStateReady) return;
+    function loadBossSyncBase() {
       try {
-        const normalized = normalizeBoss(boss);
-        const paths = getFirebaseServerPaths(currentServerId);
-        const updates = {};
-        updates[paths.statePath + "/bosses_map/" + boss.id] = normalized;
-        updates[paths.statePath + "/updated_at"] = new Date(getNow()).toISOString();
-        updates[paths.statePath + "/last_editor"] = CLIENT_ID;
-        await firebaseDb.ref().update(updates);
-      } catch (err) {
-        console.warn("[Realtime] syncSingleBoss error:", err);
-      }
+        const cached = JSON.parse(localStorage.getItem(STORAGE_KEY + ".syncBase"));
+        if (cached && Array.isArray(cached.bosses)) return cached;
+      } catch (e) {}
+      return cloneRealtimeValue(state);
     }
 
-    // Xoa rieng 1 boss tren Firebase
-    async function removeSingleBossRemote(bossId) {
-      if (!bossId) return;
-      saveStateLocal(true);
-      if (!REALTIME_ENABLED || !firebaseDb || !remoteStateReady) return;
-      try {
-        const paths = getFirebaseServerPaths(currentServerId);
-        const updates = {};
-        updates[paths.statePath + "/bosses_map/" + bossId] = null;
-        updates[paths.statePath + "/updated_at"] = new Date(getNow()).toISOString();
-        updates[paths.statePath + "/last_editor"] = CLIENT_ID;
-        await firebaseDb.ref().update(updates);
-      } catch (err) {
-        console.warn("[Realtime] removeSingleBossRemote error:", err);
-      }
+    function getBossRemoteData(value) {
+      return {
+        bosses: (value.bosses_map && typeof value.bosses_map === "object"
+          ? Object.values(value.bosses_map) : (value.data?.bosses || [])).map(normalizeBoss),
+        history: Array.isArray(value.data?.history) ? value.data.history.slice(0, 30) : []
+      };
     }
 
-    async function saveState() {
+    function mergeBossStateChanges(base, local, remote) {
+      const merged = mergeRealtimeChanges(base, local, remote);
+      const timerFields = ["diedAt", "respawnsAt", "lastRespawnAt"];
+      const before = new Map((base?.bosses || []).map(boss => [boss.id, boss]));
+      for (const boss of local.bosses) {
+        const previous = before.get(boss.id);
+        const target = merged.bosses.find(item => item.id === boss.id);
+        if (previous && target && timerFields.some(key => previous[key] !== boss[key])) {
+          // A death/respawn is one state transition, not three independent field edits.
+          timerFields.forEach(key => { target[key] = boss[key] ?? null; });
+        }
+      }
+      return merged;
+    }
+
+    async function saveState(seedOnly = false) {
       // Luon giu local cache de app van mo duoc khi mat mang.
       lastLocalEditTime = Date.now();
       saveStateLocal(true);
-      if (!REALTIME_ENABLED || !stateDbRef || !remoteStateReady) return;
+      if (!isAdmin() || !REALTIME_ENABLED || !stateDbRef) return;
 
-      if (remoteSaveInFlight) {
+      if (remoteSaveInFlight || !remoteStateReady) {
         pendingRemoteSave = true;
         return;
       }
 
+      const local = { bosses: state.bosses.map(normalizeBoss), history: cloneRealtimeValue(state.history.slice(0, 30)) };
+      const base = cloneRealtimeValue(bossSyncBase);
+      if (!seedOnly && JSON.stringify(base) === JSON.stringify(local)) return;
+      const saveRef = stateDbRef;
+      const generation = bossSyncGeneration;
       remoteSaveInFlight = true;
+      pendingRemoteSave = false;
+      bossDeferredRemoteData = null;
+      let saved = false;
       try {
-        const normalizedBosses = state.bosses.map(normalizeBoss);
-        const bossesMap = {};
-        normalizedBosses.forEach(b => {
-          bossesMap[b.id] = b;
-        });
-
-        const payload = {
-          data: {
-            _clientId: CLIENT_ID,
-            bosses: normalizedBosses,
-            history: state.history.slice(0, 30)
-          },
-          bosses_map: bossesMap,
-          last_editor: CLIENT_ID,
-          updated_at: new Date(getNow()).toISOString()
-        };
-        await stateDbRef.set(payload);
-        lastRemoteUpdatedAt = getNow();
+        const result = await saveRef.transaction(current => {
+          if (seedOnly && current) return;
+          const merged = current ? mergeBossStateChanges(base, local, getBossRemoteData(current)) : cloneRealtimeValue(local);
+          merged.history = merged.history.sort((a, b) => b.time - a.time).slice(0, 30);
+          return {
+            ...current,
+            data: { ...current?.data, _clientId: CLIENT_ID, bosses: merged.bosses, history: merged.history },
+            bosses_map: Object.fromEntries(merged.bosses.map(boss => [boss.id, boss])),
+            last_editor: CLIENT_ID,
+            updated_at: new Date(getNow()).toISOString(),
+            version: (Number(current?.version) || 0) + 1
+          };
+        }, undefined, false);
+        if (generation !== bossSyncGeneration) return;
+        const confirmed = result.snapshot.val();
+        if (confirmed) {
+          const remote = getBossRemoteData(confirmed);
+          applyRemoteState(remote.bosses, remote.history, confirmed.updated_at, CLIENT_ID, local);
+          if (bossDeferredRemoteData && Number(bossDeferredRemoteData.version) > Number(confirmed.version)) {
+            const deferred = getBossRemoteData(bossDeferredRemoteData);
+            applyRemoteState(deferred.bosses, deferred.history, bossDeferredRemoteData.updated_at);
+          }
+        }
+        saved = true;
       } catch (error) {
         console.error("Firebase save error:", error);
         setRealtimeStatus("offline", "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
       } finally {
-        remoteSaveInFlight = false;
-        if (pendingRemoteSave) {
+        if (generation === bossSyncGeneration) {
+          remoteSaveInFlight = false;
+          bossDeferredRemoteData = null;
+          const savePending = pendingRemoteSave;
           pendingRemoteSave = false;
-          saveState();
+          if (saved && savePending) saveState();
         }
       }
     }
@@ -6985,7 +7037,7 @@
         type === "online" ? "Realtime" : type === "connecting" ? "Đang kết nối…" : "Offline";
     }
 
-    function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId) {
+    function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId, localBase = bossSyncBase) {
       if (!Array.isArray(incomingBosses)) return;
 
       if (updatedAt) {
@@ -6994,36 +7046,12 @@
         lastRemoteUpdatedAt = remoteTime || getNow();
       }
 
-      // Smart Merge: Neu admin vua thao tac con boss nao trong 3 giay qua, giu nguyen con boss do
-      const localRecentMap = new Map();
-      if (lastLocalEditTime && (Date.now() - lastLocalEditTime < 3000)) {
-        state.bosses.forEach(b => localRecentMap.set(b.id, b));
-      }
-
-      const mergedBosses = incomingBosses.map(remoteBoss => {
-        const local = localRecentMap.get(remoteBoss.id);
-        if (local) {
-          return local; // Giu lai trang thai local vua sua
-        }
-        return normalizeBoss(remoteBoss);
-      });
-
-      // Neu co boss moi vua them o local ma remote chua co (trong 3s), giu lai
-      if (localRecentMap.size > 0) {
-        const remoteIds = new Set(mergedBosses.map(b => b.id));
-        state.bosses.forEach(localB => {
-          if (!remoteIds.has(localB.id)) {
-            mergedBosses.unshift(localB);
-          }
-        });
-      }
-
-      state.bosses = mergedBosses;
-      if (Array.isArray(incomingHistory)) {
-        state.history = incomingHistory.slice(0, 30);
-      }
-
-      remoteStateReady = true;
+      const remote = {
+        bosses: incomingBosses.map(normalizeBoss),
+        history: Array.isArray(incomingHistory) ? incomingHistory.slice(0, 30) : []
+      };
+      state = isAdmin() ? mergeBossStateChanges(localBase || state, state, remote) : remote;
+      bossSyncBase = cloneRealtimeValue(remote);
       lastRenderedGridKey = ""; // Bat buoc render lai giao dien moi
       saveStateLocal(false); // Luu vao cache nhung KHONG broadcast nguoc lai de triet tieu loop
       render();
@@ -7064,36 +7092,27 @@
 
       // Lang nghe thay doi truc tiep tu Firebase Realtime Database cua server hien tai
       activeStateRef = stateDbRef;
+      const subscribedRef = stateDbRef;
+      const generation = bossSyncGeneration;
       activeStateRef.on("value", (snapshot) => {
+        if (generation !== bossSyncGeneration || subscribedRef !== activeStateRef) return;
         const val = snapshot.val();
+        remoteStateReady = true;
+        if (remoteSaveInFlight) {
+          bossDeferredRemoteData = cloneRealtimeValue(val);
+          return;
+        }
         if (val) {
           const senderId = val.last_editor || val.data?._clientId;
-          if (senderId === CLIENT_ID) return; // Bo qua neu la thay doi tu chinh tab nay
-
-          let incomingBosses = null;
-          // Uu tien lay tu bosses_map de dong bo tung boss
-          if (val.bosses_map && typeof val.bosses_map === "object") {
-            incomingBosses = Object.values(val.bosses_map);
-          } else if (val.data && Array.isArray(val.data.bosses)) {
-            incomingBosses = val.data.bosses;
-          }
-
-          if (incomingBosses) {
-            applyRemoteState(incomingBosses, val.data?.history || [], val.updated_at, senderId);
-            showToast("🔄 Team vừa cập nhật Boss Timeline.");
-          }
+          const remote = getBossRemoteData(val);
+          applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId);
+          if (senderId !== CLIENT_ID) showToast("🔄 Team vừa cập nhật Boss Timeline.");
+          if (isAdmin()) saveState();
         } else if (!val) {
-          // Chua co du lieu tren Firebase cho server nay -> Tu dong Seed du lieu tu local len!
-          const normalized = state.bosses.map(normalizeBoss);
-          const bMap = {};
-          normalized.forEach(b => { bMap[b.id] = b; });
-          const seed = {
-            data: { _clientId: CLIENT_ID, bosses: normalized, history: state.history.slice(0, 30) },
-            bosses_map: bMap,
-            last_editor: CLIENT_ID,
-            updated_at: new Date(getNow()).toISOString()
-          };
-          stateDbRef.set(seed);
+          if (isAdmin() && !bossFirebaseSeedAttempted) {
+            bossFirebaseSeedAttempted = true;
+            saveState(true);
+          }
         }
         remoteStateReady = true;
       }, (error) => {
@@ -8761,7 +8780,6 @@
       pushHistory("death", boss, now);
       lastLocalEditTime = Date.now();
       lastRenderedGridKey = ""; // Bắt buộc render cập nhật nút và countdown tức thì
-      syncSingleBoss(boss);
       saveState();
       render();
       sendDiscordKillAlert(boss, now, boss.respawnsAt);
@@ -8781,7 +8799,6 @@
       performRespawn(boss, now, "manual");
       lastLocalEditTime = Date.now();
       lastRenderedGridKey = ""; // Bắt buộc render cập nhật nút tức thì
-      syncSingleBoss(boss);
       saveState();
       render();
       showToast(isEn ? `✨ ${boss.name} revived (READY 100%).` : `✨ Đã cho ${boss.name} hồi sinh (READY 100%)!`);
@@ -8983,7 +9000,6 @@
       }
       pushHistory("death", boss, diedAt);
       lastLocalEditTime = Date.now();
-      syncSingleBoss(boss);
       saveState();
       closeOffsetModal();
       render();
@@ -9266,7 +9282,6 @@
         const boss = state.bosses.find((item) => item.id === editingBossId);
         if (boss) {
           Object.assign(boss, normalizeBoss({ ...boss, ...payload }));
-          syncSingleBoss(boss);
           showToast("Đã cập nhật thông tin boss.");
         }
       } else {
@@ -9278,7 +9293,6 @@
           lastRespawnAt: null
         });
         state.bosses.unshift(newBoss);
-        syncSingleBoss(newBoss);
         showToast("Đã thêm boss mới.");
       }
 
@@ -9357,9 +9371,7 @@
       });
       if (!confirmed) return;
 
-      const deletedId = editingBossId;
-      state.bosses = state.bosses.filter((item) => item.id !== deletedId);
-      removeSingleBossRemote(deletedId);
+      state.bosses = state.bosses.filter((item) => item.id !== editingBossId);
       saveState();
       closeModal();
       render();
@@ -10425,6 +10437,12 @@
         return;
       }
       currentServerId = newServerId;
+      bossSyncGeneration++;
+      remoteStateReady = false;
+      remoteSaveInFlight = false;
+      pendingRemoteSave = false;
+      bossDeferredRemoteData = null;
+      bossFirebaseSeedAttempted = false;
       try {
         localStorage.setItem(STORAGE_CURRENT_SERVER_KEY, currentServerId);
       } catch (e) {}
@@ -10443,6 +10461,7 @@
 
       // Náº¡p dá»¯ liá»‡u cá»§a Server má»›i
       state = loadState();
+      bossSyncBase = loadBossSyncBase();
       discordConfig = loadDiscordConfig();
       activeDiscordNotified = {};
       if (typeof initAttendanceRealtimeSync === "function") initAttendanceRealtimeSync();
@@ -10647,19 +10666,16 @@
         firebaseDb.ref("boss_timeline_servers_list").on("value", (snap) => {
           const remoteList = snap.val();
           if (Array.isArray(remoteList) && remoteList.length > 0) {
-            let changed = false;
-            remoteList.forEach(rSv => {
-              if (rSv && rSv.id && !serverList.some(l => l.id === rSv.id)) {
-                serverList.push(rSv);
-                changed = true;
-              }
-            });
-            if (changed) {
+            const validList = remoteList.filter(server => server && server.id);
+            if (validList.length && JSON.stringify(serverList) !== JSON.stringify(validList)) {
+              serverList = cloneRealtimeValue(validList);
               try {
                 localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
               } catch (e) {}
               renderServerListUI();
               updateServerSwitcherButton();
+              renderAttendanceTable();
+              if (!serverList.some(server => server.id === currentServerId)) switchServer(serverList[0].id);
             }
           }
         });
@@ -10776,6 +10792,7 @@
        BẢNG CHẤM CÔNG & TỰ ĐỘNG TÍNH LƯƠNG HOẠT ĐỘNG / BOSS
        ========================================================================== */
     const STORAGE_ATTENDANCE_KEY = "bossTimelinePro.attendance_global";
+    const STORAGE_ATTENDANCE_SYNC_BASE_KEY = STORAGE_ATTENDANCE_KEY + ".syncBase";
     const LEGACY_ATTENDANCE_PREFIX = "bossTimelinePro.attendance_";
     const ATTENDANCE_SCHEMA_VERSION = 2;
     const ATTENDANCE_MIGRATION_VERSION = 1;
@@ -10849,6 +10866,34 @@
     let attendanceRemotePermissionDenied = false;
     let attendanceFirebaseSeedAttempted = false;
     let attendanceFirebaseMigrationInFlight = false;
+    let attendanceSyncBase = null;
+    let attendanceDeferredRemoteData = null;
+    let attendanceRemoteStateReady = false;
+    let attendanceRemoteDataExists = false;
+    let activeAttendanceRef = null;
+
+    function getAttendanceSyncData(value) {
+      const { diasPool, usdtPool, activities, members, updatedAt, updatedBy, version, ...data } = value;
+      return cloneRealtimeValue(data);
+    }
+
+    function cacheAttendanceSyncState() {
+      try {
+        localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
+        if (attendanceSyncBase) localStorage.setItem(STORAGE_ATTENDANCE_SYNC_BASE_KEY, JSON.stringify(attendanceSyncBase));
+      } catch (e) { console.error("Error caching attendance sync state:", e); }
+    }
+
+    function applyAttendanceRemoteData(remoteData, localBase = attendanceSyncBase) {
+      const confirmed = normalizeAttendanceState(cloneRealtimeValue(remoteData), getDefaultAttendanceServerId());
+      const remote = getAttendanceSyncData(confirmed);
+      const local = attendanceState ? getAttendanceSyncData(attendanceState) : remote;
+      const merged = isAdmin() ? mergeRealtimeChanges(localBase || local, local, remote) : remote;
+      attendanceSyncBase = remote;
+      attendanceState = normalizeAttendanceState({ ...confirmed, ...merged }, getDefaultAttendanceServerId());
+      cacheAttendanceSyncState();
+      renderAttendanceTable();
+    }
 
     function getDefaultAttendanceServerId() {
       if (serverList.some(s => s.id === currentServerId)) return currentServerId;
@@ -10898,6 +10943,7 @@
 
     function normalizeAttendanceState(parsed, fallbackServerId) {
       let stateObj = parsed && typeof parsed === "object" ? parsed : JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+      const persistedWeeks = Array.isArray(stateObj.weeks);
 
       if (!stateObj.weeks || !Array.isArray(stateObj.weeks) || stateObj.weeks.length === 0) {
         const legacyWeek = {
@@ -10928,8 +10974,8 @@
         if (!w.id) w.id = `week_${idx + 1}`;
         if (!w.name) w.name = `Tuần ${idx + 1}`;
         if (!w.dateRange) w.dateRange = idx === 0 ? "22/09 - 28/09" : `Tuần ${idx + 1}`;
-        if (!Array.isArray(w.activities)) w.activities = JSON.parse(JSON.stringify(DEFAULT_ATT_ACTIVITIES));
-        if (!Array.isArray(w.members)) w.members = JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS));
+        if (!Array.isArray(w.activities)) w.activities = persistedWeeks ? [] : JSON.parse(JSON.stringify(DEFAULT_ATT_ACTIVITIES));
+        if (!Array.isArray(w.members)) w.members = persistedWeeks ? [] : JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS));
         w.diasPool = Math.max(0, Math.round(Number(w.diasPool) || 0));
         w.usdtPool = Math.max(0, parseFloat(w.usdtPool) || 0);
 
@@ -10972,7 +11018,7 @@
       try {
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (!key || key === STORAGE_ATTENDANCE_KEY || seenKeys.has(key)) continue;
+          if (!key || key === STORAGE_ATTENDANCE_KEY || key === STORAGE_ATTENDANCE_SYNC_BASE_KEY || seenKeys.has(key)) continue;
           if (!key.startsWith(LEGACY_ATTENDANCE_PREFIX)) continue;
           const serverId = key.slice(LEGACY_ATTENDANCE_PREFIX.length) || getDefaultAttendanceServerId();
           seenKeys.add(key);
@@ -11102,6 +11148,10 @@
 
     function getActiveWeek() {
       if (!attendanceState) attendanceState = loadAttendanceState();
+      if (!attendanceSyncBase) {
+        try { attendanceSyncBase = JSON.parse(localStorage.getItem(STORAGE_ATTENDANCE_SYNC_BASE_KEY)); } catch (e) {}
+        if (!attendanceSyncBase) attendanceSyncBase = getAttendanceSyncData(attendanceState);
+      }
       if (!attendanceState.weeks || !Array.isArray(attendanceState.weeks) || attendanceState.weeks.length === 0) {
         attendanceState = cloneDefaultAttendanceState();
       }
@@ -11156,6 +11206,7 @@
 
       try {
         localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
+        if (attendanceSyncBase) localStorage.setItem(STORAGE_ATTENDANCE_SYNC_BASE_KEY, JSON.stringify(attendanceSyncBase));
       } catch (e) {
         console.error("Error saving attendance to localStorage:", e);
       }
@@ -11312,7 +11363,9 @@
       const target = attendanceState.weeks.find(w => w.id === weekId);
       if (!target) return;
       attendanceState.activeWeekId = weekId;
+      if (attendanceSyncBase) attendanceSyncBase.activeWeekId = weekId;
       saveAttendanceState(attendanceState, false);
+      cacheAttendanceSyncState();
       renderAttendanceTable();
       showToast(`📅 Đang xem: ${target.name}${target.dateRange ? ` (${target.dateRange})` : ''}`);
     }
@@ -11437,7 +11490,7 @@
         return mergeAttendanceStatesForMigration(legacyItems);
       } catch (err) {
         console.warn("Firebase legacy attendance migration error:", err);
-        return null;
+        throw err;
       } finally {
         attendanceFirebaseMigrationInFlight = false;
       }
@@ -11454,65 +11507,97 @@
         : "Attendance chưa đồng bộ lên Firebase. Dữ liệu vẫn được lưu trên trình duyệt này.");
     }
 
-    async function pushAttendanceToFirebase() {
+    async function pushAttendanceToFirebase(seedOnly = false, seedBase = null) {
       if (!attendanceDbRef || !isAdmin() || attendanceRemotePermissionDenied) return;
-      if (attendanceRemoteSaveInFlight) {
+      if (attendanceRemoteSaveInFlight || !attendanceRemoteStateReady || attendanceFirebaseMigrationInFlight) {
         attendancePendingRemoteSave = true;
         return;
       }
+      const local = getAttendanceSyncData(attendanceState);
+      const base = cloneRealtimeValue(attendanceSyncBase || local);
+      if (!seedOnly && JSON.stringify(base) === JSON.stringify(local)) return;
+      const saveRef = attendanceDbRef;
       attendanceRemoteSaveInFlight = true;
       attendancePendingRemoteSave = false;
+      attendanceDeferredRemoteData = null;
       let saved = false;
       try {
-        await attendanceDbRef.set(attendanceState);
+        const result = await saveRef.transaction(current => {
+          if (seedOnly && current) return;
+          const remote = current ? getAttendanceSyncData(normalizeAttendanceState(cloneRealtimeValue(current), getDefaultAttendanceServerId())) : null;
+          const merged = remote ? mergeRealtimeChanges(base, local, remote) : cloneRealtimeValue(local);
+          return normalizeAttendanceState({
+            ...merged,
+            updatedAt: Date.now(),
+            updatedBy: CLIENT_ID,
+            version: (Number(current?.version) || 0) + 1
+          }, getDefaultAttendanceServerId());
+        }, undefined, false);
+        const confirmed = result.snapshot.val();
+        if (confirmed) {
+          applyAttendanceRemoteData(confirmed, result.committed ? local : (seedBase || local));
+          if (attendanceDeferredRemoteData && Number(attendanceDeferredRemoteData.version) > Number(confirmed.version)) {
+            applyAttendanceRemoteData(attendanceDeferredRemoteData);
+          }
+        }
         saved = true;
       } catch (err) {
         handleAttendanceSyncError(err);
       } finally {
         attendanceRemoteSaveInFlight = false;
+        attendanceDeferredRemoteData = null;
         const savePending = attendancePendingRemoteSave;
         attendancePendingRemoteSave = false;
-        if (saved && savePending) pushAttendanceToFirebase();
+        if (saved && (savePending || JSON.stringify(attendanceSyncBase) !== JSON.stringify(getAttendanceSyncData(attendanceState)))) {
+          pushAttendanceToFirebase();
+        }
       }
     }
 
     function initAttendanceRealtimeSync() {
       if (!attendanceDbRef) return;
+      if (activeAttendanceRef === attendanceDbRef) return;
       try {
-        attendanceDbRef.off();
+        if (activeAttendanceRef) activeAttendanceRef.off();
       } catch (e) {}
+      activeAttendanceRef = attendanceDbRef;
+      const subscribedRef = attendanceDbRef;
 
-      attendanceDbRef.on("value", (snapshot) => {
-        // Ignore optimistic writes and their rollback so failed saves cannot replace local edits.
-        if (attendanceRemotePermissionDenied || attendanceRemoteSaveInFlight) return;
+      subscribedRef.on("value", (snapshot) => {
+        if (subscribedRef !== activeAttendanceRef || attendanceRemotePermissionDenied) return;
         const remoteData = snapshot.val();
+        attendanceRemoteStateReady = true;
+        if (remoteData) attendanceRemoteDataExists = true;
+        if (attendanceRemoteSaveInFlight) {
+          attendanceDeferredRemoteData = cloneRealtimeValue(remoteData);
+          return;
+        }
         if (!remoteData) {
           if (isAdmin() && attendanceState && !attendanceFirebaseSeedAttempted) {
             // A rejected Firebase write emits the empty value again; seed only once per page load.
             attendanceFirebaseSeedAttempted = true;
+            const beforeMigration = getAttendanceSyncData(attendanceState);
             migrateLegacyFirebaseAttendanceIfNeeded().then(migrated => {
               if (attendanceRemotePermissionDenied) return;
+              if (attendanceRemoteDataExists) {
+                pushAttendanceToFirebase();
+                return;
+              }
+              const seedBase = migrated ? getAttendanceSyncData(migrated) : beforeMigration;
               if (migrated) {
-                attendanceState = migrated;
-                try {
-                  localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
-                } catch (e) {}
+                const merged = mergeRealtimeChanges(beforeMigration, getAttendanceSyncData(attendanceState), seedBase);
+                attendanceState = normalizeAttendanceState({ ...migrated, ...merged }, getDefaultAttendanceServerId());
+                cacheAttendanceSyncState();
                 renderAttendanceTable();
               }
-              pushAttendanceToFirebase();
+              pushAttendanceToFirebase(true, seedBase);
             }).catch(handleAttendanceSyncError);
           }
           return;
         }
 
-        // If update was made by another client, merge
-        if (remoteData.updatedBy !== CLIENT_ID) {
-          attendanceState = normalizeAttendanceState(remoteData, getDefaultAttendanceServerId());
-          try {
-            localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
-          } catch (e) {}
-          renderAttendanceTable();
-        }
+        applyAttendanceRemoteData(remoteData);
+        if (isAdmin()) pushAttendanceToFirebase();
       }, handleAttendanceSyncError);
     }
 
