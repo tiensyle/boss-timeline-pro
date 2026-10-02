@@ -3423,6 +3423,210 @@
       font-weight: 700;
       font-size: 11px;
     }
+
+    /* Week Tabs Navigation Bar */
+    .att-week-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+    }
+    .att-week-bar-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .att-week-tabs-scroll {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+    .att-week-tab {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .att-week-tab:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+    .att-week-del-btn {
+      font-size: 11px;
+      line-height: 1;
+      padding: 1px 5px;
+      margin-left: 4px;
+      border-radius: 4px;
+      opacity: 0.6;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .att-week-del-btn:hover {
+      opacity: 1;
+      background: rgba(239, 68, 68, 0.25);
+      color: #ef4444;
+    }
+    .att-week-tab.active .att-week-del-btn:hover {
+      background: rgba(0, 0, 0, 0.25);
+      color: #7f1d1d;
+    }
+    .att-week-tab.active {
+      background: var(--cyan);
+      color: #0b1120;
+      border-color: var(--cyan);
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(34, 211, 238, 0.3);
+    }
+    .att-add-week-tab-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px dashed var(--cyan);
+      background: rgba(34, 211, 238, 0.08);
+      color: var(--cyan);
+      font-size: 18px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      margin-left: 2px;
+    }
+    .att-add-week-tab-btn:hover {
+      background: var(--cyan);
+      color: #0b1120;
+      border-style: solid;
+      transform: scale(1.08);
+    }
+
+    /* Activity Column Header (Clear 4-tier layout) */
+    .col-act {
+      min-width: 145px;
+      max-width: 185px;
+      padding: 8px 6px !important;
+      background: var(--surface-2) !important;
+      vertical-align: top !important;
+    }
+    .act-card-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      width: 100%;
+    }
+    /* 1. Ngày tháng tách riêng ở trên */
+    .act-header-date {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.3px;
+    }
+    /* 2. Tên Boss ở giữa */
+    .act-header-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.35;
+      text-align: center;
+      word-break: break-word;
+      white-space: normal;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* 3. Điểm số nổi bật */
+    .act-header-points {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #f59e0b;
+      font-size: 11.5px;
+      font-weight: 800;
+      padding: 2px 9px;
+      border-radius: 12px;
+    }
+    /* 4. Dưới cùng: Ô Tất cả + Nút Sửa/Xóa */
+    .act-header-bottom {
+      width: 100%;
+      border-top: 1px dashed var(--line-soft);
+      padding-top: 6px;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+    .act-check-all-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .act-check-all-label:hover {
+      color: var(--text);
+    }
+    .act-check-all-label input {
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+    .act-btn-row {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .att-btn-micro {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1;
+    }
+    .att-btn-micro:hover {
+      background: var(--surface-hover);
+      border-color: var(--cyan);
+    }
   </style>
 </head>
 <body>
@@ -3739,6 +3943,12 @@
             </div>
           </div>
 
+          <!-- Week Selector Bar -->
+          <div class="att-week-bar" id="attWeekBar">
+            <span class="att-week-bar-label">📅 Chọn Tuần:</span>
+            <div class="att-week-tabs-scroll" id="attWeekTabs"></div>
+          </div>
+
           <!-- Toolbar -->
           <div class="att-toolbar">
             <div class="att-toolbar-left">
@@ -3765,13 +3975,11 @@
               <button type="button" class="btn btn-secondary att-admin-btn" id="attAddActivityBtn" style="display:none;">
                 <span>+ Thêm Boss / Hoạt Động</span>
               </button>
-              <button type="button" class="btn btn-secondary att-admin-btn" id="attResetWeekBtn" style="display:none;" title="Xóa toàn bộ tích điểm để chấm công cho tuần mới">
-                <span>🔄 Reset Tuần Mới</span>
+              <button type="button" class="btn btn-secondary att-admin-btn" id="attResetWeekBtn" style="display:none;" title="Xóa toàn bộ tích điểm để làm lại tuần này">
+                <span>🔄 Reset Tuần Này</span>
               </button>
-
-              <!-- Common Actions (All can use) -->
-              <button type="button" class="btn btn-secondary" id="attExportDiscordBtn" title="Sao chép bảng tổng kết lương để gửi Discord">
-                <span>📋 Xuất Discord</span>
+              <button type="button" class="btn btn-primary att-admin-btn" id="attAddNewWeekBtn" style="display:none;" title="Thêm tuần mới: Sao chép toàn bộ Boss & Thành viên từ tuần hiện tại (đặt lại điểm trống)">
+                <span>➕ Thêm Tuần Mới</span>
               </button>
             </div>
           </div>
@@ -10056,48 +10264,59 @@
        ========================================================================== */
     let STORAGE_ATTENDANCE_KEY = `bossTimelinePro.attendance_${currentServerId}`;
 
+    const DEFAULT_ATT_ACTIVITIES = [
+      { id: "act_1", date: "T2 22/09", name: "Amentis 19h", points: 3 },
+      { id: "act_2", date: "T2 22/09", name: "Kataphron 21h", points: 2 },
+      { id: "act_3", date: "T3 23/09", name: "Boss Bang", points: 1 },
+      { id: "act_4", date: "T3 23/09", name: "Thần Điện", points: 2 },
+      { id: "act_5", date: "T4 24/09", name: "Amentis 19h", points: 3 },
+      { id: "act_6", date: "T5 25/09", name: "Kataphron 21h", points: 2 },
+      { id: "act_7", date: "T6 26/09", name: "Boss Bang", points: 1 },
+      { id: "act_8", date: "T7 27/09", name: "Công Thành Chiến", points: 5 },
+      { id: "act_9", date: "CN 28/09", name: "Thần Điện", points: 2 }
+    ];
+
+    const DEFAULT_ATT_MEMBERS = [
+      { id: "m_1", name: "Venarius", multiplier: 3, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
+      { id: "m_2", name: "Ông3Bi", multiplier: 3, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
+      { id: "m_3", name: "VoiLười", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_4", name: "TraiBao", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_5", name: "LongThần", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_8: true } },
+      { id: "m_6", name: "KhắcTiệp", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_8: true } },
+      { id: "m_7", name: "BạchLong", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_8", name: "Ken", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_9", name: "MèoBéo", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_10", name: "KẻHủyDiệt", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_11", name: "Bự", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_12", name: "HùngHổ", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_13", name: "Zeref", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
+      { id: "m_14", name: "TuấnKhang", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_15", name: "SơnTùng", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
+      { id: "m_16", name: "HắcBạch", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_7: true } },
+      { id: "m_17", name: "BéNa", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
+      { id: "m_18", name: "TrùmCuối", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_19", name: "BéBự", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_20", name: "HổBáo", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
+      { id: "m_21", name: "ThầnGió", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
+      { id: "m_22", name: "SátThủ", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_7: true } },
+      { id: "m_23", name: "ĐộcCô", multiplier: 1, role: "Newbie", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true } },
+      { id: "m_24", name: "VôDanh", multiplier: 1, role: "Newbie", records: { act_1: true, act_2: true, act_3: true, act_4: true } },
+      { id: "m_25", name: "TânThủ", multiplier: 1, role: "Newbie", records: { act_1: true, act_3: true } }
+    ];
+
     const DEFAULT_ATTENDANCE_STATE = {
-      diasPool: 52500,
-      usdtPool: 867,
+      activeWeekId: "week_1",
       updatedAt: Date.now(),
       updatedBy: "system",
-      activities: [
-        { id: "act_1", date: "T2 22/09", name: "Amentis 19h", points: 3 },
-        { id: "act_2", date: "T2 22/09", name: "Kataphron 21h", points: 2 },
-        { id: "act_3", date: "T3 23/09", name: "Boss Bang", points: 1 },
-        { id: "act_4", date: "T3 23/09", name: "Thần Điện", points: 2 },
-        { id: "act_5", date: "T4 24/09", name: "Amentis 19h", points: 3 },
-        { id: "act_6", date: "T5 25/09", name: "Kataphron 21h", points: 2 },
-        { id: "act_7", date: "T6 26/09", name: "Boss Bang", points: 1 },
-        { id: "act_8", date: "T7 27/09", name: "Công Thành Chiến", points: 5 },
-        { id: "act_9", date: "CN 28/09", name: "Thần Điện", points: 2 }
-      ],
-      members: [
-        { id: "m_1", name: "Venarius", multiplier: 3, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
-        { id: "m_2", name: "Ông3Bi", multiplier: 3, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
-        { id: "m_3", name: "VoiLười", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_4", name: "TraiBao", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_5", name: "LongThần", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_8: true } },
-        { id: "m_6", name: "KhắcTiệp", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_8: true } },
-        { id: "m_7", name: "BạchLong", multiplier: 2.5, role: "Core", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_8", name: "Ken", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_9", name: "MèoBéo", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_10", name: "KẻHủyDiệt", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_11", name: "Bự", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_12", name: "HùngHổ", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_13", name: "Zeref", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true, act_9: true } },
-        { id: "m_14", name: "TuấnKhang", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_15", name: "SơnTùng", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
-        { id: "m_16", name: "HắcBạch", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_7: true } },
-        { id: "m_17", name: "BéNa", multiplier: 2, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
-        { id: "m_18", name: "TrùmCuối", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_19", name: "BéBự", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_20", name: "HổBáo", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true } },
-        { id: "m_21", name: "ThầnGió", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true, act_7: true, act_8: true } },
-        { id: "m_22", name: "SátThủ", multiplier: 1.5, role: "Member", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_7: true } },
-        { id: "m_23", name: "ĐộcCô", multiplier: 1, role: "Newbie", records: { act_1: true, act_2: true, act_3: true, act_4: true, act_5: true, act_6: true } },
-        { id: "m_24", name: "VôDanh", multiplier: 1, role: "Newbie", records: { act_1: true, act_2: true, act_3: true, act_4: true } },
-        { id: "m_25", name: "TânThủ", multiplier: 1, role: "Newbie", records: { act_1: true, act_3: true } }
+      weeks: [
+        {
+          id: "week_1",
+          name: "Tuần 1",
+          diasPool: 52500,
+          usdtPool: 867,
+          activities: DEFAULT_ATT_ACTIVITIES,
+          members: DEFAULT_ATT_MEMBERS
+        }
       ]
     };
 
@@ -10107,21 +10326,54 @@
     let attendanceRemoteSaveInFlight = false;
     let attendancePendingRemoteSave = false;
 
+    function getActiveWeek() {
+      if (!attendanceState) attendanceState = loadAttendanceState();
+      if (!attendanceState.weeks || !Array.isArray(attendanceState.weeks) || attendanceState.weeks.length === 0) {
+        attendanceState = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+      }
+      let week = attendanceState.weeks.find(w => w.id === attendanceState.activeWeekId);
+      if (!week) {
+        week = attendanceState.weeks[attendanceState.weeks.length - 1] || attendanceState.weeks[0];
+        attendanceState.activeWeekId = week.id;
+      }
+      return week;
+    }
+
     function loadAttendanceState() {
       try {
         const raw = localStorage.getItem(STORAGE_ATTENDANCE_KEY);
-        if (!raw) {
-          const fresh = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
-          fresh.updatedAt = Date.now();
-          return fresh;
+        let parsed = null;
+        if (raw) {
+          parsed = JSON.parse(raw);
         }
-        const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.members) && Array.isArray(parsed.activities)) {
-          if (typeof parsed.diasPool !== "number") parsed.diasPool = DEFAULT_ATTENDANCE_STATE.diasPool;
-          if (typeof parsed.usdtPool !== "number") parsed.usdtPool = DEFAULT_ATTENDANCE_STATE.usdtPool;
+        if (!parsed) {
+          parsed = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+          parsed.updatedAt = Date.now();
           return parsed;
         }
-        return JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+
+        // Migrate legacy single-week structure to multi-week structure
+        if (!parsed.weeks || !Array.isArray(parsed.weeks) || parsed.weeks.length === 0) {
+          const legacyWeek = {
+            id: "week_1",
+            name: "Tuần 1",
+            diasPool: typeof parsed.diasPool === "number" ? parsed.diasPool : 52500,
+            usdtPool: typeof parsed.usdtPool === "number" ? parsed.usdtPool : 867,
+            activities: Array.isArray(parsed.activities) ? parsed.activities : JSON.parse(JSON.stringify(DEFAULT_ATT_ACTIVITIES)),
+            members: Array.isArray(parsed.members) ? parsed.members : JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS))
+          };
+          parsed = {
+            activeWeekId: "week_1",
+            weeks: [legacyWeek]
+          };
+        }
+
+        // Ensure activeWeekId is valid
+        if (!parsed.activeWeekId || !parsed.weeks.some(w => w.id === parsed.activeWeekId)) {
+          parsed.activeWeekId = parsed.weeks[0].id;
+        }
+
+        return parsed;
       } catch (e) {
         console.error("Error loading attendance state:", e);
         return JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
@@ -10131,6 +10383,16 @@
     function saveAttendanceState(newState, syncRemote = true) {
       if (!newState) return;
       attendanceState = newState;
+
+      // Sync active week properties to root level for backward compatibility
+      const cur = getActiveWeek();
+      if (cur) {
+        attendanceState.diasPool = cur.diasPool;
+        attendanceState.usdtPool = cur.usdtPool;
+        attendanceState.activities = cur.activities;
+        attendanceState.members = cur.members;
+      }
+
       try {
         localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
       } catch (e) {
@@ -10141,6 +10403,131 @@
         attendanceState.updatedAt = Date.now();
         attendanceState.updatedBy = CLIENT_ID;
         pushAttendanceToFirebase();
+      }
+    }
+
+    function addNewAttendanceWeek() {
+      if (!isAdmin()) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền thêm tuần mới.");
+        requestAdminLogin();
+        return;
+      }
+      const currWeek = getActiveWeek();
+      const nextNum = (attendanceState.weeks ? attendanceState.weeks.length : 1) + 1;
+      const newWeekId = "week_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const newWeekName = "Tuần " + nextNum;
+
+      // Deep copy all activities and members, but reset all records to {} (unchecked)!
+      const copiedActivities = JSON.parse(JSON.stringify(currWeek.activities || []));
+      const copiedMembers = (currWeek.members || []).map(m => ({
+        id: m.id,
+        name: m.name,
+        multiplier: m.multiplier,
+        role: m.role || "Member",
+        records: {} // Unchecked
+      }));
+
+      const newWeek = {
+        id: newWeekId,
+        name: newWeekName,
+        diasPool: currWeek.diasPool || 52500,
+        usdtPool: currWeek.usdtPool || 867,
+        activities: copiedActivities,
+        members: copiedMembers,
+        createdAt: Date.now()
+      };
+
+      if (!attendanceState.weeks) attendanceState.weeks = [currWeek];
+      attendanceState.weeks.push(newWeek);
+      attendanceState.activeWeekId = newWeekId;
+
+      saveAttendanceState(attendanceState, true);
+      renderAttendanceTable();
+      showToast(`✨ Đã thêm "${newWeekName}"! Đã sao chép ${copiedActivities.length} Boss & ${copiedMembers.length} thành viên (đặt lại điểm trống).`);
+    }
+
+    function switchAttendanceWeek(weekId) {
+      if (!attendanceState || !attendanceState.weeks) return;
+      const target = attendanceState.weeks.find(w => w.id === weekId);
+      if (!target) return;
+      attendanceState.activeWeekId = weekId;
+      saveAttendanceState(attendanceState, false);
+      renderAttendanceTable();
+      showToast(`📅 Đang xem: ${target.name}`);
+    }
+
+    async function deleteAttendanceWeek(weekId) {
+      if (!isAdmin()) return;
+      if (!attendanceState || !attendanceState.weeks || attendanceState.weeks.length <= 1) {
+        showToast("Phải giữ lại ít nhất 1 tuần chấm công.");
+        return;
+      }
+      const target = attendanceState.weeks.find(w => w.id === weekId);
+      if (!target) return;
+
+      const confirmed = await showConfirmModal({
+        title: `Xóa ${target.name}?`,
+        subtitle: "Dữ liệu chấm công của tuần này sẽ bị xóa hoàn toàn",
+        message: `Bạn có chắc muốn xóa "${target.name}"? Hành động này không thể hoàn tác.`,
+        confirmText: "Xóa tuần này",
+        cancelText: "Hủy bỏ",
+        isDanger: true
+      });
+      if (!confirmed) return;
+
+      attendanceState.weeks = attendanceState.weeks.filter(w => w.id !== weekId);
+      if (attendanceState.activeWeekId === weekId) {
+        attendanceState.activeWeekId = attendanceState.weeks[attendanceState.weeks.length - 1].id;
+      }
+      saveAttendanceState(attendanceState, true);
+      renderAttendanceTable();
+      showToast(`🗑️ Đã xóa ${target.name}.`);
+    }
+
+    function renderWeekTabs() {
+      const tabsWrap = document.getElementById("attWeekTabs");
+      if (!tabsWrap) return;
+      if (!attendanceState) attendanceState = loadAttendanceState();
+      if (!attendanceState.weeks || !Array.isArray(attendanceState.weeks) || attendanceState.weeks.length === 0) {
+        getActiveWeek();
+      }
+
+      const adminMode = isAdmin();
+      let tabsHtml = "";
+
+      attendanceState.weeks.forEach(w => {
+        const isActive = w.id === attendanceState.activeWeekId;
+        tabsHtml += `<button type="button" class="att-week-tab ${isActive ? 'active' : ''}" data-week-id="${escapeHtml(w.id)}" title="${escapeHtml(w.name)}">
+          <span>${escapeHtml(w.name)}</span>
+          ${adminMode && attendanceState.weeks.length > 1 ? `<span class="att-week-del-btn" data-week-id="${escapeHtml(w.id)}" title="Xóa tuần này">✕</span>` : ""}
+        </button>`;
+      });
+
+      if (adminMode) {
+        tabsHtml += `<button type="button" class="att-add-week-tab-btn" id="attAddWeekTabBtn" title="Thêm tuần mới (+)">+</button>`;
+      }
+
+      tabsWrap.innerHTML = tabsHtml;
+
+      tabsWrap.querySelectorAll(".att-week-tab").forEach(tab => {
+        tab.addEventListener("click", (e) => {
+          if (e.target.classList.contains("att-week-del-btn")) {
+            e.stopPropagation();
+            deleteAttendanceWeek(e.target.dataset.weekId);
+            return;
+          }
+          const weekId = tab.dataset.weekId;
+          if (weekId && weekId !== attendanceState.activeWeekId) {
+            switchAttendanceWeek(weekId);
+          }
+        });
+      });
+
+      const addTabBtn = document.getElementById("attAddWeekTabBtn");
+      if (addTabBtn) {
+        addTabBtn.addEventListener("click", () => {
+          addNewAttendanceWeek();
+        });
       }
     }
 
@@ -10191,10 +10578,17 @@
     }
 
     function calculateAttendanceData(stateObj) {
-      const activities = stateObj?.activities || [];
-      const members = stateObj?.members || [];
-      const diasPool = Math.max(0, Number(stateObj?.diasPool) || 0);
-      const usdtPool = Math.max(0, Number(stateObj?.usdtPool) || 0);
+      if (!stateObj) return { membersCalc: [], totalGuildRawPoints: 0, totalGuildPPoints: 0, maxPossiblePoints: 0, diasPool: 0, usdtPool: 0, diasRate: 0, usdtRate: 0, activitiesCount: 0, membersCount: 0 };
+
+      let week = stateObj;
+      if (stateObj.weeks && Array.isArray(stateObj.weeks) && stateObj.weeks.length > 0) {
+        week = stateObj.weeks.find(w => w.id === stateObj.activeWeekId) || stateObj.weeks[0];
+      }
+
+      const activities = week?.activities || [];
+      const members = week?.members || [];
+      const diasPool = Math.max(0, Number(week?.diasPool) || 0);
+      const usdtPool = Math.max(0, Number(week?.usdtPool) || 0);
 
       const maxPossiblePoints = activities.reduce((sum, act) => sum + (Number(act.points) || 0), 0);
 
@@ -10252,6 +10646,9 @@
     function renderAttendanceTable() {
       if (!attendanceState) attendanceState = loadAttendanceState();
 
+      renderWeekTabs();
+
+      const currWeek = getActiveWeek();
       const calc = calculateAttendanceData(attendanceState);
 
       // 1. Update Top Stat Cards
@@ -10302,7 +10699,7 @@
       const headEl = document.getElementById("attTableHead");
       if (!headEl) return;
 
-      const activities = attendanceState.activities || [];
+      const activities = currWeek.activities || [];
       const adminMode = isAdmin();
 
       let headHtml = `<tr>
@@ -10315,20 +10712,20 @@
         <th class="col-sticky col-raw">📊 Điểm Thô</th>
         <th class="col-sticky col-percent">🎯 % Tham Gia</th>`;
 
-      activities.forEach((act, actIdx) => {
+      activities.forEach((act) => {
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
-          <div class="act-th-inner">
-            <span class="act-th-date">${escapeHtml(act.date || "")}</span>
-            <span class="act-th-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</span>
-            <span class="act-th-points">${act.points}đ</span>
+          <div class="act-card-header">
+            <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
+            <div class="act-header-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</div>
+            <div class="act-header-points">⭐ ${act.points} Điểm</div>
             ${adminMode ? `
-              <div class="act-th-actions">
+              <div class="act-header-bottom">
                 <label class="act-check-all-label" title="Tích chọn tất cả thành viên cột này">
                   <input type="checkbox" class="att-check-all-box" data-act-id="${escapeHtml(act.id)}">
                   <span>Tất cả</span>
                 </label>
                 <div class="act-btn-row">
-                  <button type="button" class="att-btn-micro att-edit-act-btn" data-act-id="${escapeHtml(act.id)}" title="Sửa tên/điểm">✏️</button>
+                  <button type="button" class="att-btn-micro att-edit-act-btn" data-act-id="${escapeHtml(act.id)}" title="Sửa tên / điểm">✏️</button>
                   <button type="button" class="att-btn-micro att-del-act-btn" data-act-id="${escapeHtml(act.id)}" title="Xóa cột này">🗑️</button>
                 </div>
               </div>` : ""
@@ -10470,7 +10867,8 @@
         btn.addEventListener("click", async () => {
           if (!adminMode) return;
           const memberId = btn.dataset.memberId;
-          const member = attendanceState.members.find(m => m.id === memberId);
+          const currWeek = getActiveWeek();
+          const member = currWeek.members.find(m => m.id === memberId);
           if (!member) return;
           const confirmed = await showConfirmModal({
             title: "Xóa thành viên?",
@@ -10500,7 +10898,8 @@
         btn.addEventListener("click", async () => {
           if (!adminMode) return;
           const actId = btn.dataset.actId;
-          const act = attendanceState.activities.find(a => a.id === actId);
+          const currWeek = getActiveWeek();
+          const act = currWeek.activities.find(a => a.id === actId);
           if (!act) return;
           const confirmed = await showConfirmModal({
             title: "Xóa hoạt động / boss?",
@@ -10519,7 +10918,8 @@
 
     function toggleAttendanceCheck(memberId, actId, isChecked) {
       if (!attendanceState) return;
-      const member = attendanceState.members.find(m => m.id === memberId);
+      const currWeek = getActiveWeek();
+      const member = currWeek.members.find(m => m.id === memberId);
       if (!member) return;
       if (!member.records) member.records = {};
       if (isChecked) {
@@ -10533,7 +10933,8 @@
 
     function toggleAllAttendanceForActivity(actId, isChecked) {
       if (!attendanceState) return;
-      attendanceState.members.forEach(m => {
+      const currWeek = getActiveWeek();
+      currWeek.members.forEach(m => {
         if (!m.records) m.records = {};
         if (isChecked) {
           m.records[actId] = true;
@@ -10561,7 +10962,8 @@
       if (errEl) errEl.style.display = "none";
 
       if (memberId) {
-        const member = attendanceState.members.find(m => m.id === memberId);
+        const currWeek = getActiveWeek();
+        const member = currWeek.members.find(m => m.id === memberId);
         if (!member) return;
         if (titleEl) titleEl.textContent = "Chỉnh Sửa Thành Viên";
         if (editIdInput) editIdInput.value = member.id;
@@ -10610,8 +11012,9 @@
         return;
       }
 
+      const currWeek = getActiveWeek();
       if (editId) {
-        const member = attendanceState.members.find(m => m.id === editId);
+        const member = currWeek.members.find(m => m.id === editId);
         if (member) {
           member.name = name;
           member.multiplier = mult;
@@ -10620,7 +11023,7 @@
         }
       } else {
         const newId = "m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        attendanceState.members.push({
+        currWeek.members.push({
           id: newId,
           name,
           multiplier: mult,
@@ -10637,7 +11040,8 @@
 
     function deleteAttendanceMember(memberId) {
       if (!isAdmin() || !attendanceState) return;
-      attendanceState.members = attendanceState.members.filter(m => m.id !== memberId);
+      const currWeek = getActiveWeek();
+      currWeek.members = currWeek.members.filter(m => m.id !== memberId);
       saveAttendanceState(attendanceState, true);
       closeAttendanceMemberModal();
       renderAttendanceTable();
@@ -10659,7 +11063,8 @@
       if (errEl) errEl.style.display = "none";
 
       if (actId) {
-        const act = attendanceState.activities.find(a => a.id === actId);
+        const currWeek = getActiveWeek();
+        const act = currWeek.activities.find(a => a.id === actId);
         if (!act) return;
         if (titleEl) titleEl.textContent = "Sửa Boss / Hoạt Động";
         if (editIdInput) editIdInput.value = act.id;
@@ -10712,8 +11117,9 @@
         return;
       }
 
+      const currWeek = getActiveWeek();
       if (editId) {
-        const act = attendanceState.activities.find(a => a.id === editId);
+        const act = currWeek.activities.find(a => a.id === editId);
         if (act) {
           act.date = dateStr;
           act.name = name;
@@ -10722,7 +11128,7 @@
         }
       } else {
         const newId = "act_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        attendanceState.activities.push({
+        currWeek.activities.push({
           id: newId,
           date: dateStr,
           name,
@@ -10738,9 +11144,10 @@
 
     function deleteAttendanceActivity(actId) {
       if (!isAdmin() || !attendanceState) return;
-      attendanceState.activities = attendanceState.activities.filter(a => a.id !== actId);
+      const currWeek = getActiveWeek();
+      currWeek.activities = currWeek.activities.filter(a => a.id !== actId);
       // Clean up records for this activity
-      attendanceState.members.forEach(m => {
+      currWeek.members.forEach(m => {
         if (m.records && m.records[actId]) delete m.records[actId];
       });
       saveAttendanceState(attendanceState, true);
@@ -10754,22 +11161,23 @@
         requestAdminLogin();
         return;
       }
+      const currWeek = getActiveWeek();
       const confirmed = await showConfirmModal({
-        title: "🔄 Reset chấm công tuần mới?",
-        subtitle: "Hành động này sẽ xóa toàn bộ tích điểm trong tuần",
-        message: "Bạn có chắc chắn muốn làm mới cho tuần này không? Danh sách thành viên và các cột hoạt động vẫn được giữ nguyên, chỉ có các ô tích điểm được đặt lại về 0.",
+        title: `🔄 Reset chấm công ${currWeek.name}?`,
+        subtitle: "Hành động này sẽ xóa toàn bộ tích điểm trong tuần này",
+        message: `Bạn có chắc chắn muốn làm mới cho ${currWeek.name} không? Danh sách thành viên và các cột hoạt động vẫn được giữ nguyên, chỉ có các ô tích điểm được đặt lại về trống.`,
         confirmText: "Reset toàn bộ điểm",
         cancelText: "Hủy bỏ",
         isDanger: true
       });
       if (!confirmed) return;
 
-      attendanceState.members.forEach(m => {
+      currWeek.members.forEach(m => {
         m.records = {};
       });
       saveAttendanceState(attendanceState, true);
       renderAttendanceTable();
-      showToast("🔄 Đã reset chấm công cho tuần mới thành công!");
+      showToast(`🔄 Đã reset điểm ${currWeek.name} thành công!`);
     }
 
     // Export Discord
@@ -10823,6 +11231,9 @@
 
       const resetBtn = document.getElementById("attResetWeekBtn");
       if (resetBtn) resetBtn.style.display = adminMode ? "inline-flex" : "none";
+
+      const addWeekBtn = document.getElementById("attAddNewWeekBtn");
+      if (addWeekBtn) addWeekBtn.style.display = adminMode ? "inline-flex" : "none";
 
       const diasTag = document.getElementById("attDiasAdminTag");
       if (diasTag) diasTag.style.display = adminMode ? "inline-block" : "none";
@@ -10935,11 +11346,12 @@
           if (!isAdmin()) {
             showToast("Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa Quỹ.");
             requestAdminLogin();
-            diasInput.value = attendanceState.diasPool;
+            diasInput.value = getActiveWeek().diasPool;
             return;
           }
           const val = Math.max(0, parseInt(diasInput.value, 10) || 0);
-          attendanceState.diasPool = val;
+          const currWeek = getActiveWeek();
+          currWeek.diasPool = val;
           saveAttendanceState(attendanceState, true);
           renderAttendanceTable();
           showToast(`💎 Đã cập nhật Quỹ DIAS: ${val.toLocaleString("vi-VN")}`);
@@ -10952,11 +11364,12 @@
           if (!isAdmin()) {
             showToast("Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa Quỹ.");
             requestAdminLogin();
-            usdtInput.value = attendanceState.usdtPool;
+            usdtInput.value = getActiveWeek().usdtPool;
             return;
           }
           const val = Math.max(0, parseInt(usdtInput.value, 10) || 0);
-          attendanceState.usdtPool = val;
+          const currWeek = getActiveWeek();
+          currWeek.usdtPool = val;
           saveAttendanceState(attendanceState, true);
           renderAttendanceTable();
           showToast(`💵 Đã cập nhật Quỹ USDT: ${val.toLocaleString("vi-VN")}`);
@@ -10990,8 +11403,8 @@
       const resetBtn = document.getElementById("attResetWeekBtn");
       if (resetBtn) resetBtn.addEventListener("click", () => resetAttendanceWeek());
 
-      const exportBtn = document.getElementById("attExportDiscordBtn");
-      if (exportBtn) exportBtn.addEventListener("click", () => exportAttendanceToDiscord());
+      const addNewWeekBtn = document.getElementById("attAddNewWeekBtn");
+      if (addNewWeekBtn) addNewWeekBtn.addEventListener("click", () => addNewAttendanceWeek());
 
       // Member Modal Events
       document.getElementById("closeAttMemberModal")?.addEventListener("click", closeAttendanceMemberModal);
