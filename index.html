@@ -4982,6 +4982,22 @@
     </div>
   </div>
 
+  <!-- ── Revoke Secondary Admin Confirmation ── -->
+  <div class="modal-backdrop" id="adminRevokeConfirmModal" role="dialog" aria-modal="true" aria-labelledby="adminRevokeConfirmTitle" style="z-index:10004;">
+    <div class="modal" style="max-width:430px;padding:0;overflow:hidden;">
+      <div style="padding:20px 22px;border-bottom:1px solid var(--line-soft);">
+        <h3 id="adminRevokeConfirmTitle" style="margin:0 0 7px;font-size:17px;color:var(--red);">Xác nhận thu hồi quyền Admin?</h3>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:var(--text-2);">
+          Bạn có chắc muốn thu hồi quyền của <strong id="adminRevokeTarget" style="color:var(--text);"></strong>? Tài khoản sẽ không còn được chỉnh sửa dữ liệu Boss và Attendance.
+        </p>
+      </div>
+      <div style="padding:16px 22px;display:flex;justify-content:flex-end;gap:9px;">
+        <button type="button" class="button-ghost" id="adminRevokeCancelBtn">Không, quay lại</button>
+        <button type="button" class="button-danger" id="adminRevokeConfirmBtn">Xác nhận thu hồi</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Discord Webhook Settings Modal ── -->
   <div class="modal-backdrop" id="discordSettingsModal" role="dialog" aria-modal="true" aria-labelledby="discordModalTitle" style="z-index:10002;">
     <div class="modal" style="max-width:540px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;">
@@ -9926,6 +9942,14 @@
       populateAdminNameDropdown();
     });
 
+    let pendingAdminRevoke = null;
+
+    function closeAdminRevokeConfirm() {
+      document.getElementById("adminRevokeConfirmModal")?.classList.remove("open");
+      pendingAdminRevoke = null;
+      syncModalScrollLock();
+    }
+
     document.getElementById("adminAccountModal")?.addEventListener("click", async (e) => {
       const approveBtn = e.target.closest("[data-approve-uid]");
       const rejectBtn = e.target.closest("[data-reject-uid]");
@@ -9954,13 +9978,41 @@
           await firebaseDb.ref(`admin_requests/${rejectBtn.dataset.rejectUid}`).remove();
           showToast("🗑️ Đã từ chối yêu cầu Admin.");
         } else {
-          await firebaseDb.ref(`admin_access/${revokeBtn.dataset.revokeUid}`).remove();
-          showToast("🔒 Đã thu hồi quyền Admin phụ.");
+          const row = revokeBtn.closest("div[style*='justify-content:space-between']");
+          const label = row?.querySelector("strong")?.textContent?.trim() || "Admin phụ này";
+          pendingAdminRevoke = { uid: revokeBtn.dataset.revokeUid, label };
+          const target = document.getElementById("adminRevokeTarget");
+          if (target) target.textContent = label;
+          document.getElementById("adminRevokeConfirmModal")?.classList.add("open");
+          syncModalScrollLock();
+          return;
         }
         await renderAdminAccList();
       } catch (error) {
         console.error("Admin approval error:", error);
         showToast("Không thể cập nhật quyền Admin. Hãy kiểm tra Firebase Rules.");
+      }
+    });
+
+    document.getElementById("adminRevokeCancelBtn")?.addEventListener("click", closeAdminRevokeConfirm);
+    document.getElementById("adminRevokeConfirmModal")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) closeAdminRevokeConfirm();
+    });
+    document.getElementById("adminRevokeConfirmBtn")?.addEventListener("click", async () => {
+      if (!pendingAdminRevoke || !isSuperAdmin() || !firebaseDb) return;
+      const { uid, label } = pendingAdminRevoke;
+      const confirmBtn = document.getElementById("adminRevokeConfirmBtn");
+      if (confirmBtn) confirmBtn.disabled = true;
+      try {
+        await firebaseDb.ref(`admin_access/${uid}`).remove();
+        closeAdminRevokeConfirm();
+        await renderAdminAccList();
+        showToast(`🔒 Đã thu hồi quyền Admin của ${label}.`);
+      } catch (error) {
+        console.error("Admin revoke error:", error);
+        showToast("Không thể thu hồi quyền Admin. Vui lòng thử lại.");
+      } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
       }
     });
 
@@ -13072,7 +13124,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.02.v11-secondary-admin-signup";
+    const CURRENT_APP_VERSION = "2026.10.02.v12-revoke-confirmation";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
