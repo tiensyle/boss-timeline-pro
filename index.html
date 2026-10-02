@@ -5407,16 +5407,12 @@
         </div>
 
         <div class="form-field" id="attWeekCloneWrap" style="margin-bottom: 16px;">
-          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px;">Dữ liệu sao chép từ tuần trước</div>
-          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text);margin-bottom:9px;">
-            <input type="checkbox" id="attWeekCloneMembersOption" checked style="width: 16px; height: 16px; cursor: pointer;">
-            <span>Sao chép danh sách Thành viên (đặt lại toàn bộ tích điểm)</span>
-          </label>
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px;">Thiết lập dữ liệu tuần mới</div>
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text);">
-            <input type="checkbox" id="attWeekCloneBossesOption" style="width: 16px; height: 16px; cursor: pointer;">
-            <span>Sao chép Boss / Hoạt động tuần trước</span>
+            <input type="checkbox" id="attWeekClearBossesOption" checked style="width: 16px; height: 16px; cursor: pointer;">
+            <span>Giữ các cột thông tin & tên thành viên, xóa toàn bộ cột Boss</span>
           </label>
-          <div style="margin:8px 0 0 24px;font-size:11.5px;line-height:1.45;color:var(--muted);">Mặc định không sao chép Boss để bạn thêm đúng Boss xuất hiện trong từng ngày của tuần mới.</div>
+          <div style="margin:8px 0 0 24px;font-size:11.5px;line-height:1.45;color:var(--muted);">Tên, Server, hệ số và vai trò thành viên được giữ nguyên; tích điểm được đặt lại. Các cột Boss sẽ trống để thêm mới theo lịch tuần này.</div>
         </div>
 
         <div id="attWeekModalError" style="display: none; margin-bottom: 12px; font-size: 12.5px; color: var(--red); font-weight: 600; padding: 8px 12px; background: var(--red-soft); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px;"></div>
@@ -11432,8 +11428,7 @@
       const usdtInput = document.getElementById("attWeekUsdtPoolInput");
       const thresholdInput = document.getElementById("attWeekMinimumParticipationInput");
       const cloneWrap = document.getElementById("attWeekCloneWrap");
-      const cloneMembersOpt = document.getElementById("attWeekCloneMembersOption");
-      const cloneBossesOpt = document.getElementById("attWeekCloneBossesOption");
+      const clearBossesOpt = document.getElementById("attWeekClearBossesOption");
       const delBtn = document.getElementById("attWeekModalDelBtn");
       const errEl = document.getElementById("attWeekModalError");
 
@@ -11464,8 +11459,7 @@
         if (usdtInput) usdtInput.value = currWeek?.usdtPool || 867;
         if (thresholdInput) thresholdInput.value = normalizeMinimumParticipationPercent(currWeek?.minimumParticipationPercent);
         if (cloneWrap) cloneWrap.style.display = "block";
-        if (cloneMembersOpt) cloneMembersOpt.checked = true;
-        if (cloneBossesOpt) cloneBossesOpt.checked = false;
+        if (clearBossesOpt) clearBossesOpt.checked = true;
         if (delBtn) delBtn.style.display = "none";
       }
 
@@ -11488,8 +11482,7 @@
       const diasInput = document.getElementById("attWeekDiasPoolInput");
       const usdtInput = document.getElementById("attWeekUsdtPoolInput");
       const thresholdInput = document.getElementById("attWeekMinimumParticipationInput");
-      const cloneMembersOpt = document.getElementById("attWeekCloneMembersOption");
-      const cloneBossesOpt = document.getElementById("attWeekCloneBossesOption");
+      const clearBossesOpt = document.getElementById("attWeekClearBossesOption");
       const errEl = document.getElementById("attWeekModalError");
 
       const name = (nameInput?.value || "").trim();
@@ -11524,12 +11517,11 @@
         let copiedActivities = [];
         let copiedMembers = [];
 
-        const shouldCloneMembers = cloneMembersOpt ? cloneMembersOpt.checked : true;
-        const shouldCloneBosses = cloneBossesOpt ? cloneBossesOpt.checked : false;
-        if (currWeek && shouldCloneBosses) {
+        const shouldClearBosses = clearBossesOpt ? clearBossesOpt.checked : true;
+        if (currWeek && !shouldClearBosses) {
           copiedActivities = JSON.parse(JSON.stringify(currWeek.activities || []));
         }
-        if (currWeek && shouldCloneMembers) {
+        if (currWeek) {
           copiedMembers = (currWeek.members || []).map(m => ({
             id: m.id,
             name: m.name,
@@ -11558,7 +11550,7 @@
         attendanceState.weeks.push(newWeek);
         attendanceState.activeWeekId = newWeekId;
 
-        showToast(`✨ Đã thêm "${name}"! ${copiedActivities.length ? `Đã sao chép ${copiedActivities.length} Boss.` : "Danh sách Boss đang trống."} Đã sao chép ${copiedMembers.length} thành viên.`);
+        showToast(`✨ Đã thêm "${name}"! Giữ ${copiedMembers.length} thành viên${shouldClearBosses ? " và đã xóa toàn bộ cột Boss" : `, sao chép ${copiedActivities.length} Boss`}.`);
       }
 
       saveAttendanceState(attendanceState, true);
@@ -13136,7 +13128,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.02.v13-week-clone-options";
+    const CURRENT_APP_VERSION = "2026.10.03.v14-clear-week-boss-columns";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
