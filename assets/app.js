@@ -691,7 +691,6 @@
     let STORAGE_DISCORD_KEY = `bossTimelinePro.discordConfig_${currentServerId}`;
     const defaultDiscordConfig = {
       enabled: false,
-      webhookUrl: "",
       logoUrl: "",
       notify10m: true,
       notify5m: true,
@@ -709,11 +708,17 @@
           // Fallback doc tu storage cu neu la server 1
           if (currentServerId === "s1") {
             const oldRaw = localStorage.getItem("bossTimelinePro.discordConfig");
-            if (oldRaw) return { ...defaultDiscordConfig, ...JSON.parse(oldRaw) };
+            if (oldRaw) {
+              const legacy = JSON.parse(oldRaw);
+              delete legacy.webhookUrl;
+              localStorage.removeItem("bossTimelinePro.discordConfig");
+              return { ...defaultDiscordConfig, ...legacy };
+            }
           }
           return { ...defaultDiscordConfig };
         }
         const parsed = JSON.parse(raw);
+        delete parsed.webhookUrl;
         return { ...defaultDiscordConfig, ...parsed };
       } catch (e) {
         return { ...defaultDiscordConfig };
@@ -724,7 +729,9 @@
     let activeDiscordNotified = {};
 
     function saveDiscordConfigLocal(cfg) {
-      discordConfig = { ...defaultDiscordConfig, ...cfg };
+      const safeConfig = { ...cfg };
+      delete safeConfig.webhookUrl;
+      discordConfig = { ...defaultDiscordConfig, ...safeConfig };
       try {
         localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
       } catch (e) {}
@@ -745,7 +752,7 @@
       const btn = document.getElementById("discordSettingsBtn");
       const text = document.getElementById("discordBtnText");
       if (!btn) return;
-      const isConnected = Boolean(discordConfig.enabled && discordConfig.webhookUrl);
+      const isConnected = Boolean(discordConfig.enabled);
       btn.classList.toggle("connected", isConnected);
       if (text) {
         text.textContent = isConnected ? "Discord: Bat" : "Discord Bot";
@@ -757,67 +764,43 @@
         console.warn("[Discord Bot] Bỏ qua gửi: bot chưa bật trong cài đặt", discordConfig);
         return false;
       }
-      const url = (discordConfig.webhookUrl || "").trim();
-
-      // Neu co fileBlob thi gui truc tiep (FormData)
-      if (fileBlob) {
-        if (!url) return false;
-        try {
-          const fd = new FormData();
-          fd.append("payload_json", JSON.stringify(payload));
-          fd.append("file", fileBlob, fileName);
-          const res = await fetch(url, { method: "POST", body: fd });
-          return res.ok || res.status === 204;
-        } catch (e) {
-          console.warn("[Discord Bot] Webhook attachment fetch error:", e);
-          return false;
-        }
-      }
-
-      // 1. Uu tien gui qua Backend Serverless Proxy (/api/discord) de bao mat Webhook
       try {
+        const user = firebaseAuth?.currentUser;
+        if (!user || !isAdmin()) return false;
+        const idToken = await user.getIdToken();
+        let file = null;
+        if (fileBlob) {
+          const bytes = new Uint8Array(await fileBlob.arrayBuffer());
+          let binary = "";
+          const chunkSize = 0x8000;
+          for (let index = 0; index < bytes.length; index += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+          }
+          file = { base64: btoa(binary), name: fileName, type: fileBlob.type || "image/png" };
+        }
         const proxyRes = await fetch("/api/discord", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ payload, webhookUrl: url })
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${idToken}`
+          },
+          body: JSON.stringify({ payload, serverId: currentServerId, file })
         });
         if (proxyRes.ok || proxyRes.status === 204) {
           console.log("[Discord Bot] Gửi webhook thành công qua /api/discord!");
           return true;
         }
-      } catch (proxyErr) {
-        // Neu chay offline / localhost khong co serverless function thi fallback gui truc tiep
-      }
-
-      // 2. Fallback gui truc tiep bang client neu /api/discord khong kha dung
-      if (!url || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) {
+        const errorData = await proxyRes.json().catch(() => ({}));
+        console.warn("[Discord Bot] API từ chối yêu cầu:", proxyRes.status, errorData.error || "");
         return false;
-      }
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.status === 429) {
-          console.warn("[Discord Bot] Bị Discord giới hạn tần suất (Rate limit 429)");
-          return false;
-        }
-
-        const success = res.ok || res.status === 204;
-        if (success) {
-          console.log("[Discord Bot] Gửi webhook thành công (Direct)!", payload?.embeds?.[0]?.title || "");
-        }
-        return success;
       } catch (e) {
-        console.warn("[Discord Bot] Webhook direct fetch error:", e);
+        console.warn("[Discord Bot] Discord API relay error:", e);
         return false;
       }
     }
 
     async function sendDiscordBossAlert(boss, milestoneType, explicitEventTime = null) {
-      if (!discordConfig.enabled || !discordConfig.webhookUrl) return;
+      if (!discordConfig.enabled) return;
 
       try {
         let eventKey = explicitEventTime;
@@ -1083,7 +1066,7 @@
     }
 
     async function sendDiscordDailySchedule(forced = false) {
-      if (!discordConfig.enabled || !discordConfig.webhookUrl) return false;
+      if (!discordConfig.enabled) return false;
       if (!forced && discordConfig.notifyDailySchedule === false) return false;
 
       const now = getNow();
@@ -1178,7 +1161,7 @@
     }
 
     function checkDailyScheduleAlert(now) {
-      if (!discordConfig.enabled || !discordConfig.webhookUrl || discordConfig.notifyDailySchedule === false) return;
+      if (!discordConfig.enabled || discordConfig.notifyDailySchedule === false) return;
       const d = new Date(now);
       // Kích hoạt trong khung 00:00:00 - 00:05:00 hàng ngày
       if (d.getHours() === 0 && d.getMinutes() < 5) {
@@ -1782,11 +1765,17 @@
         activeDiscordConfigRef = discordConfigDbRef;
         activeDiscordConfigRef.on("value", (snapshot) => {
           const remoteCfg = snapshot.val();
-          if (remoteCfg && typeof remoteCfg === "object" && remoteCfg.webhookUrl) {
-            discordConfig = { ...defaultDiscordConfig, ...remoteCfg };
+          if (remoteCfg && typeof remoteCfg === "object") {
+            const safeRemoteCfg = { ...remoteCfg };
+            const hadLegacyWebhook = Boolean(safeRemoteCfg.webhookUrl);
+            delete safeRemoteCfg.webhookUrl;
+            discordConfig = { ...defaultDiscordConfig, ...safeRemoteCfg };
             try {
               localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
             } catch (e) {}
+            if (hadLegacyWebhook && isAdmin()) {
+              discordConfigDbRef.child("webhookUrl").remove().catch(() => {});
+            }
             updateDiscordButtonUI();
           }
         });
@@ -4798,7 +4787,6 @@
         return;
       }
 
-      const urlInput = document.getElementById("discordWebhookUrl");
       const logoInput = document.getElementById("discordLogoUrl");
       const enableMaster = document.getElementById("discordEnableMaster");
       const n10m = document.getElementById("discordNotify10m");
@@ -4810,7 +4798,6 @@
       const nDaily = document.getElementById("discordNotifyDailySchedule");
       const resEl = document.getElementById("discordTestResult");
 
-      if (urlInput) urlInput.value = discordConfig.webhookUrl || "";
       if (logoInput) logoInput.value = discordConfig.logoUrl || "";
       if (enableMaster) enableMaster.checked = Boolean(discordConfig.enabled);
       if (n10m) n10m.checked = discordConfig.notify10m !== false;
@@ -4845,7 +4832,6 @@
         return;
       }
 
-      const urlInput = document.getElementById("discordWebhookUrl");
       const logoInput = document.getElementById("discordLogoUrl");
       const enableMaster = document.getElementById("discordEnableMaster");
       const n10m = document.getElementById("discordNotify10m");
@@ -4858,7 +4844,6 @@
 
       const newConfig = {
         enabled: enableMaster ? enableMaster.checked : false,
-        webhookUrl: urlInput ? urlInput.value.trim() : "",
         logoUrl: logoInput ? logoInput.value.trim() : "",
         notify10m: n10m ? n10m.checked : true,
         notify5m: n5m ? n5m.checked : true,
@@ -4868,12 +4853,6 @@
         tagEveryone: tagEv ? tagEv.checked : true,
         notifyDailySchedule: nDaily ? nDaily.checked : true
       };
-
-      if (newConfig.enabled && !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(newConfig.webhookUrl)) {
-        alert("⚠️ Vui lòng nhập đúng đường dẫn Discord Webhook (bắt đầu bằng https://discord.com/api/webhooks/ hoặc https://discordapp.com/api/webhooks/)");
-        if (urlInput) urlInput.focus();
-        return;
-      }
 
       saveDiscordConfigLocal(newConfig);
       closeDiscordModal();
@@ -4926,21 +4905,8 @@
         return;
       }
 
-      const urlInput = document.getElementById("discordWebhookUrl");
       const tagEv = document.getElementById("discordTagEveryone");
       const resEl = document.getElementById("discordTestResult");
-      const url = urlInput ? urlInput.value.trim() : "";
-
-      if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//i.test(url)) {
-        if (resEl) {
-          resEl.style.display = "block";
-          resEl.style.background = "var(--red-soft)";
-          resEl.style.color = "var(--red)";
-          resEl.style.border = "1px solid var(--red)";
-          resEl.textContent = "❌ Đường dẫn Webhook không hợp lệ (phải bắt đầu bằng https://discord.com/api/webhooks/ hoặc discordapp.com)";
-        }
-        return;
-      }
 
       if (resEl) {
         resEl.style.display = "block";
@@ -4971,13 +4937,8 @@
       };
 
       try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(testPayload)
-        });
-
-        if (res.ok || res.status === 204) {
+        const ok = await sendDiscordWebhook(testPayload);
+        if (ok) {
           if (resEl) {
             resEl.style.display = "block";
             resEl.style.background = "var(--green-soft)";
@@ -4987,7 +4948,7 @@
           }
           showToast("✅ Gửi tin nhắn Test Discord thành công!");
         } else {
-          throw new Error("Discord API trả về mã lỗi: " + res.status);
+          throw new Error("API Discord chưa được cấu hình hoặc tài khoản không có quyền.");
         }
       } catch (err) {
         if (resEl) {
@@ -7668,7 +7629,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.03.v17-backup-modular-cleanup";
+    const CURRENT_APP_VERSION = "2026.10.03.v18-secure-discord-relay";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
