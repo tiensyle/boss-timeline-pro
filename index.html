@@ -11544,10 +11544,19 @@
         for (const sv of serverList) {
           const serverId = sv.id || getDefaultAttendanceServerId();
           const legacyPath = getLegacyFirebaseAttendancePath(serverId);
-          const snapshot = await firebaseDb.ref(legacyPath).once("value");
-          const legacyState = snapshot.val();
-          if (legacyState) {
-            legacyItems.push({ serverId, key: legacyPath, state: legacyState });
+          try {
+            const snapshot = await firebaseDb.ref(legacyPath).once("value");
+            const legacyState = snapshot.val();
+            if (legacyState) {
+              legacyItems.push({ serverId, key: legacyPath, state: legacyState });
+            }
+          } catch (err) {
+            const permissionDenied = /permission[_ -]denied/i.test(String(err?.code || err?.message || ""));
+            if (!permissionDenied) throw err;
+            // Legacy nodes may no longer be covered by current Firebase rules.
+            // Skipping them must not prevent the current localStorage state from
+            // being seeded into the new rules-approved Attendance path.
+            console.warn("Skipping inaccessible legacy Firebase attendance path:", legacyPath);
           }
         }
         return mergeAttendanceStatesForMigration(legacyItems);
@@ -12978,7 +12987,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.02.v6";
+    const CURRENT_APP_VERSION = "2026.10.02.v7";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
