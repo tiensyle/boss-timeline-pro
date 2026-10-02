@@ -1,6 +1,38 @@
 {
   "rules": {
-    ".read": true,
-    ".write": "auth != null && auth.token.admin === true"
+    ".read": false,
+    ".write": false,
+    "boss_timeline_state": {
+      ".read": true,
+      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+    },
+    "boss_timeline_discord_config": {
+      ".read": true,
+      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+    },
+    "boss_timeline_discord_alerts": {
+      ".read": true,
+      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+    },
+    "boss_timeline_servers": {
+      ".read": true,
+      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+    },
+    "admin_access": {
+      ".read": "auth != null && auth.token.admin === true",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && auth.token.admin === true",
+        ".validate": "!newData.exists() || (newData.hasChildren(['active', 'email', 'approvedAt', 'approvedBy']) && newData.child('active').isBoolean() && newData.child('email').isString() && newData.child('approvedAt').isNumber() && newData.child('approvedBy').isString())"
+      }
+    },
+    "admin_requests": {
+      ".read": "auth != null && auth.token.admin === true",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && newData.exists()))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['email', 'name', 'requestedAt']) && newData.child('email').val() === auth.token.email && newData.child('name').isString() && newData.child('requestedAt').isNumber())"
+      }
+    }
   }
 }

@@ -4943,7 +4943,7 @@
           </div>
           <div>
             <h3 id="adminAccTitle" style="margin:0;font-size:16px;font-weight:700;">Quản lý tài khoản Admin</h3>
-            <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Tạo, chỉnh sửa hoặc xóa tài khoản Admin phụ</p>
+            <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Phê duyệt hoặc thu hồi quyền Admin phụ trên Firebase</p>
           </div>
         </div>
         <button type="button" class="icon-button" id="closeAdminAccModal" style="width:34px;height:34px;" aria-label="Đóng">
@@ -4960,26 +4960,8 @@
           <div id="adminPendingList"></div>
         </div>
 
-        <!-- Add Directly Section -->
-        <div style="background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:16px;margin-bottom:18px;">
-          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">➕ Thêm trực tiếp tài khoản Admin mới</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:5px;">Tên Admin</label>
-              <input type="text" id="newAdminName" placeholder="Ví dụ: Admin1, AdminBoss..." maxlength="24"
-                style="width:100%;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
-            </div>
-            <div>
-              <label style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:5px;">Mật khẩu</label>
-              <input type="password" id="newAdminPass" placeholder="Nhập mật khẩu..." maxlength="32"
-                style="width:100%;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;">
-            </div>
-          </div>
-          <button type="button" class="button-primary" id="addAdminAccBtn" style="width:100%;height:38px;display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-            Tạo & Phê duyệt ngay
-          </button>
-          <div id="addAdminAccError" style="display:none;margin-top:8px;font-size:12px;color:var(--red);font-weight:600;"></div>
+        <div style="background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;margin-bottom:18px;font-size:12.5px;line-height:1.55;color:var(--text-2);">
+          <strong style="color:var(--cyan);">Cách thêm Admin phụ:</strong> tạo người dùng trong Firebase Authentication, sau đó người đó đăng nhập trang web một lần. Yêu cầu sẽ xuất hiện tại đây để Admin chính phê duyệt. Website không lưu mật khẩu của bất kỳ Admin nào.
         </div>
 
         <!-- Active Accounts Section -->
@@ -5934,6 +5916,7 @@
     let currentRole = "member";
     let currentAdminName = "";
     let currentUserIsAdmin = false;
+    let currentUserIsSuperAdmin = false;
     const SUPER_ADMIN_NAME = "Firebase Admin";
 
     // Compatibility shims for the removed local account-management UI.
@@ -5945,6 +5928,26 @@
 
     function isAdmin() {
       return currentRole === "admin" && currentUserIsAdmin && Boolean(firebaseAuth?.currentUser);
+    }
+
+    async function getFirebaseAdminAccess(user, forceRefresh = false) {
+      if (!user || !firebaseDb) return { allowed: false, superAdmin: false, profile: null };
+      const token = await user.getIdTokenResult(forceRefresh);
+      if (token.claims.admin === true) {
+        return { allowed: true, superAdmin: true, profile: { name: user.displayName || user.email || "Firebase Admin" } };
+      }
+      const snapshot = await firebaseDb.ref(`admin_access/${user.uid}`).once("value");
+      const profile = snapshot.val();
+      return { allowed: profile?.active === true, superAdmin: false, profile };
+    }
+
+    async function submitAdminAccessRequest(user) {
+      if (!user || !firebaseDb) return;
+      await firebaseDb.ref(`admin_requests/${user.uid}`).set({
+        email: user.email || "",
+        name: user.displayName || (user.email ? user.email.split("@")[0] : "Admin mới"),
+        requestedAt: firebase.database.ServerValue.TIMESTAMP
+      });
     }
 
     function setRole(newRole, adminName = null) {
@@ -5970,8 +5973,9 @@
       firebaseAuth.onAuthStateChanged(async (user) => {
         if (user) {
           try {
-            const token = await user.getIdTokenResult();
-            currentUserIsAdmin = token.claims.admin === true;
+            const access = await getFirebaseAdminAccess(user);
+            currentUserIsAdmin = access.allowed;
+            currentUserIsSuperAdmin = access.superAdmin;
           } catch (error) {
             currentUserIsAdmin = false;
             console.error("Firebase token verification error:", error);
@@ -5990,6 +5994,7 @@
           }
         } else {
           currentUserIsAdmin = false;
+          currentUserIsSuperAdmin = false;
           setRole("member");
         }
       });
@@ -6785,6 +6790,10 @@
     function requestAdminLogin() {
       if (firebaseAuth?.currentUser) {
         if (currentUserIsAdmin) {
+          if (currentUserIsSuperAdmin) {
+            openAdminAccModal();
+            return;
+          }
           setRole("admin", firebaseAuth.currentUser.displayName || firebaseAuth.currentUser.email || "Admin");
         } else {
           showToast("Tài khoản Firebase này chưa được cấp quyền Admin.");
@@ -9600,13 +9609,16 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         const credential = await firebaseAuth.signInWithEmailAndPassword(email, enteredPass);
-        const token = await credential.user.getIdTokenResult(true);
-        if (token.claims.admin !== true) {
+        const access = await getFirebaseAdminAccess(credential.user, true);
+        if (!access.allowed) {
           currentUserIsAdmin = false;
+          currentUserIsSuperAdmin = false;
+          await submitAdminAccessRequest(credential.user);
           await firebaseAuth.signOut();
-          throw Object.assign(new Error("Admin claim required"), { code: "auth/not-admin" });
+          throw Object.assign(new Error("Admin approval requested"), { code: "auth/admin-requested" });
         }
         currentUserIsAdmin = true;
+        currentUserIsSuperAdmin = access.superAdmin;
         setRole("admin", credential.user.displayName || credential.user.email || "Admin");
         elements.adminPasswordInput.value = "";
         closeAuthModal();
@@ -9618,6 +9630,7 @@
             "auth/user-disabled": "Tài khoản Admin đã bị vô hiệu hóa.",
             "auth/too-many-requests": "Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau.",
             "auth/operation-not-allowed": "Chưa bật Email/Password trong Firebase Authentication.",
+            "auth/admin-requested": "Đã gửi yêu cầu quyền Admin. Hãy nhờ Admin chính phê duyệt rồi đăng nhập lại.",
             "auth/not-admin": "Tài khoản này chưa được cấp quyền Admin.",
             "auth/invalid-login-credentials": "Email hoặc mật khẩu không chính xác.",
             "auth/wrong-password": "Email hoặc mật khẩu không chính xác.",
@@ -9643,54 +9656,7 @@
 
     document.getElementById("adminRegForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
-      const nameInput = document.getElementById("regAdminName");
-      const passInput = document.getElementById("regAdminPass");
-      const noteInput = document.getElementById("regAdminNote");
-      const errEl = document.getElementById("regAdminError");
-
-      const name = nameInput.value.trim();
-      const pass = passInput.value.trim();
-      const note = noteInput ? noteInput.value.trim() : "";
-
-      if (!name || !pass) {
-        if (errEl) {
-          errEl.textContent = "Vui lòng nhập Tên Admin và Mật khẩu.";
-          errEl.style.display = "block";
-        }
-        return;
-      }
-
-      if (name === SUPER_ADMIN_NAME) {
-        if (errEl) {
-          errEl.textContent = "Tên này trùng với Super Admin.";
-          errEl.style.display = "block";
-        }
-        return;
-      }
-
-      const accounts = getAdminAccounts();
-      if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) {
-        if (errEl) {
-          errEl.textContent = "Tên Admin này đã được sử dụng hoặc đang chờ duyệt.";
-          errEl.style.display = "block";
-        }
-        return;
-      }
-
-      accounts.push({
-        name,
-        password: pass,
-        note,
-        status: "pending",
-        createdAt: Date.now()
-      });
-      saveAdminAccounts(accounts);
-      if (errEl) errEl.style.display = "none";
-      nameInput.value = "";
-      passInput.value = "";
-      if (noteInput) noteInput.value = "";
-
-      showToast(`⏳ Đã gửi yêu cầu đăng ký tài khoản [${name}]! Vui lòng liên hệ Super Admin phê duyệt.`);
+      showToast("Hãy đăng nhập bằng tài khoản đã tạo trong Firebase Authentication để gửi yêu cầu tự động.");
       showAuthStep("admin");
     });
 
@@ -9717,16 +9683,21 @@
     });
 
     // ── Admin Account Manager Logic ──
-    function renderAdminAccList() {
+    async function renderAdminAccList() {
       const containerActive = document.getElementById("adminAccList");
       const containerPending = document.getElementById("adminPendingList");
       const pendingSection = document.getElementById("adminPendingSection");
       const badgeCount = document.getElementById("pendingBadgeCount");
       if (!containerActive || !containerPending) return;
+      if (!currentUserIsSuperAdmin || !firebaseDb) return;
 
-      const accounts = getAdminAccounts();
-      const pendingAccs = accounts.filter(a => a.status === "pending");
-      const approvedAccs = accounts.filter(a => a.status === "approved");
+      containerActive.innerHTML = `<div style="padding:12px;text-align:center;color:var(--muted);">Đang tải...</div>`;
+      const [pendingSnapshot, approvedSnapshot] = await Promise.all([
+        firebaseDb.ref("admin_requests").once("value"),
+        firebaseDb.ref("admin_access").once("value")
+      ]);
+      const pendingAccs = Object.entries(pendingSnapshot.val() || {}).map(([uid, value]) => ({ uid, ...value }));
+      const approvedAccs = Object.entries(approvedSnapshot.val() || {}).map(([uid, value]) => ({ uid, ...value })).filter(a => a.active === true);
 
       // Pending Section
       if (pendingAccs.length > 0) {
@@ -9736,16 +9707,16 @@
         containerPending.innerHTML = pendingAccs.map((acc) => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--amber-soft);border:1px solid rgba(245,158,11,0.4);border-radius:6px;margin-bottom:8px;gap:10px;">
             <div style="min-width:0;flex:1;">
-              <strong style="font-size:14px;color:var(--amber);">${escapeHtml(acc.name)}</strong>
-              ${acc.note ? `<span style="display:block;font-size:12px;color:var(--text-2);margin-top:2px;">💬 ${escapeHtml(acc.note)}</span>` : ""}
-              <span style="display:block;font-size:11px;color:var(--muted);margin-top:2px;">⏱️ Gửi lúc ${formatShortDate(acc.createdAt || Date.now())}</span>
+              <strong style="font-size:14px;color:var(--amber);">${escapeHtml(acc.name || acc.email || "Admin mới")}</strong>
+              <span style="display:block;font-size:12px;color:var(--text-2);margin-top:2px;">${escapeHtml(acc.email || "")}</span>
+              <span style="display:block;font-size:11px;color:var(--muted);margin-top:2px;">⏱️ Gửi lúc ${formatShortDate(acc.requestedAt || Date.now())}</span>
             </div>
             <div style="display:flex;gap:6px;flex:0 0 auto;">
-              <button type="button" class="button-primary" data-approve-acc-name="${escapeHtml(acc.name)}" style="padding:5px 12px;font-size:12px;background:var(--green);border-color:var(--green);display:inline-flex;align-items:center;gap:4px;">
+              <button type="button" class="button-primary" data-approve-uid="${escapeHtml(acc.uid)}" style="padding:5px 12px;font-size:12px;background:var(--green);border-color:var(--green);display:inline-flex;align-items:center;gap:4px;">
                 <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
                 Phê duyệt
               </button>
-              <button type="button" class="button-danger" data-reject-acc-name="${escapeHtml(acc.name)}" style="padding:5px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+              <button type="button" class="button-danger" data-reject-uid="${escapeHtml(acc.uid)}" style="padding:5px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
                 Xóa
               </button>
             </div>
@@ -9778,11 +9749,12 @@
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:16px;">👤</span>
               <div>
-                <strong style="font-size:14px;color:var(--text);">${escapeHtml(acc.name)}</strong>
+                <strong style="font-size:14px;color:var(--text);">${escapeHtml(acc.name || acc.email || "Admin phụ")}</strong>
+                <span style="display:block;font-size:11px;color:var(--muted);">${escapeHtml(acc.email || "")}</span>
                 <span style="display:block;font-size:11px;color:var(--green);font-weight:600;">✓ Đã phê duyệt</span>
               </div>
             </div>
-            <button type="button" class="button-danger" data-reject-acc-name="${escapeHtml(acc.name)}" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+            <button type="button" class="button-danger" data-revoke-uid="${escapeHtml(acc.uid)}" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
               <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M3 6h18M8 6V4h8v2m-1 4v8M9 10v8M5 6l1 15h12l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Thu hồi / Xóa
             </button>
@@ -9794,17 +9766,14 @@
     }
 
     function isSuperAdmin() {
-      return isAdmin() && currentAdminName === SUPER_ADMIN_NAME;
+      return isAdmin() && currentUserIsSuperAdmin;
     }
 
     function openAdminAccModal() {
-      renderAdminAccList();
-      const errEl = document.getElementById("addAdminAccError");
-      if (errEl) errEl.style.display = "none";
-      const nameInput = document.getElementById("newAdminName");
-      const passInput = document.getElementById("newAdminPass");
-      if (nameInput) nameInput.value = "";
-      if (passInput) passInput.value = "";
+      renderAdminAccList().catch(error => {
+        console.error("Admin list load error:", error);
+        showToast("Không thể tải danh sách Admin từ Firebase.");
+      });
       const modal = document.getElementById("adminAccountModal");
       if (modal) modal.classList.add("open");
       syncModalScrollLock();
@@ -9861,74 +9830,41 @@
       populateAdminNameDropdown();
     });
 
-    document.getElementById("addAdminAccBtn")?.addEventListener("click", () => {
-      const nameInput = document.getElementById("newAdminName");
-      const passInput = document.getElementById("newAdminPass");
-      const errEl = document.getElementById("addAdminAccError");
-      if (!nameInput || !passInput) return;
+    document.getElementById("adminAccountModal")?.addEventListener("click", async (e) => {
+      const approveBtn = e.target.closest("[data-approve-uid]");
+      const rejectBtn = e.target.closest("[data-reject-uid]");
+      const revokeBtn = e.target.closest("[data-revoke-uid]");
+      if (!approveBtn && !rejectBtn && !revokeBtn) return;
+      if (!isSuperAdmin() || !firebaseDb) return;
 
-      const name = nameInput.value.trim();
-      const pass = passInput.value.trim();
-
-      if (!name || !pass) {
-        if (errEl) {
-          errEl.textContent = "Vui lòng nhập đầy đủ Tên Admin và Mật khẩu.";
-          errEl.style.display = "block";
+      try {
+        if (approveBtn) {
+          const uid = approveBtn.dataset.approveUid;
+          const requestSnapshot = await firebaseDb.ref(`admin_requests/${uid}`).once("value");
+          const request = requestSnapshot.val();
+          if (!request) return;
+          await firebaseDb.ref().update({
+            [`admin_access/${uid}`]: {
+              active: true,
+              email: request.email || "",
+              name: request.name || request.email || "Admin phụ",
+              approvedAt: firebase.database.ServerValue.TIMESTAMP,
+              approvedBy: firebaseAuth.currentUser.uid
+            },
+            [`admin_requests/${uid}`]: null
+          });
+          showToast(`🟢 Đã phê duyệt Admin: ${request.email || request.name}`);
+        } else if (rejectBtn) {
+          await firebaseDb.ref(`admin_requests/${rejectBtn.dataset.rejectUid}`).remove();
+          showToast("🗑️ Đã từ chối yêu cầu Admin.");
+        } else {
+          await firebaseDb.ref(`admin_access/${revokeBtn.dataset.revokeUid}`).remove();
+          showToast("🔒 Đã thu hồi quyền Admin phụ.");
         }
-        return;
-      }
-
-      if (name === SUPER_ADMIN_NAME) {
-        if (errEl) {
-          errEl.textContent = "Tên tài khoản này trùng với Super Admin.";
-          errEl.style.display = "block";
-        }
-        return;
-      }
-
-      const accounts = getAdminAccounts();
-      if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) {
-        if (errEl) {
-          errEl.textContent = "Tên Admin này đã tồn tại.";
-          errEl.style.display = "block";
-        }
-        return;
-      }
-
-      accounts.push({ name, password: pass, status: "approved", createdAt: Date.now() });
-      saveAdminAccounts(accounts);
-      if (errEl) errEl.style.display = "none";
-      nameInput.value = "";
-      passInput.value = "";
-      renderAdminAccList();
-      populateAdminNameDropdown();
-      showToast(`Đã tạo và phê duyệt thành công tài khoản Admin: ${name}`);
-    });
-
-    document.getElementById("adminAccountModal")?.addEventListener("click", (e) => {
-      const approveBtn = e.target.closest("[data-approve-acc-name]");
-      const rejectBtn = e.target.closest("[data-reject-acc-name]");
-      if (!approveBtn && !rejectBtn) return;
-
-      const accounts = getAdminAccounts();
-
-      if (approveBtn) {
-        const name = approveBtn.dataset.approveAccName;
-        const target = accounts.find(a => a.name === name);
-        if (target) {
-          target.status = "approved";
-          saveAdminAccounts(accounts);
-          renderAdminAccList();
-          populateAdminNameDropdown();
-          showToast(`🟢 Đã phê duyệt tài khoản Admin [${name}] thành công!`);
-        }
-      } else if (rejectBtn) {
-        const name = rejectBtn.dataset.rejectAccName;
-        const filtered = accounts.filter(a => a.name !== name);
-        saveAdminAccounts(filtered);
-        renderAdminAccList();
-        populateAdminNameDropdown();
-        showToast(`🗑️ Đã xóa / từ chối tài khoản Admin [${name}].`);
+        await renderAdminAccList();
+      } catch (error) {
+        console.error("Admin approval error:", error);
+        showToast("Không thể cập nhật quyền Admin. Hãy kiểm tra Firebase Rules.");
       }
     });
 
@@ -13040,7 +12976,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.02.v8-auth";
+    const CURRENT_APP_VERSION = "2026.10.02.v9-admin-approval";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
