@@ -4661,6 +4661,10 @@
                 <svg viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
               </button>
             </div>
+            <button type="button" id="forgotAdminPasswordBtn"
+              style="display:block;margin:8px 0 0 auto;padding:2px 0;border:0;background:transparent;color:var(--cyan);font-size:12.5px;font-weight:650;cursor:pointer;">
+              Quên mật khẩu? Gửi email đặt lại
+            </button>
             <div class="auth-error-msg" id="adminLoginError" style="display:none;">
               <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
               <span>Mật khẩu không chính xác. Vui lòng thử lại!</span>
@@ -9594,6 +9598,39 @@
     elements.adminPasswordInput.addEventListener("input", () => {
       elements.adminLoginError.style.display = "none";
     });
+    document.getElementById("forgotAdminPasswordBtn")?.addEventListener("click", async () => {
+      const email = elements.adminEmailInput?.value.trim();
+      const errEl = elements.adminLoginError;
+      const button = document.getElementById("forgotAdminPasswordBtn");
+      if (!email) {
+        if (errEl) {
+          errEl.querySelector("span").textContent = "Vui lòng nhập email Admin trước.";
+          errEl.style.display = "flex";
+        }
+        elements.adminEmailInput?.focus();
+        return;
+      }
+      if (!firebaseAuth) return;
+      if (button) button.disabled = true;
+      try {
+        await firebaseAuth.sendPasswordResetEmail(email);
+        if (errEl) errEl.style.display = "none";
+        showToast("📧 Đã gửi email đặt lại mật khẩu. Hãy kiểm tra Hộp thư đến hoặc Spam.");
+      } catch (error) {
+        console.error("Firebase password reset error:", error?.code || error);
+        if (errEl) {
+          const resetMessages = {
+            "auth/invalid-email": "Email không hợp lệ.",
+            "auth/user-not-found": "Không tìm thấy tài khoản với email này.",
+            "auth/too-many-requests": "Đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau."
+          };
+          errEl.querySelector("span").textContent = resetMessages[error?.code] || "Không thể gửi email đặt lại mật khẩu.";
+          errEl.style.display = "flex";
+        }
+      } finally {
+        if (button) button.disabled = false;
+      }
+    });
     elements.adminLoginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = elements.adminEmailInput?.value.trim();
@@ -12979,7 +13016,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.02.v9-admin-approval";
+    const CURRENT_APP_VERSION = "2026.10.02.v10-password-reset";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
