@@ -3302,6 +3302,37 @@
       color: var(--text);
       text-align: right;
     }
+    .att-reward-settings {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 24px;
+      padding: 12px 0;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 12.5px;
+    }
+    .att-threshold-control {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-weight: 700;
+    }
+    .att-reward-summary { color: var(--muted); line-height: 1.6; }
+    .att-reward-summary strong { color: var(--text); }
+    .col-reward-points { width: 100px; min-width: 100px; font-weight: 700; }
+    .col-eligibility { width: 145px; min-width: 145px; }
+    .att-eligibility {
+      display: inline-block;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+    .att-eligibility.eligible { color: var(--green); background: var(--green-soft); }
+    .att-eligibility.ineligible { color: var(--red); background: var(--red-soft); }
+    .col-percent .att-badge { display: inline-block; max-width: 75px; white-space: normal; overflow-wrap: anywhere; }
     .att-toolbar {
       display: flex;
       align-items: center;
@@ -4296,7 +4327,7 @@
                 <input type="number" class="att-pool-input" id="attDiasPoolInput" value="52500" min="0" step="100" title="Nhập tổng quỹ DIAS tuần này">
                 <span class="att-pool-unit">DIAS</span>
               </div>
-              <div class="att-stat-sub">Hệ số: <strong id="attDiasRateText">0</strong> DIAS / Điểm quy đổi</div>
+              <div class="att-stat-sub">Hệ số: <strong id="attDiasRateText">0</strong> DIAS / Reward P.Point</div>
             </div>
 
             <div class="att-stat-card pool-usdt">
@@ -4308,7 +4339,7 @@
                 <input type="number" class="att-pool-input" id="attUsdtPoolInput" value="867" min="0" step="0.01" title="Nhập tổng quỹ USDT tuần này">
                 <span class="att-pool-unit">USDT</span>
               </div>
-              <div class="att-stat-sub">Hệ số: <strong id="attUsdtRateText">0</strong> USDT / Điểm quy đổi</div>
+              <div class="att-stat-sub">Hệ số: <strong id="attUsdtRateText">0</strong> USDT / Reward P.Point</div>
             </div>
 
             <div class="att-stat-card stat-members">
@@ -4321,6 +4352,17 @@
               <div class="att-stat-label">⭐ Tổng Điểm Quy Đổi (Guild)</div>
               <div class="att-stat-number" id="attTotalGuildPPoints">0</div>
               <div class="att-stat-sub">Tổng điểm thực tế: <strong id="attTotalGuildRawPoints">0</strong> điểm</div>
+            </div>
+          </div>
+          <div class="att-reward-settings">
+            <div class="att-threshold-control">
+              <label for="attMinimumParticipationInput">Điều kiện nhận thưởng</label>
+              <input type="number" class="att-pool-input" id="attMinimumParticipationInput" value="0" min="0" max="100" step="any" inputmode="decimal" aria-label="Phần trăm tham gia tối thiểu">
+              <span>%</span>
+            </div>
+            <div class="att-reward-summary" aria-live="polite">
+              <strong id="attThresholdText">Ngưỡng nhận thưởng: ≥ 0%</strong><br>
+              Reward P.Point: <strong id="attTotalEligiblePPoints">0</strong> · <span id="attEligibilitySummary">0 đủ điều kiện · 0 không đạt</span>
             </div>
           </div>
           <div class="att-server-summary" id="attServerSummary"></div>
@@ -4395,9 +4437,8 @@
           </div>
           <div class="att-table-legend">
             <span><strong>Ghi chú:</strong></span>
-            <span class="legend-item"><span class="badge-dot badge-red"></span> &lt; 25% tham gia (Cần cảnh báo/kích hoạt)</span>
-            <span class="legend-item"><span class="badge-dot badge-blue"></span> &ge; 50% tham gia (Đạt chỉ tiêu tích cực)</span>
-            <span class="legend-item"><em>Chỉ Admin mới có quyền tích chấm công, sửa điểm và thêm/bớt boss hay thành viên. Thành viên chỉ được xem.</em></span>
+            <span class="legend-item"><span class="badge-dot badge-red"></span> Không đạt ngưỡng nhận thưởng</span>
+            <span class="legend-item"><span class="badge-dot badge-blue"></span> Đủ điều kiện nhận thưởng</span>
           </div>
         </div>
       </section>
@@ -5352,6 +5393,11 @@
             <label for="attWeekUsdtPoolInput">💵 Quỹ USDT Tuần Này</label>
             <input type="number" id="attWeekUsdtPoolInput" min="0" step="0.01" value="867">
           </div>
+        </div>
+
+        <div class="form-field" style="margin-bottom: 14px;">
+          <label for="attWeekMinimumParticipationInput">Điều kiện nhận thưởng (%)</label>
+          <input type="number" id="attWeekMinimumParticipationInput" value="0" min="0" max="100" step="any" inputmode="decimal">
         </div>
 
         <div class="form-field" id="attWeekCloneWrap" style="margin-bottom: 16px;">
@@ -10850,6 +10896,7 @@
           dateRange: "22/09 - 28/09",
           diasPool: 52500,
           usdtPool: 867,
+          minimumParticipationPercent: 0,
           activities: DEFAULT_ATT_ACTIVITIES,
           members: DEFAULT_ATT_MEMBERS
         }
@@ -10941,6 +10988,10 @@
       };
     }
 
+    function normalizeMinimumParticipationPercent(value) {
+      return Math.min(100, Math.max(0, Number(value) || 0));
+    }
+
     function normalizeAttendanceState(parsed, fallbackServerId) {
       let stateObj = parsed && typeof parsed === "object" ? parsed : JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
       const persistedWeeks = Array.isArray(stateObj.weeks);
@@ -10952,6 +11003,7 @@
           dateRange: stateObj.dateRange || "22/09 - 28/09",
           diasPool: typeof stateObj.diasPool === "number" ? stateObj.diasPool : 52500,
           usdtPool: typeof stateObj.usdtPool === "number" ? stateObj.usdtPool : 867,
+          minimumParticipationPercent: normalizeMinimumParticipationPercent(stateObj.minimumParticipationPercent),
           activities: Array.isArray(stateObj.activities) ? stateObj.activities : JSON.parse(JSON.stringify(DEFAULT_ATT_ACTIVITIES)),
           members: Array.isArray(stateObj.members) ? stateObj.members : JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS))
         };
@@ -10978,6 +11030,7 @@
         if (!Array.isArray(w.members)) w.members = persistedWeeks ? [] : JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS));
         w.diasPool = Math.max(0, Math.round(Number(w.diasPool) || 0));
         w.usdtPool = Math.max(0, parseFloat(w.usdtPool) || 0);
+        w.minimumParticipationPercent = normalizeMinimumParticipationPercent(w.minimumParticipationPercent);
 
         const usedIds = new Set();
         w.members = w.members.map(m => normalizeAttendanceMember(m, fallbackServerId, usedIds));
@@ -11074,6 +11127,7 @@
               dateRange: sourceWeek.dateRange || "",
               diasPool: sourceWeek.diasPool || 0,
               usdtPool: sourceWeek.usdtPool || 0,
+              minimumParticipationPercent: sourceWeek.minimumParticipationPercent,
               activities: [],
               members: []
             };
@@ -11231,6 +11285,7 @@
       const dateInput = document.getElementById("attWeekDateRangeInput");
       const diasInput = document.getElementById("attWeekDiasPoolInput");
       const usdtInput = document.getElementById("attWeekUsdtPoolInput");
+      const thresholdInput = document.getElementById("attWeekMinimumParticipationInput");
       const cloneWrap = document.getElementById("attWeekCloneWrap");
       const cloneOpt = document.getElementById("attWeekCloneOption");
       const delBtn = document.getElementById("attWeekModalDelBtn");
@@ -11248,6 +11303,7 @@
         if (dateInput) dateInput.value = target.dateRange || "";
         if (diasInput) diasInput.value = target.diasPool || 0;
         if (usdtInput) usdtInput.value = target.usdtPool || 0;
+        if (thresholdInput) thresholdInput.value = normalizeMinimumParticipationPercent(target.minimumParticipationPercent);
         if (cloneWrap) cloneWrap.style.display = "none";
         if (delBtn) delBtn.style.display = (attendanceState.weeks && attendanceState.weeks.length > 1) ? "inline-flex" : "none";
       } else {
@@ -11260,6 +11316,7 @@
         if (dateInput) dateInput.value = getSuggestedWeekRange(0);
         if (diasInput) diasInput.value = currWeek?.diasPool || 52500;
         if (usdtInput) usdtInput.value = currWeek?.usdtPool || 867;
+        if (thresholdInput) thresholdInput.value = normalizeMinimumParticipationPercent(currWeek?.minimumParticipationPercent);
         if (cloneWrap) cloneWrap.style.display = "block";
         if (cloneOpt) cloneOpt.checked = true;
         if (delBtn) delBtn.style.display = "none";
@@ -11283,6 +11340,7 @@
       const dateInput = document.getElementById("attWeekDateRangeInput");
       const diasInput = document.getElementById("attWeekDiasPoolInput");
       const usdtInput = document.getElementById("attWeekUsdtPoolInput");
+      const thresholdInput = document.getElementById("attWeekMinimumParticipationInput");
       const cloneOpt = document.getElementById("attWeekCloneOption");
       const errEl = document.getElementById("attWeekModalError");
 
@@ -11290,6 +11348,7 @@
       const dateRange = (dateInput?.value || "").trim();
       const diasPool = Math.max(0, parseInt(diasInput?.value, 10) || 0);
       const usdtPool = Math.max(0, parseFloat(usdtInput?.value) || 0);
+      const minimumParticipationPercent = normalizeMinimumParticipationPercent(thresholdInput?.value);
       const editId = (editIdInput?.value || "").trim();
 
       if (!name) {
@@ -11307,6 +11366,7 @@
           target.dateRange = dateRange;
           target.diasPool = diasPool;
           target.usdtPool = usdtPool;
+          target.minimumParticipationPercent = minimumParticipationPercent;
           showToast(`✅ Đã cập nhật "${name}"!`);
         }
       } else {
@@ -11337,6 +11397,7 @@
           dateRange,
           diasPool,
           usdtPool,
+          minimumParticipationPercent,
           activities: copiedActivities,
           members: copiedMembers,
           createdAt: Date.now()
@@ -11607,6 +11668,10 @@
       return Number.isInteger(num) ? String(num) : Number(num.toFixed(2)).toString();
     }
 
+    function formatParticipationPercent(value) {
+      return Number(Number(value).toPrecision(15)).toString();
+    }
+
     function allocateLargestRemainder(weights, totalUnits) {
       if (!weights || weights.length === 0 || totalUnits <= 0) {
         return (weights || []).map(() => 0);
@@ -11682,7 +11747,7 @@
     }
 
     function calculateAttendanceData(stateObj) {
-      if (!stateObj) return { membersCalc: [], serverSummaries: [], totalGuildRawPoints: 0, totalGuildPPoints: 0, maxPossiblePoints: 0, diasPool: 0, usdtPool: 0, diasRate: 0, usdtRate: 0, activitiesCount: 0, membersCount: 0 };
+      if (!stateObj) return { membersCalc: [], serverSummaries: [], totalGuildRawPoints: 0, totalGuildPPoints: 0, totalEligiblePPoints: 0, minimumParticipationPercent: 0, eligibleMembersCount: 0, ineligibleMembersCount: 0, maxPossiblePoints: 0, diasPool: 0, usdtPool: 0, diasRate: 0, usdtRate: 0, activitiesCount: 0, membersCount: 0 };
 
       let week = stateObj;
       if (stateObj.weeks && Array.isArray(stateObj.weeks) && stateObj.weeks.length > 0) {
@@ -11693,11 +11758,13 @@
       const members = week?.members || [];
       const diasPool = Math.max(0, Math.round(Number(week?.diasPool) || 0));
       const usdtPool = Math.max(0, parseFloat(week?.usdtPool) || 0);
+      const minimumParticipationPercent = normalizeMinimumParticipationPercent(week?.minimumParticipationPercent);
 
       const maxPossiblePoints = activities.reduce((sum, act) => sum + (Number(act.points) || 0), 0);
 
       let totalGuildRawPoints = 0;
       let totalGuildPPoints = 0;
+      let totalEligiblePPoints = 0;
       const serverSummaryMap = new Map();
 
       const membersCalc = members.map(m => {
@@ -11713,10 +11780,16 @@
 
         const multiplier = Number(m.multiplier) || 1.0;
         const pPoints = rawPoints * multiplier;
-        const percent = maxPossiblePoints > 0 ? (rawPoints / maxPossiblePoints) * 100 : 0;
+        // Multiply first so exact boundaries such as 58% do not drift below the threshold.
+        const percent = maxPossiblePoints > 0
+          ? (rawPoints === maxPossiblePoints ? 100 : (rawPoints * 100) / maxPossiblePoints)
+          : 0;
+        const eligible = percent >= minimumParticipationPercent;
+        const eligiblePPoints = eligible ? pPoints : 0;
 
         totalGuildRawPoints += rawPoints;
         totalGuildPPoints += pPoints;
+        totalEligiblePPoints += eligiblePPoints;
 
         if (!serverSummaryMap.has(serverId)) {
           serverSummaryMap.set(serverId, { serverId, serverName, members: 0, rawPoints: 0, pPoints: 0 });
@@ -11733,27 +11806,27 @@
           rawPoints,
           multiplier,
           pPoints,
-          percent
+          percent,
+          eligible,
+          eligiblePPoints,
+          dias: 0,
+          usdt: 0
         };
       });
 
-      const diasRate = totalGuildPPoints > 0 ? (diasPool / totalGuildPPoints) : 0;
-      const usdtRate = totalGuildPPoints > 0 ? (usdtPool / totalGuildPPoints) : 0;
+      const diasRate = totalEligiblePPoints > 0 ? (diasPool / totalEligiblePPoints) : 0;
+      const usdtRate = totalEligiblePPoints > 0 ? (usdtPool / totalEligiblePPoints) : 0;
 
       // Final rewards using Largest Remainder Method (Hamilton method)
-      if (totalGuildPPoints > 0) {
-        const rawPtsList = membersCalc.map(m => m.pPoints);
+      if (totalEligiblePPoints > 0) {
+        const rewardedMembers = membersCalc.filter(m => m.eligible && m.eligiblePPoints > 0);
+        const rawPtsList = rewardedMembers.map(m => m.eligiblePPoints);
         const diasAlloc = allocateLargestRemainder(rawPtsList, diasPool);
         const usdtCentsAlloc = allocateLargestRemainder(rawPtsList, Math.round(usdtPool * 100));
 
-        membersCalc.forEach((m, idx) => {
+        rewardedMembers.forEach((m, idx) => {
           m.dias = diasAlloc[idx];
           m.usdt = usdtCentsAlloc[idx] / 100;
-        });
-      } else {
-        membersCalc.forEach(m => {
-          m.dias = 0;
-          m.usdt = 0;
         });
       }
 
@@ -11772,6 +11845,10 @@
         serverSummaries,
         totalGuildRawPoints,
         totalGuildPPoints,
+        totalEligiblePPoints,
+        minimumParticipationPercent,
+        eligibleMembersCount: membersCalc.filter(m => m.eligible).length,
+        ineligibleMembersCount: membersCalc.filter(m => !m.eligible).length,
         maxPossiblePoints,
         diasPool,
         usdtPool,
@@ -11823,6 +11900,20 @@
       const guildRawPointsEl = document.getElementById("attTotalGuildRawPoints");
       if (guildRawPointsEl) guildRawPointsEl.textContent = calc.totalGuildRawPoints.toLocaleString("vi-VN");
 
+      const thresholdInput = document.getElementById("attMinimumParticipationInput");
+      if (thresholdInput) {
+        if (document.activeElement !== thresholdInput || normalizeMinimumParticipationPercent(thresholdInput.value) !== calc.minimumParticipationPercent) {
+          thresholdInput.value = calc.minimumParticipationPercent;
+        }
+        thresholdInput.readOnly = !isAdmin();
+      }
+      const thresholdText = document.getElementById("attThresholdText");
+      if (thresholdText) thresholdText.textContent = `Ngưỡng nhận thưởng: ≥ ${calc.minimumParticipationPercent}%`;
+      const eligiblePPointsEl = document.getElementById("attTotalEligiblePPoints");
+      if (eligiblePPointsEl) eligiblePPointsEl.textContent = formatPoints(calc.totalEligiblePPoints);
+      const eligibilitySummary = document.getElementById("attEligibilitySummary");
+      if (eligibilitySummary) eligibilitySummary.textContent = `${calc.eligibleMembersCount} đủ điều kiện · ${calc.ineligibleMembersCount} không đạt`;
+
       const weekLabel = document.getElementById("attWeekLabel");
       if (weekLabel) {
         weekLabel.textContent = currWeek?.name || "Tuần Này";
@@ -11871,9 +11962,11 @@
         <th class="col-sticky col-mult">Hệ Số</th>
         <th class="col-sticky col-usdt">💵 USDT</th>
         <th class="col-sticky col-dias">💎 DIAS</th>
-        <th class="col-sticky col-ppoints">⭐ Điểm QĐ</th>
+        <th class="col-sticky col-ppoints">P.Point<br>thực tế</th>
         <th class="col-sticky col-raw">📊 Điểm Thô</th>
-        <th class="col-sticky col-percent">🎯 % Tham Gia</th>`;
+        <th class="col-sticky col-percent">🎯 % Tham Gia</th>
+        <th class="col-reward-points">Reward<br>P.Point</th>
+        <th class="col-eligibility">Điều kiện thưởng</th>`;
 
       activities.forEach((act) => {
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
@@ -11930,7 +12023,7 @@
       if (!bodyEl) return;
 
       if (filteredMembers.length === 0) {
-        const colSpanTotal = 9 + activities.length + (adminMode ? 1 : 0);
+        const colSpanTotal = 11 + activities.length + (adminMode ? 1 : 0);
         bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
           Không tìm thấy thành viên nào phù hợp.
         </td></tr>`;
@@ -11939,9 +12032,7 @@
 
       let bodyHtml = "";
       filteredMembers.forEach((m, idx) => {
-        let badgeClass = "att-badge-mid";
-        if (m.percent < 25) badgeClass = "att-badge-low";
-        else if (m.percent >= 50) badgeClass = "att-badge-high";
+        const badgeClass = m.eligible ? "att-badge-high" : "att-badge-low";
 
         bodyHtml += `<tr data-member-id="${escapeHtml(m.id)}">
           <td class="col-sticky col-stt">${idx + 1}</td>
@@ -11970,7 +12061,13 @@
             <span class="val-raw">${m.rawPoints}</span>
           </td>
           <td class="col-sticky col-percent">
-            <span class="att-badge ${badgeClass}">${m.percent.toFixed(0)}%</span>
+            <span class="att-badge ${badgeClass}" title="${m.percent}%">${formatParticipationPercent(m.percent)}%</span>
+          </td>
+          <td class="col-reward-points">
+            <span class="val-reward-ppoints">${formatPoints(m.eligiblePPoints)}</span>
+          </td>
+          <td class="col-eligibility">
+            <span class="att-eligibility ${m.eligible ? "eligible" : "ineligible"}">${m.eligible ? "✅ Đủ điều kiện" : "❌ Không đạt"}</span>
           </td>`;
 
         const records = m.records || {};
@@ -12474,28 +12571,32 @@
       let md = `📊 **BẢNG TỔNG KẾT CHẤM CÔNG & LƯƠNG GUILD**\n`;
       md += `🌐 **Phạm vi:** Toàn Guild / Tất cả Server\n`;
       md += `📅 **Tuần:** ${currWeek?.name || "Tuần hiện tại"}${currWeek?.dateRange ? ` (${currWeek.dateRange})` : ""}\n`;
+      md += `🎯 Điều kiện nhận thưởng: ≥ ${calc.minimumParticipationPercent}%\n`;
       md += `💎 **Quỹ Kim Cương (DIAS):** ${calc.diasPool.toLocaleString("vi-VN")} DIAS (Hệ số: ${calc.diasRate.toFixed(2)})\n`;
       md += `💵 **Quỹ USDT:** ${calc.usdtPool.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT (Hệ số: ${calc.usdtRate.toFixed(4)})\n`;
       md += `⭐ **Tổng P.Point Guild:** ${formatPoints(calc.totalGuildPPoints)} P.Point\n`;
+      md += `⭐ **Tổng Reward P.Point:** ${formatPoints(calc.totalEligiblePPoints)} P.Point\n`;
       md += `👥 **Tổng thành viên:** ${calc.membersCount} | **Hoạt động:** ${calc.activitiesCount} mục\n`;
       md += `─────────────────────────────────────────\n`;
       md += `\`\`\`\n`;
-      md += `STT | Tên Thành Viên | Server | Hệ Số | % Tham Gia | P.Point | DIAS  | USDT\n`;
-      md += `----+----------------+--------+-------+------------+---------+-------+-------\n`;
+      md += `STT | Tên Thành Viên | Server | Hệ Số | % Tham Gia | P.Point thực tế | Reward P.Point | Điều kiện | DIAS | USDT\n`;
+      md += `----+----------------+--------+-------+------------+----------------+----------------+-----------+------+------\n`;
 
       calc.membersCalc.forEach((m, idx) => {
         const stt = String(idx + 1).padEnd(3, " ");
         const name = String(m.name).padEnd(14, " ");
         const server = String(m.serverName || m.serverId || "").padEnd(6, " ");
         const mult = (`x${m.multiplier}`).padEnd(5, " ");
-        const pct = (`${m.percent.toFixed(0)}%`).padEnd(10, " ");
+        const pct = (`${formatParticipationPercent(m.percent)}%`).padEnd(10, " ");
         const pPts = formatPoints(m.pPoints).padEnd(7, " ");
+        const rewardPts = formatPoints(m.eligiblePPoints).padEnd(7, " ");
+        const eligibility = m.eligible ? "✅ Đủ điều kiện" : "❌ Không đạt";
         const dias = String(m.dias).padEnd(5, " ");
         const usdt = m.usdt.toFixed(2).padEnd(5, " ");
-        md += `${stt} | ${name} | ${server} | ${mult} | ${pct} | ${pPts} | ${dias} | ${usdt}\n`;
+        md += `${stt} | ${name} | ${server} | ${mult} | ${pct} | ${pPts} | ${rewardPts} | ${eligibility} | ${dias} | ${usdt}\n`;
       });
       md += `\`\`\`\n`;
-      md += `*Lưu ý: % Tham gia < 25% cần lưu ý tham gia Boss đầy đủ hơn để đạt thưởng tối đa.*`;
+      md += `*Thành viên tham gia dưới ${calc.minimumParticipationPercent}% không nhận DIAS/USDT; P.Point thực tế vẫn được giữ nguyên.*`;
 
       const textarea = document.getElementById("attExportTextarea");
       if (textarea) textarea.value = md;
@@ -12536,6 +12637,9 @@
 
       const usdtInput = document.getElementById("attUsdtPoolInput");
       if (usdtInput) usdtInput.readOnly = !adminMode;
+
+      const thresholdInput = document.getElementById("attMinimumParticipationInput");
+      if (thresholdInput) thresholdInput.readOnly = !adminMode;
 
       // Re-render table to toggle disabled states on checkboxes and show/hide admin columns
       renderAttendanceTable();
@@ -12664,6 +12768,27 @@
           renderAttendanceTable();
           showToast(`💵 Đã cập nhật Quỹ USDT: ${val.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`);
         });
+      }
+
+      const thresholdInput = document.getElementById("attMinimumParticipationInput");
+      if (thresholdInput) {
+        const updateThreshold = (event) => {
+          const currWeek = getActiveWeek();
+          if (!isAdmin()) {
+            thresholdInput.value = normalizeMinimumParticipationPercent(currWeek.minimumParticipationPercent);
+            return;
+          }
+          const threshold = normalizeMinimumParticipationPercent(thresholdInput.value);
+          if (event.type === "change" || Number(thresholdInput.value) < 0 || Number(thresholdInput.value) > 100) {
+            thresholdInput.value = threshold;
+          }
+          if (currWeek.minimumParticipationPercent === threshold) return;
+          currWeek.minimumParticipationPercent = threshold;
+          saveAttendanceState(attendanceState, true);
+          renderAttendanceTable();
+        };
+        thresholdInput.addEventListener("input", updateThreshold);
+        thresholdInput.addEventListener("change", updateThreshold);
       }
 
       // Search & Filter
