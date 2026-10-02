@@ -3596,8 +3596,26 @@
       accent-color: var(--cyan);
     }
     .att-checkbox:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
+      appearance: none;
+      -webkit-appearance: none;
+      display: inline-grid;
+      place-content: center;
+      cursor: default;
+      opacity: 1;
+      border: 2px solid #94a3b8;
+      border-radius: 3px;
+      background: var(--surface);
+    }
+    .att-checkbox:disabled:checked {
+      border-color: #0284c7;
+      background: #0284c7;
+    }
+    .att-checkbox:disabled:checked::after {
+      content: "✓";
+      color: #fff;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
     }
     .att-badge-low {
       background: #ef4444 !important;
@@ -13128,7 +13146,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.03.v14-clear-week-boss-columns";
+    const CURRENT_APP_VERSION = "2026.10.03.v15-member-attendance-visibility";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
