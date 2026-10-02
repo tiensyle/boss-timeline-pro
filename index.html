@@ -3429,6 +3429,30 @@
       border-color: rgba(226, 87, 76, 0.4) !important;
       background: var(--red-soft) !important;
     }
+    .att-server-summary {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: -2px 0 14px;
+    }
+    .att-server-summary-pill {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 8px 10px;
+      min-width: 150px;
+      display: grid;
+      gap: 3px;
+    }
+    .att-server-summary-pill strong {
+      font-size: 12.5px;
+      color: var(--text);
+    }
+    .att-server-summary-pill span {
+      font-size: 11.5px;
+      color: var(--muted);
+    }
     .att-table-scroll-wrap {
       width: 100%;
       max-height: 600px;
@@ -3459,6 +3483,38 @@
       position: sticky;
       top: 0;
       z-index: 10;
+    }
+    .col-sticky { position: sticky; z-index: 5; background: var(--surface); }
+    .col-stt { width: 38px; min-width: 38px; max-width: 38px; left: 0; font-weight: 700; }
+    .col-name { width: 140px; min-width: 140px; max-width: 170px; left: 38px; text-align: left !important; font-weight: 600; }
+    .col-server { width: 105px; min-width: 105px; left: 178px; font-weight: 700; color: var(--amber); }
+    .col-mult { width: 68px; min-width: 68px; left: 283px; }
+    .col-usdt { width: 72px; min-width: 72px; left: 351px; color: var(--green); font-weight: 700; }
+    .col-dias { width: 85px; min-width: 85px; left: 423px; color: var(--cyan); font-weight: 700; }
+    .col-ppoints { width: 75px; min-width: 75px; left: 508px; font-weight: 700; }
+    .col-raw { width: 65px; min-width: 65px; left: 583px; }
+    .col-percent { width: 75px; min-width: 75px; left: 648px; box-shadow: 2px 0 5px rgba(0,0,0,0.08); font-weight: 700; }
+    .att-table thead th.col-sticky {
+      z-index: 25 !important;
+      background: var(--surface-2) !important;
+    }
+    .att-table tr:hover td.col-sticky {
+      background: var(--surface-2);
+    }
+    .att-server-tag {
+      display: inline-flex;
+      align-items: center;
+      max-width: 96px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line-soft);
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-size: 11.5px;
+      font-weight: 800;
     }
     .att-col-stt { width: 38px; min-width: 38px; max-width: 38px; position: sticky; left: 0; z-index: 5; background: var(--surface); font-weight: 700; }
     .att-col-name { width: 140px; min-width: 140px; max-width: 170px; text-align: left !important; position: sticky; left: 38px; z-index: 5; background: var(--surface); font-weight: 600; }
@@ -4213,11 +4269,11 @@
             </div>
             <div>
               <div class="attendance-title-row">
-                <h2 class="attendance-title">Chấm Công & Lương Boss / Hoạt Động</h2>
+                <h2 class="attendance-title">Global Guild Attendance</h2>
                 <span class="attendance-badge-week" id="attWeekLabel">Tuần Này</span>
-                <span class="attendance-badge-server" id="attServerBadge">Server 1</span>
+                <span class="attendance-badge-server" id="attServerBadge">Toàn Guild • Tất cả Server</span>
               </div>
-              <div class="attendance-subtitle">Tự động tính điểm, tỷ lệ tham gia và chia thưởng Kim Cương (DIAS) & USDT theo hệ số</div>
+              <div class="attendance-subtitle">Một bảng chấm công toàn Guild, chia quỹ DIAS & USDT chung cho tất cả Server</div>
             </div>
           </div>
           <div class="attendance-header-actions">
@@ -4249,7 +4305,7 @@
                 <span class="att-admin-tag" id="attUsdtAdminTag" style="display:none;">Admin</span>
               </div>
               <div class="att-stat-val-row">
-                <input type="number" class="att-pool-input" id="attUsdtPoolInput" value="867" min="0" step="1" title="Nhập tổng quỹ USDT tuần này">
+                <input type="number" class="att-pool-input" id="attUsdtPoolInput" value="867" min="0" step="0.01" title="Nhập tổng quỹ USDT tuần này">
                 <span class="att-pool-unit">USDT</span>
               </div>
               <div class="att-stat-sub">Hệ số: <strong id="attUsdtRateText">0</strong> USDT / Điểm quy đổi</div>
@@ -4267,6 +4323,7 @@
               <div class="att-stat-sub">Tổng điểm thực tế: <strong id="attTotalGuildRawPoints">0</strong> điểm</div>
             </div>
           </div>
+          <div class="att-server-summary" id="attServerSummary"></div>
 
           <!-- Week Selector Bar -->
           <div class="att-week-bar" id="attWeekBar">
@@ -4285,7 +4342,12 @@
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" id="attSearchInput" placeholder="Tìm tên thành viên..." class="att-search-input">
+                <input type="text" id="attSearchInput" placeholder="Tìm tên, server, vai trò..." class="att-search-input">
+              </div>
+              <div class="att-filter-wrap">
+                <select id="attFilterServer" class="att-select">
+                  <option value="all">Tất cả Server</option>
+                </select>
               </div>
               <div class="att-filter-wrap">
                 <select id="attFilterMultiplier" class="att-select">
@@ -5123,6 +5185,11 @@
           <input type="text" id="attMemberNameInput" required maxlength="40" placeholder="Ví dụ: Venarius, Ông3Bi, ...">
         </div>
 
+        <div class="form-field" style="margin-bottom: 14px;">
+          <label for="attMemberServerSelect">Server <span style="color: var(--red);">*</span></label>
+          <select id="attMemberServerSelect" class="att-select" style="width: 100%;"></select>
+        </div>
+
         <!-- ĐỔI MÀU CHỮ THÀNH VIÊN -->
         <div class="form-field" style="margin-bottom: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -5283,7 +5350,7 @@
           </div>
           <div class="form-field">
             <label for="attWeekUsdtPoolInput">💵 Quỹ USDT Tuần Này</label>
-            <input type="number" id="attWeekUsdtPoolInput" min="0" step="10" value="867">
+            <input type="number" id="attWeekUsdtPoolInput" min="0" step="0.01" value="867">
           </div>
         </div>
 
@@ -5631,15 +5698,19 @@
           statePath: "boss_timeline_state",
           discordPath: "boss_timeline_discord_config",
           alertsPath: "boss_timeline_discord_alerts",
-          attendancePath: "boss_timeline_attendance"
+          attendancePath: "boss_timeline_attendance_global"
         };
       }
       return {
         statePath: `boss_timeline_servers/${svId}/state`,
         discordPath: `boss_timeline_servers/${svId}/discord_config`,
         alertsPath: `boss_timeline_servers/${svId}/discord_alerts`,
-        attendancePath: `boss_timeline_servers/${svId}/attendance`
+        attendancePath: "boss_timeline_attendance_global"
       };
+    }
+
+    function getLegacyFirebaseAttendancePath(svId) {
+      return svId === "s1" ? "boss_timeline_attendance" : `boss_timeline_servers/${svId}/attendance`;
     }
 
     function updateServerDatabaseRefs(svId) {
@@ -10367,9 +10438,6 @@
 
       STORAGE_KEY = "bossTimelinePro.v1_" + currentServerId;
       STORAGE_DISCORD_KEY = "bossTimelinePro.discordConfig_" + currentServerId;
-      if (typeof STORAGE_ATTENDANCE_KEY !== "undefined") {
-        STORAGE_ATTENDANCE_KEY = "bossTimelinePro.attendance_" + currentServerId;
-      }
 
       updateServerDatabaseRefs(currentServerId);
 
@@ -10377,11 +10445,8 @@
       state = loadState();
       discordConfig = loadDiscordConfig();
       activeDiscordNotified = {};
-      if (typeof loadAttendanceState === "function") {
-        attendanceState = loadAttendanceState();
-        if (typeof initAttendanceRealtimeSync === "function") initAttendanceRealtimeSync();
-        if (typeof renderAttendanceTable === "function") renderAttendanceTable();
-      }
+      if (typeof initAttendanceRealtimeSync === "function") initAttendanceRealtimeSync();
+      if (typeof renderAttendanceTable === "function") renderAttendanceTable();
 
       updateServerSwitcherButton();
       renderServerListUI();
@@ -10710,7 +10775,10 @@
     /* ==========================================================================
        BẢNG CHẤM CÔNG & TỰ ĐỘNG TÍNH LƯƠNG HOẠT ĐỘNG / BOSS
        ========================================================================== */
-    let STORAGE_ATTENDANCE_KEY = `bossTimelinePro.attendance_${currentServerId}`;
+    const STORAGE_ATTENDANCE_KEY = "bossTimelinePro.attendance_global";
+    const LEGACY_ATTENDANCE_PREFIX = "bossTimelinePro.attendance_";
+    const ATTENDANCE_SCHEMA_VERSION = 2;
+    const ATTENDANCE_MIGRATION_VERSION = 1;
 
     const DEFAULT_ATT_ACTIVITIES = [
       { id: "act_1", date: "T2 22/09", name: "Amentis 19h", points: 3 },
@@ -10753,6 +10821,8 @@
     ];
 
     const DEFAULT_ATTENDANCE_STATE = {
+      schemaVersion: ATTENDANCE_SCHEMA_VERSION,
+      migrationVersion: ATTENDANCE_MIGRATION_VERSION,
       activeWeekId: "week_1",
       updatedAt: Date.now(),
       updatedBy: "system",
@@ -10771,9 +10841,246 @@
 
     let attendanceState = null;
     let attendanceSearchTerm = "";
+    let attendanceServerFilter = "all";
     let attendanceMultiplierFilter = "all";
     let attendanceRemoteSaveInFlight = false;
     let attendancePendingRemoteSave = false;
+    let attendanceFirebaseMigrationInFlight = false;
+
+    function getDefaultAttendanceServerId() {
+      if (serverList.some(s => s.id === currentServerId)) return currentServerId;
+      return serverList[0]?.id || "s1";
+    }
+
+    function getServerNameById(serverId) {
+      const resolvedId = serverId || getDefaultAttendanceServerId();
+      const server = serverList.find(s => s.id === resolvedId);
+      return server?.name || resolvedId || "Chưa gán";
+    }
+
+    function cloneDefaultAttendanceState() {
+      return normalizeAttendanceState(JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE)), getDefaultAttendanceServerId());
+    }
+
+    function normalizeAttendanceMember(member, fallbackServerId, usedIds = null) {
+      const source = member && typeof member === "object" ? member : {};
+      const serverId = source.serverId || fallbackServerId || getDefaultAttendanceServerId();
+      const baseId = String(source.id || ("m_" + Date.now().toString(36))).trim();
+      let finalId = baseId;
+
+      if (usedIds) {
+        if (usedIds.has(finalId)) {
+          finalId = `${serverId}_${baseId}`;
+          let suffix = 2;
+          while (usedIds.has(finalId)) {
+            finalId = `${serverId}_${baseId}_${suffix}`;
+            suffix += 1;
+          }
+        }
+        usedIds.add(finalId);
+      }
+
+      return {
+        ...source,
+        id: finalId,
+        name: String(source.name || "Thành viên").trim() || "Thành viên",
+        serverId,
+        multiplier: parseFloat(source.multiplier) || 1,
+        role: source.role || "Member",
+        color: source.color || "",
+        roleColor: source.roleColor || "",
+        records: source.records && typeof source.records === "object" ? { ...source.records } : {}
+      };
+    }
+
+    function normalizeAttendanceState(parsed, fallbackServerId) {
+      let stateObj = parsed && typeof parsed === "object" ? parsed : JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+
+      if (!stateObj.weeks || !Array.isArray(stateObj.weeks) || stateObj.weeks.length === 0) {
+        const legacyWeek = {
+          id: "week_1",
+          name: stateObj.name || "Tuần 1",
+          dateRange: stateObj.dateRange || "22/09 - 28/09",
+          diasPool: typeof stateObj.diasPool === "number" ? stateObj.diasPool : 52500,
+          usdtPool: typeof stateObj.usdtPool === "number" ? stateObj.usdtPool : 867,
+          activities: Array.isArray(stateObj.activities) ? stateObj.activities : JSON.parse(JSON.stringify(DEFAULT_ATT_ACTIVITIES)),
+          members: Array.isArray(stateObj.members) ? stateObj.members : JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS))
+        };
+        stateObj = {
+          schemaVersion: ATTENDANCE_SCHEMA_VERSION,
+          migrationVersion: ATTENDANCE_MIGRATION_VERSION,
+          activeWeekId: "week_1",
+          updatedAt: stateObj.updatedAt || Date.now(),
+          updatedBy: stateObj.updatedBy || "migration",
+          weeks: [legacyWeek]
+        };
+      }
+
+      stateObj.schemaVersion = ATTENDANCE_SCHEMA_VERSION;
+      stateObj.migrationVersion = Math.max(Number(stateObj.migrationVersion) || 0, ATTENDANCE_MIGRATION_VERSION);
+      stateObj.updatedAt = stateObj.updatedAt || Date.now();
+      stateObj.updatedBy = stateObj.updatedBy || "system";
+
+      stateObj.weeks.forEach((w, idx) => {
+        if (!w.id) w.id = `week_${idx + 1}`;
+        if (!w.name) w.name = `Tuần ${idx + 1}`;
+        if (!w.dateRange) w.dateRange = idx === 0 ? "22/09 - 28/09" : `Tuần ${idx + 1}`;
+        if (!Array.isArray(w.activities)) w.activities = JSON.parse(JSON.stringify(DEFAULT_ATT_ACTIVITIES));
+        if (!Array.isArray(w.members)) w.members = JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS));
+        w.diasPool = Math.max(0, Math.round(Number(w.diasPool) || 0));
+        w.usdtPool = Math.max(0, parseFloat(w.usdtPool) || 0);
+
+        const usedIds = new Set();
+        w.members = w.members.map(m => normalizeAttendanceMember(m, fallbackServerId, usedIds));
+      });
+
+      if (!stateObj.activeWeekId || !stateObj.weeks.some(w => w.id === stateObj.activeWeekId)) {
+        stateObj.activeWeekId = stateObj.weeks[0]?.id || "week_1";
+      }
+
+      const activeWeek = stateObj.weeks.find(w => w.id === stateObj.activeWeekId) || stateObj.weeks[0];
+      if (activeWeek) {
+        stateObj.diasPool = activeWeek.diasPool;
+        stateObj.usdtPool = activeWeek.usdtPool;
+        stateObj.activities = activeWeek.activities;
+        stateObj.members = activeWeek.members;
+      }
+
+      return stateObj;
+    }
+
+    function collectLegacyLocalAttendance() {
+      const seenKeys = new Set();
+      const items = [];
+      const orderedServers = serverList.map(s => s.id);
+
+      orderedServers.forEach(serverId => {
+        const key = `${LEGACY_ATTENDANCE_PREFIX}${serverId}`;
+        if (key === STORAGE_ATTENDANCE_KEY || seenKeys.has(key)) return;
+        seenKeys.add(key);
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) items.push({ serverId, key, state: JSON.parse(raw) });
+        } catch (e) {
+          console.warn("Legacy attendance parse error:", key, e);
+        }
+      });
+
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || key === STORAGE_ATTENDANCE_KEY || seenKeys.has(key)) continue;
+          if (!key.startsWith(LEGACY_ATTENDANCE_PREFIX)) continue;
+          const serverId = key.slice(LEGACY_ATTENDANCE_PREFIX.length) || getDefaultAttendanceServerId();
+          seenKeys.add(key);
+          const raw = localStorage.getItem(key);
+          if (raw) items.push({ serverId, key, state: JSON.parse(raw) });
+        }
+      } catch (e) {
+        console.warn("Legacy attendance scan error:", e);
+      }
+
+      return items;
+    }
+
+    function activitiesMatch(a, b) {
+      return String(a?.date || "") === String(b?.date || "")
+        && String(a?.name || "") === String(b?.name || "")
+        && Number(a?.points || 0) === Number(b?.points || 0);
+    }
+
+    function getUniqueActivityId(baseId, serverId, usedIds) {
+      const cleanBase = String(baseId || "act").trim() || "act";
+      let candidate = `${serverId}_${cleanBase}`;
+      let suffix = 2;
+      while (usedIds.has(candidate)) {
+        candidate = `${serverId}_${cleanBase}_${suffix}`;
+        suffix += 1;
+      }
+      usedIds.add(candidate);
+      return candidate;
+    }
+
+    function mergeAttendanceStatesForMigration(legacyItems) {
+      if (!legacyItems || legacyItems.length === 0) return null;
+      const merged = {
+        schemaVersion: ATTENDANCE_SCHEMA_VERSION,
+        migrationVersion: ATTENDANCE_MIGRATION_VERSION,
+        activeWeekId: "",
+        updatedAt: Date.now(),
+        updatedBy: "local-migration",
+        migratedFrom: legacyItems.map(item => item.key || item.serverId),
+        weeks: []
+      };
+
+      legacyItems.forEach(item => {
+        const sourceState = normalizeAttendanceState(item.state, item.serverId);
+        (sourceState.weeks || []).forEach((sourceWeek, idx) => {
+          const weekId = sourceWeek.id || `week_${idx + 1}`;
+          let targetWeek = merged.weeks.find(w => w.id === weekId);
+          if (!targetWeek) {
+            targetWeek = {
+              id: weekId,
+              name: sourceWeek.name || `Tuần ${idx + 1}`,
+              dateRange: sourceWeek.dateRange || "",
+              diasPool: sourceWeek.diasPool || 0,
+              usdtPool: sourceWeek.usdtPool || 0,
+              activities: [],
+              members: []
+            };
+            merged.weeks.push(targetWeek);
+            if (!merged.activeWeekId) merged.activeWeekId = weekId;
+          }
+
+          const activityIds = new Set(targetWeek.activities.map(a => a.id));
+          const activityIdMap = {};
+          (sourceWeek.activities || []).forEach(act => {
+            const existing = targetWeek.activities.find(a => a.id === act.id);
+            if (!existing) {
+              activityIds.add(act.id);
+              targetWeek.activities.push({ ...act });
+              activityIdMap[act.id] = act.id;
+            } else if (activitiesMatch(existing, act)) {
+              activityIdMap[act.id] = existing.id;
+            } else {
+              const newActId = getUniqueActivityId(act.id, item.serverId, activityIds);
+              targetWeek.activities.push({ ...act, id: newActId });
+              activityIdMap[act.id] = newActId;
+            }
+          });
+
+          const usedMemberIds = new Set(targetWeek.members.map(m => m.id));
+          (sourceWeek.members || []).forEach(member => {
+            const remappedRecords = {};
+            Object.keys(member.records || {}).forEach(oldActId => {
+              const newActId = activityIdMap[oldActId] || oldActId;
+              remappedRecords[newActId] = member.records[oldActId];
+            });
+            targetWeek.members.push(normalizeAttendanceMember({
+              ...member,
+              serverId: member.serverId || item.serverId,
+              records: remappedRecords
+            }, item.serverId, usedMemberIds));
+          });
+        });
+      });
+
+      return normalizeAttendanceState(merged, getDefaultAttendanceServerId());
+    }
+
+    function migrateLegacyLocalAttendanceIfNeeded() {
+      try {
+        if (localStorage.getItem(STORAGE_ATTENDANCE_KEY)) return null;
+        const legacyItems = collectLegacyLocalAttendance();
+        const migrated = mergeAttendanceStatesForMigration(legacyItems);
+        if (!migrated) return null;
+        localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(migrated));
+        return migrated;
+      } catch (e) {
+        console.warn("Legacy attendance migration error:", e);
+        return null;
+      }
+    }
 
     function getSuggestedWeekRange(offsetWeeks = 0) {
       const now = new Date();
@@ -10793,7 +11100,7 @@
     function getActiveWeek() {
       if (!attendanceState) attendanceState = loadAttendanceState();
       if (!attendanceState.weeks || !Array.isArray(attendanceState.weeks) || attendanceState.weeks.length === 0) {
-        attendanceState = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+        attendanceState = cloneDefaultAttendanceState();
       }
       let week = attendanceState.weeks.find(w => w.id === attendanceState.activeWeekId);
       if (!week) {
@@ -10811,50 +11118,23 @@
           parsed = JSON.parse(raw);
         }
         if (!parsed) {
-          parsed = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+          parsed = migrateLegacyLocalAttendanceIfNeeded() || cloneDefaultAttendanceState();
           parsed.updatedAt = Date.now();
+          try {
+            localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(parsed));
+          } catch (e) {}
           return parsed;
         }
-
-        // Migrate legacy single-week structure to multi-week structure
-        if (!parsed.weeks || !Array.isArray(parsed.weeks) || parsed.weeks.length === 0) {
-          const legacyWeek = {
-            id: "week_1",
-            name: "Tuần 1",
-            dateRange: "22/09 - 28/09",
-            diasPool: typeof parsed.diasPool === "number" ? parsed.diasPool : 52500,
-            usdtPool: typeof parsed.usdtPool === "number" ? parsed.usdtPool : 867,
-            activities: Array.isArray(parsed.activities) ? parsed.activities : JSON.parse(JSON.stringify(DEFAULT_ATT_ACTIVITIES)),
-            members: Array.isArray(parsed.members) ? parsed.members : JSON.parse(JSON.stringify(DEFAULT_ATT_MEMBERS))
-          };
-          parsed = {
-            activeWeekId: "week_1",
-            weeks: [legacyWeek]
-          };
-        } else {
-          // Ensure each week has dateRange
-          parsed.weeks.forEach((w, idx) => {
-            if (!w.dateRange) {
-              w.dateRange = idx === 0 ? "22/09 - 28/09" : `Tuần ${idx + 1}`;
-            }
-          });
-        }
-
-        // Ensure activeWeekId is valid
-        if (!parsed.activeWeekId || !parsed.weeks.some(w => w.id === parsed.activeWeekId)) {
-          parsed.activeWeekId = parsed.weeks[0].id;
-        }
-
-        return parsed;
+        return normalizeAttendanceState(parsed, getDefaultAttendanceServerId());
       } catch (e) {
         console.error("Error loading attendance state:", e);
-        return JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+        return cloneDefaultAttendanceState();
       }
     }
 
     function saveAttendanceState(newState, syncRemote = true) {
       if (!newState) return;
-      attendanceState = newState;
+      attendanceState = normalizeAttendanceState(newState, getDefaultAttendanceServerId());
 
       // Sync active week properties to root level for backward compatibility
       const cur = getActiveWeek();
@@ -10865,6 +11145,12 @@
         attendanceState.members = cur.members;
       }
 
+      attendanceState.updatedAt = Date.now();
+      attendanceState.updatedBy = CLIENT_ID;
+      if (syncRemote && attendanceDbRef && isAdmin()) {
+        attendanceState.version = (Number(attendanceState.version) || 0) + 1;
+      }
+
       try {
         localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
       } catch (e) {
@@ -10872,8 +11158,6 @@
       }
 
       if (syncRemote && attendanceDbRef && isAdmin()) {
-        attendanceState.updatedAt = Date.now();
-        attendanceState.updatedBy = CLIENT_ID;
         pushAttendanceToFirebase();
       }
     }
@@ -10951,7 +11235,7 @@
       const name = (nameInput?.value || "").trim();
       const dateRange = (dateInput?.value || "").trim();
       const diasPool = Math.max(0, parseInt(diasInput?.value, 10) || 0);
-      const usdtPool = Math.max(0, parseInt(usdtInput?.value, 10) || 0);
+      const usdtPool = Math.max(0, parseFloat(usdtInput?.value) || 0);
       const editId = (editIdInput?.value || "").trim();
 
       if (!name) {
@@ -10984,6 +11268,7 @@
           copiedMembers = (currWeek.members || []).map(m => ({
             id: m.id,
             name: m.name,
+            serverId: m.serverId || getDefaultAttendanceServerId(),
             color: m.color || "",
             roleColor: m.roleColor || "",
             multiplier: m.multiplier,
@@ -11132,6 +11417,29 @@
       }
     }
 
+    async function migrateLegacyFirebaseAttendanceIfNeeded() {
+      if (!firebaseDb || attendanceFirebaseMigrationInFlight) return null;
+      attendanceFirebaseMigrationInFlight = true;
+      try {
+        const legacyItems = [];
+        for (const sv of serverList) {
+          const serverId = sv.id || getDefaultAttendanceServerId();
+          const legacyPath = getLegacyFirebaseAttendancePath(serverId);
+          const snapshot = await firebaseDb.ref(legacyPath).once("value");
+          const legacyState = snapshot.val();
+          if (legacyState) {
+            legacyItems.push({ serverId, key: legacyPath, state: legacyState });
+          }
+        }
+        return mergeAttendanceStatesForMigration(legacyItems);
+      } catch (err) {
+        console.warn("Firebase legacy attendance migration error:", err);
+        return null;
+      } finally {
+        attendanceFirebaseMigrationInFlight = false;
+      }
+    }
+
     async function pushAttendanceToFirebase() {
       if (!attendanceDbRef || !isAdmin() || attendanceRemoteSaveInFlight) {
         if (attendanceRemoteSaveInFlight) attendancePendingRemoteSave = true;
@@ -11160,16 +11468,24 @@
       attendanceDbRef.on("value", (snapshot) => {
         const remoteData = snapshot.val();
         if (!remoteData) {
-          // If remote is empty and this user is Admin, seed remote with local data
           if (isAdmin() && attendanceState) {
-            pushAttendanceToFirebase();
+            migrateLegacyFirebaseAttendanceIfNeeded().then(migrated => {
+              if (migrated) {
+                attendanceState = migrated;
+                try {
+                  localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
+                } catch (e) {}
+                renderAttendanceTable();
+              }
+              pushAttendanceToFirebase();
+            });
           }
           return;
         }
 
         // If update was made by another client, merge
         if (remoteData.updatedBy !== CLIENT_ID) {
-          attendanceState = remoteData;
+          attendanceState = normalizeAttendanceState(remoteData, getDefaultAttendanceServerId());
           try {
             localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendanceState));
           } catch (e) {}
@@ -11178,8 +11494,88 @@
       });
     }
 
+    function formatPoints(val) {
+      if (val == null || isNaN(val)) return "0";
+      const num = Number(val);
+      return Number.isInteger(num) ? String(num) : Number(num.toFixed(2)).toString();
+    }
+
+    function allocateLargestRemainder(weights, totalUnits) {
+      if (!weights || weights.length === 0 || totalUnits <= 0) {
+        return (weights || []).map(() => 0);
+      }
+      const totalWeight = weights.reduce((sum, w) => sum + (Number(w) || 0), 0);
+      if (totalWeight <= 0) {
+        return weights.map(() => 0);
+      }
+      const items = weights.map((w, idx) => {
+        const val = Number(w) || 0;
+        if (val <= 0) {
+          return { idx, base: 0, fraction: -1, val: 0 };
+        }
+        const theoretical = (val / totalWeight) * totalUnits;
+        const base = Math.floor(theoretical);
+        return {
+          idx,
+          base,
+          fraction: theoretical - base,
+          val
+        };
+      });
+
+      let currentSum = items.reduce((s, it) => s + it.base, 0);
+      let remainder = Math.round(totalUnits - currentSum);
+
+      // Sort descending by fraction, tie-break by original index ascending
+      items.sort((a, b) => (b.fraction - a.fraction) || (a.idx - b.idx));
+
+      for (let i = 0; i < remainder; i++) {
+        const target = items[i % items.length];
+        if (target.val > 0) {
+          target.base += 1;
+        }
+      }
+
+      // Restore original member order
+      items.sort((a, b) => a.idx - b.idx);
+      return items.map(it => it.base);
+    }
+
+    function getMemberServerId(member) {
+      return member?.serverId || getDefaultAttendanceServerId();
+    }
+
+    function getMemberServerName(member) {
+      return getServerNameById(getMemberServerId(member));
+    }
+
+    function renderAttendanceServerFilterOptions() {
+      const filter = document.getElementById("attFilterServer");
+      if (!filter) return;
+      const previousValue = attendanceServerFilter || "all";
+      const options = [`<option value="all">Tất cả Server</option>`]
+        .concat(serverList.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name || s.id)}</option>`));
+      filter.innerHTML = options.join("");
+      attendanceServerFilter = previousValue === "all" || serverList.some(s => s.id === previousValue)
+        ? previousValue
+        : "all";
+      filter.value = attendanceServerFilter;
+    }
+
+    function populateAttendanceMemberServerSelect(selectedServerId) {
+      const select = document.getElementById("attMemberServerSelect");
+      if (!select) return;
+      const fallbackServerId = selectedServerId || getDefaultAttendanceServerId();
+      const options = serverList.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name || s.id)}</option>`);
+      if (!serverList.some(s => s.id === fallbackServerId)) {
+        options.unshift(`<option value="${escapeHtml(fallbackServerId)}">${escapeHtml(getServerNameById(fallbackServerId))}</option>`);
+      }
+      select.innerHTML = options.join("");
+      select.value = fallbackServerId;
+    }
+
     function calculateAttendanceData(stateObj) {
-      if (!stateObj) return { membersCalc: [], totalGuildRawPoints: 0, totalGuildPPoints: 0, maxPossiblePoints: 0, diasPool: 0, usdtPool: 0, diasRate: 0, usdtRate: 0, activitiesCount: 0, membersCount: 0 };
+      if (!stateObj) return { membersCalc: [], serverSummaries: [], totalGuildRawPoints: 0, totalGuildPPoints: 0, maxPossiblePoints: 0, diasPool: 0, usdtPool: 0, diasRate: 0, usdtRate: 0, activitiesCount: 0, membersCount: 0 };
 
       let week = stateObj;
       if (stateObj.weeks && Array.isArray(stateObj.weeks) && stateObj.weeks.length > 0) {
@@ -11188,16 +11584,19 @@
 
       const activities = week?.activities || [];
       const members = week?.members || [];
-      const diasPool = Math.max(0, Number(week?.diasPool) || 0);
-      const usdtPool = Math.max(0, Number(week?.usdtPool) || 0);
+      const diasPool = Math.max(0, Math.round(Number(week?.diasPool) || 0));
+      const usdtPool = Math.max(0, parseFloat(week?.usdtPool) || 0);
 
       const maxPossiblePoints = activities.reduce((sum, act) => sum + (Number(act.points) || 0), 0);
 
       let totalGuildRawPoints = 0;
       let totalGuildPPoints = 0;
+      const serverSummaryMap = new Map();
 
       const membersCalc = members.map(m => {
         const records = m.records || {};
+        const serverId = getMemberServerId(m);
+        const serverName = getServerNameById(serverId);
         let rawPoints = 0;
         activities.forEach(act => {
           if (records[act.id]) {
@@ -11206,14 +11605,24 @@
         });
 
         const multiplier = Number(m.multiplier) || 1.0;
-        const pPoints = Math.round(rawPoints * multiplier);
+        const pPoints = rawPoints * multiplier;
         const percent = maxPossiblePoints > 0 ? (rawPoints / maxPossiblePoints) * 100 : 0;
 
         totalGuildRawPoints += rawPoints;
         totalGuildPPoints += pPoints;
 
+        if (!serverSummaryMap.has(serverId)) {
+          serverSummaryMap.set(serverId, { serverId, serverName, members: 0, rawPoints: 0, pPoints: 0 });
+        }
+        const summary = serverSummaryMap.get(serverId);
+        summary.members += 1;
+        summary.rawPoints += rawPoints;
+        summary.pPoints += pPoints;
+
         return {
           ...m,
+          serverId,
+          serverName,
           rawPoints,
           multiplier,
           pPoints,
@@ -11224,14 +11633,36 @@
       const diasRate = totalGuildPPoints > 0 ? (diasPool / totalGuildPPoints) : 0;
       const usdtRate = totalGuildPPoints > 0 ? (usdtPool / totalGuildPPoints) : 0;
 
-      // Final rewards
-      membersCalc.forEach(m => {
-        m.dias = Math.round(m.pPoints * diasRate);
-        m.usdt = Math.round(m.pPoints * usdtRate);
-      });
+      // Final rewards using Largest Remainder Method (Hamilton method)
+      if (totalGuildPPoints > 0) {
+        const rawPtsList = membersCalc.map(m => m.pPoints);
+        const diasAlloc = allocateLargestRemainder(rawPtsList, diasPool);
+        const usdtCentsAlloc = allocateLargestRemainder(rawPtsList, Math.round(usdtPool * 100));
+
+        membersCalc.forEach((m, idx) => {
+          m.dias = diasAlloc[idx];
+          m.usdt = usdtCentsAlloc[idx] / 100;
+        });
+      } else {
+        membersCalc.forEach(m => {
+          m.dias = 0;
+          m.usdt = 0;
+        });
+      }
+
+      const serverOrder = new Map(serverList.map((s, idx) => [s.id, idx]));
+      const serverSummaries = Array.from(serverSummaryMap.values()).sort((a, b) => {
+        const aOrder = serverOrder.has(a.serverId) ? serverOrder.get(a.serverId) : 9999;
+        const bOrder = serverOrder.has(b.serverId) ? serverOrder.get(b.serverId) : 9999;
+        return (aOrder - bOrder) || a.serverName.localeCompare(b.serverName);
+      }).map(item => ({
+        ...item,
+        share: totalGuildPPoints > 0 ? (item.pPoints / totalGuildPPoints) * 100 : 0
+      }));
 
       return {
         membersCalc,
+        serverSummaries,
         totalGuildRawPoints,
         totalGuildPPoints,
         maxPossiblePoints,
@@ -11251,6 +11682,7 @@
 
       const currWeek = getActiveWeek();
       const calc = calculateAttendanceData(attendanceState);
+      renderAttendanceServerFilterOptions();
 
       // 1. Update Top Stat Cards
       const diasInput = document.getElementById("attDiasPoolInput");
@@ -11279,15 +11711,37 @@
       if (maxPtsEl) maxPtsEl.textContent = calc.maxPossiblePoints;
 
       const guildPPointsEl = document.getElementById("attTotalGuildPPoints");
-      if (guildPPointsEl) guildPPointsEl.textContent = calc.totalGuildPPoints.toLocaleString("vi-VN");
+      if (guildPPointsEl) guildPPointsEl.textContent = formatPoints(calc.totalGuildPPoints);
 
       const guildRawPointsEl = document.getElementById("attTotalGuildRawPoints");
       if (guildRawPointsEl) guildRawPointsEl.textContent = calc.totalGuildRawPoints.toLocaleString("vi-VN");
 
+      const weekLabel = document.getElementById("attWeekLabel");
+      if (weekLabel) {
+        weekLabel.textContent = currWeek?.name || "Tuần Này";
+      }
+
       const serverBadge = document.getElementById("attServerBadge");
       if (serverBadge) {
-        const curSv = serverList.find(s => s.id === currentServerId);
-        serverBadge.textContent = curSv ? curSv.name : currentServerId;
+        serverBadge.textContent = attendanceServerFilter === "all"
+          ? "Toàn Guild • Tất cả Server"
+          : `Toàn Guild • Lọc: ${getServerNameById(attendanceServerFilter)}`;
+      }
+
+      const serverSummaryEl = document.getElementById("attServerSummary");
+      if (serverSummaryEl) {
+        const summaryHtml = calc.serverSummaries.map(item => `
+          <div class="att-server-summary-pill">
+            <strong>${escapeHtml(item.serverName)}</strong>
+            <span>${item.members} thành viên • ${formatPoints(item.pPoints)} P.Point • ${item.share.toFixed(2)}%</span>
+          </div>
+        `).join("");
+        serverSummaryEl.innerHTML = summaryHtml + `
+          <div class="att-server-summary-pill">
+            <strong>TOÀN GUILD</strong>
+            <span>${calc.membersCount} thành viên • ${formatPoints(calc.totalGuildPPoints)} P.Point • 100%</span>
+          </div>
+        `;
       }
 
       // Update Role permissions on top cards
@@ -11306,6 +11760,7 @@
       let headHtml = `<tr>
         <th class="col-sticky col-stt">#</th>
         <th class="col-sticky col-name">Thành Viên</th>
+        <th class="col-sticky col-server">Server</th>
         <th class="col-sticky col-mult">Hệ Số</th>
         <th class="col-sticky col-usdt">💵 USDT</th>
         <th class="col-sticky col-dias">💎 DIAS</th>
@@ -11345,7 +11800,18 @@
       let filteredMembers = calc.membersCalc;
       if (attendanceSearchTerm.trim()) {
         const q = attendanceSearchTerm.trim().toLowerCase();
-        filteredMembers = filteredMembers.filter(m => m.name.toLowerCase().includes(q));
+        filteredMembers = filteredMembers.filter(m => {
+          const haystack = [
+            m.name,
+            m.role,
+            m.serverName,
+            m.serverId
+          ].filter(Boolean).join(" ").toLowerCase();
+          return haystack.includes(q);
+        });
+      }
+      if (attendanceServerFilter !== "all") {
+        filteredMembers = filteredMembers.filter(m => m.serverId === attendanceServerFilter);
       }
       if (attendanceMultiplierFilter !== "all") {
         const targetMult = Number(attendanceMultiplierFilter);
@@ -11357,7 +11823,7 @@
       if (!bodyEl) return;
 
       if (filteredMembers.length === 0) {
-        const colSpanTotal = 8 + activities.length + (adminMode ? 1 : 0);
+        const colSpanTotal = 9 + activities.length + (adminMode ? 1 : 0);
         bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
           Không tìm thấy thành viên nào phù hợp.
         </td></tr>`;
@@ -11378,17 +11844,20 @@
               ${m.role ? `<span class="member-role-badge" style="${m.roleColor ? `color: ${escapeHtml(m.roleColor)} !important; background: ${escapeHtml(m.roleColor)}22 !important; border-color: ${escapeHtml(m.roleColor)}55 !important;` : ''}">${escapeHtml(m.role)}</span>` : ""}
             </div>
           </td>
+          <td class="col-sticky col-server">
+            <span class="att-server-tag" title="${escapeHtml(m.serverName)}">${escapeHtml(m.serverName)}</span>
+          </td>
           <td class="col-sticky col-mult">
             <span class="att-mult-tag">x${m.multiplier}</span>
           </td>
           <td class="col-sticky col-usdt">
-            <span class="val-usdt">${m.usdt.toLocaleString("vi-VN")}</span>
+            <span class="val-usdt">${m.usdt.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
           </td>
           <td class="col-sticky col-dias">
             <span class="val-dias">${m.dias.toLocaleString("vi-VN")}</span>
           </td>
           <td class="col-sticky col-ppoints">
-            <span class="val-ppoints">${m.pPoints.toLocaleString("vi-VN")}</span>
+            <span class="val-ppoints">${formatPoints(m.pPoints)}</span>
           </td>
           <td class="col-sticky col-raw">
             <span class="val-raw">${m.rawPoints}</span>
@@ -11648,6 +12117,7 @@
         if (titleEl) titleEl.textContent = "Chỉnh Sửa Thành Viên";
         if (editIdInput) editIdInput.value = member.id;
         if (nameInput) nameInput.value = member.name || "";
+        populateAttendanceMemberServerSelect(member.serverId || getDefaultAttendanceServerId());
         if (multInput) multInput.value = member.multiplier || 1.0;
         if (roleInput) roleInput.value = member.role || "";
         if (delBtn) delBtn.style.display = "inline-flex";
@@ -11658,6 +12128,7 @@
         if (titleEl) titleEl.textContent = "Thêm Thành Viên Mới";
         if (editIdInput) editIdInput.value = "";
         if (nameInput) nameInput.value = "";
+        populateAttendanceMemberServerSelect(attendanceServerFilter !== "all" ? attendanceServerFilter : getDefaultAttendanceServerId());
         if (multInput) multInput.value = "1.0";
         if (roleInput) roleInput.value = "";
         if (delBtn) delBtn.style.display = "none";
@@ -11681,6 +12152,7 @@
     function saveAttendanceMember() {
       if (!isAdmin()) return;
       const nameInput = document.getElementById("attMemberNameInput");
+      const serverSelect = document.getElementById("attMemberServerSelect");
       const multInput = document.getElementById("attMemberMultiplierInput");
       const roleInput = document.getElementById("attMemberRoleInput");
       const colorValInput = document.getElementById("attMemberColorVal");
@@ -11689,6 +12161,7 @@
       const errEl = document.getElementById("attMemberModalError");
 
       const name = (nameInput?.value || "").trim();
+      const serverId = (serverSelect?.value || getDefaultAttendanceServerId()).trim();
       const mult = parseFloat(multInput?.value) || 1.0;
       const role = (roleInput?.value || "").trim();
       const color = (colorValInput?.value || "").trim();
@@ -11703,11 +12176,20 @@
         return;
       }
 
+      if (!serverId) {
+        if (errEl) {
+          errEl.textContent = "Vui lòng chọn Server cho thành viên.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
       const currWeek = getActiveWeek();
       if (editId) {
         const member = currWeek.members.find(m => m.id === editId);
         if (member) {
           member.name = name;
+          member.serverId = serverId;
           member.multiplier = mult;
           member.role = role;
           member.color = color;
@@ -11719,6 +12201,7 @@
         currWeek.members.push({
           id: newId,
           name,
+          serverId,
           multiplier: mult,
           role,
           color,
@@ -11879,29 +12362,30 @@
     function exportAttendanceToDiscord() {
       if (!attendanceState) attendanceState = loadAttendanceState();
       const calc = calculateAttendanceData(attendanceState);
-      const curSv = serverList.find(s => s.id === currentServerId);
-      const svName = curSv ? curSv.name : currentServerId;
+      const currWeek = getActiveWeek();
 
-      let md = `📊 **BẢNG TỔNG KẾT CHẤM CÔNG & LƯƠNG THƯỞNG GUILD**\n`;
-      md += `🌐 **Máy Chủ:** ${svName}\n`;
+      let md = `📊 **BẢNG TỔNG KẾT CHẤM CÔNG & LƯƠNG GUILD**\n`;
+      md += `🌐 **Phạm vi:** Toàn Guild / Tất cả Server\n`;
+      md += `📅 **Tuần:** ${currWeek?.name || "Tuần hiện tại"}${currWeek?.dateRange ? ` (${currWeek.dateRange})` : ""}\n`;
       md += `💎 **Quỹ Kim Cương (DIAS):** ${calc.diasPool.toLocaleString("vi-VN")} DIAS (Hệ số: ${calc.diasRate.toFixed(2)})\n`;
-      md += `💵 **Quỹ USDT:** ${calc.usdtPool.toLocaleString("vi-VN")} USDT (Hệ số: ${calc.usdtRate.toFixed(4)})\n`;
-      md += `⭐ **Tổng Điểm Quy Đổi Guild:** ${calc.totalGuildPPoints.toLocaleString("vi-VN")} P.Points\n`;
-      md += `👥 **Số lượng thành viên:** ${calc.membersCount} | **Hoạt động:** ${calc.activitiesCount} mục\n`;
+      md += `💵 **Quỹ USDT:** ${calc.usdtPool.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT (Hệ số: ${calc.usdtRate.toFixed(4)})\n`;
+      md += `⭐ **Tổng P.Point Guild:** ${formatPoints(calc.totalGuildPPoints)} P.Point\n`;
+      md += `👥 **Tổng thành viên:** ${calc.membersCount} | **Hoạt động:** ${calc.activitiesCount} mục\n`;
       md += `─────────────────────────────────────────\n`;
       md += `\`\`\`\n`;
-      md += `STT | Tên Thành Viên | Hệ Số | % Tham Gia | P.Points | DIAS  | USDT\n`;
-      md += `----+----------------+-------+------------+----------+-------+-----\n`;
+      md += `STT | Tên Thành Viên | Server | Hệ Số | % Tham Gia | P.Point | DIAS  | USDT\n`;
+      md += `----+----------------+--------+-------+------------+---------+-------+-------\n`;
 
       calc.membersCalc.forEach((m, idx) => {
         const stt = String(idx + 1).padEnd(3, " ");
         const name = String(m.name).padEnd(14, " ");
+        const server = String(m.serverName || m.serverId || "").padEnd(6, " ");
         const mult = (`x${m.multiplier}`).padEnd(5, " ");
         const pct = (`${m.percent.toFixed(0)}%`).padEnd(10, " ");
-        const pPts = String(m.pPoints).padEnd(8, " ");
+        const pPts = formatPoints(m.pPoints).padEnd(7, " ");
         const dias = String(m.dias).padEnd(5, " ");
-        const usdt = String(m.usdt).padEnd(5, " ");
-        md += `${stt} | ${name} | ${mult} | ${pct} | ${pPts} | ${dias} | ${usdt}\n`;
+        const usdt = m.usdt.toFixed(2).padEnd(5, " ");
+        md += `${stt} | ${name} | ${server} | ${mult} | ${pct} | ${pPts} | ${dias} | ${usdt}\n`;
       });
       md += `\`\`\`\n`;
       md += `*Lưu ý: % Tham gia < 25% cần lưu ý tham gia Boss đầy đủ hơn để đạt thưởng tối đa.*`;
@@ -11960,7 +12444,7 @@
         navItems.forEach(item => item.classList.remove("active"));
         if (attNav) attNav.classList.add("active");
 
-        if (dashboardTitle) dashboardTitle.textContent = "Bảng Chấm Công & Tự Động Tính Lương Boss / Hoạt Động";
+        if (dashboardTitle) dashboardTitle.textContent = "Global Guild Attendance";
         if (dashboardEyebrow) dashboardEyebrow.innerHTML = `<span class="server-pulse" aria-hidden="true"></span> Guild Management & Rewards`;
         if (realtimeStatus) realtimeStatus.style.display = "none";
         if (addBossBtn) addBossBtn.style.display = "none";
@@ -12062,12 +12546,12 @@
             usdtInput.value = getActiveWeek().usdtPool;
             return;
           }
-          const val = Math.max(0, parseInt(usdtInput.value, 10) || 0);
+          const val = Math.max(0, parseFloat(usdtInput.value) || 0);
           const currWeek = getActiveWeek();
           currWeek.usdtPool = val;
           saveAttendanceState(attendanceState, true);
           renderAttendanceTable();
-          showToast(`💵 Đã cập nhật Quỹ USDT: ${val.toLocaleString("vi-VN")}`);
+          showToast(`💵 Đã cập nhật Quỹ USDT: ${val.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`);
         });
       }
 
@@ -12084,6 +12568,14 @@
       if (multFilter) {
         multFilter.addEventListener("change", (e) => {
           attendanceMultiplierFilter = e.target.value;
+          renderAttendanceTable();
+        });
+      }
+
+      const serverFilter = document.getElementById("attFilterServer");
+      if (serverFilter) {
+        serverFilter.addEventListener("change", (e) => {
+          attendanceServerFilter = e.target.value || "all";
           renderAttendanceTable();
         });
       }
