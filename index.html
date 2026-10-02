@@ -9562,7 +9562,10 @@
     document.querySelectorAll(".role-btn").forEach((btn) => {
 
       btn.addEventListener("click", () => {
-        if (btn.dataset.role === currentRole) return;
+        if (btn.dataset.role === currentRole) {
+          if (btn.dataset.role === "admin" && currentUserIsSuperAdmin) openAdminAccModal();
+          return;
+        }
         if (btn.dataset.role === "admin") {
           requestAdminLogin();
           return;
