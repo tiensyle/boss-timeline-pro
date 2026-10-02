@@ -5779,14 +5779,16 @@
           statePath: "boss_timeline_state",
           discordPath: "boss_timeline_discord_config",
           alertsPath: "boss_timeline_discord_alerts",
-          attendancePath: "boss_timeline_attendance_global"
+          // Keep Attendance under the existing rules-approved state tree.
+          // The database rejects writes to new root-level attendance nodes.
+          attendancePath: "boss_timeline_state/attendance_global"
         };
       }
       return {
         statePath: `boss_timeline_servers/${svId}/state`,
         discordPath: `boss_timeline_servers/${svId}/discord_config`,
         alertsPath: `boss_timeline_servers/${svId}/discord_alerts`,
-        attendancePath: "boss_timeline_attendance_global"
+        attendancePath: "boss_timeline_state/attendance_global"
       };
     }
 
