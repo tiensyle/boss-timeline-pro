@@ -4620,7 +4620,7 @@
               <div class="auth-role-name">Quản trị viên (Admin)</div>
               <div class="auth-role-desc">Toàn quyền thêm, chỉnh sửa thông tin boss, ghi nhận chết và hồi sinh.</div>
             </div>
-            <div class="auth-role-badge">Cần mật khẩu</div>
+            <div class="auth-role-badge">Firebase Auth</div>
           </div>
 
           <!-- Member Option -->
@@ -4644,15 +4644,14 @@
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
           <h2 class="auth-title">Đăng nhập Quản trị viên</h2>
-          <p class="auth-sub">Nhập mật khẩu Admin để kích hoạt toàn quyền quản lý boss.</p>
+          <p class="auth-sub">Đăng nhập bằng tài khoản Firebase Authentication để quản trị hệ thống.</p>
         </div>
 
         <form id="adminLoginForm" class="auth-form">
           <div class="form-field full" style="margin-bottom:14px;">
-            <label for="adminNameSelect" style="margin-bottom:6px;display:block;">Chọn tài khoản Admin</label>
-            <select id="adminNameSelect" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;font-weight:600;">
-              <!-- populated dynamically -->
-            </select>
+            <label for="adminEmailInput" style="margin-bottom:6px;display:block;">Email Admin</label>
+            <input type="email" id="adminEmailInput" placeholder="admin@example.com" autocomplete="username" required
+              style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px;font-weight:600;box-sizing:border-box;">
           </div>
           <div class="form-field full">
             <label for="adminPasswordInput">Mật khẩu</label>
@@ -4673,7 +4672,7 @@
               <svg viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Quay lại
             </button>
-            <button type="button" class="button-ghost" id="manageAdminAccBtn" style="color:var(--violet);border-color:rgba(155,107,255,0.3);">
+            <button type="button" class="button-ghost" id="manageAdminAccBtn" style="display:none;">
               <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
               Quản lý tài khoản
             </button>
@@ -4682,7 +4681,7 @@
               Đăng nhập Admin
             </button>
           </div>
-          <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);">
+          <div style="display:none;">
             <button type="button" class="button-ghost" id="gotoRegisterBtn" style="font-size:12.5px;color:var(--cyan);border-color:transparent;background:transparent;">
               📝 Chưa có tài khoản Admin? Gửi yêu cầu đăng ký tại đây
             </button>
@@ -5453,6 +5452,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script>
@@ -5727,6 +5727,7 @@
     const FIREBASE_CONFIG = window.BOSS_TIMELINE_FIREBASE || null;
     const REALTIME_ENABLED = Boolean(FIREBASE_CONFIG && (FIREBASE_CONFIG.databaseURL || FIREBASE_CONFIG.projectId) && window.firebase);
     let firebaseApp = null;
+    let firebaseAuth = null;
     let firebaseDb = null;
     let stateDbRef = null;
     let discordConfigDbRef = null;
@@ -5812,6 +5813,7 @@
         } else {
           firebaseApp = firebase.app();
         }
+        firebaseAuth = firebase.auth();
         firebaseDb = firebase.database();
         updateServerDatabaseRefs(currentServerId);
       } catch (e) {
@@ -5862,6 +5864,7 @@
       chooseAdminBtn: document.getElementById("chooseAdminBtn"),
       chooseMemberBtn: document.getElementById("chooseMemberBtn"),
       adminLoginForm: document.getElementById("adminLoginForm"),
+      adminEmailInput: document.getElementById("adminEmailInput"),
       adminPasswordInput: document.getElementById("adminPasswordInput"),
       adminLoginError: document.getElementById("adminLoginError"),
       adminLoginBackBtn: document.getElementById("adminLoginBackBtn"),
@@ -5920,53 +5923,38 @@
     const STORAGE_ROLE_KEY = "bossTimelinePro.role";
     const STORAGE_ADMIN_ACCOUNTS_KEY = "bossTimelinePro.adminAccounts";
     const STORAGE_ADMIN_NAME_KEY = "bossTimelinePro.currentAdminName";
-    // Super admin (built-in, cannot be deleted)
-    const SUPER_ADMIN_NAME = "Super Admin";
-    const SUPER_ADMIN_PASSWORD = "@#123";
+    // Admin identity is provided exclusively by Firebase Authentication.
+    // Remove legacy plaintext credentials without touching any application data.
+    try {
+      localStorage.removeItem(STORAGE_ADMIN_ACCOUNTS_KEY);
+      localStorage.removeItem(STORAGE_ADMIN_NAME_KEY);
+      if (localStorage.getItem(STORAGE_ROLE_KEY) === "admin") localStorage.setItem(STORAGE_ROLE_KEY, "member");
+    } catch (e) {}
 
-    let currentRole = localStorage.getItem(STORAGE_ROLE_KEY) === "admin" ? "admin" : "member";
-    let currentAdminName = localStorage.getItem(STORAGE_ADMIN_NAME_KEY) || SUPER_ADMIN_NAME;
+    let currentRole = "member";
+    let currentAdminName = "";
+    let currentUserIsAdmin = false;
+    const SUPER_ADMIN_NAME = "Firebase Admin";
 
-    function getAdminAccounts() {
-      try {
-        const raw = localStorage.getItem(STORAGE_ADMIN_ACCOUNTS_KEY);
-        return raw ? JSON.parse(raw) : [];
-      } catch (e) { return []; }
-    }
-
-    function saveAdminAccounts(accounts) {
-      try { localStorage.setItem(STORAGE_ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts)); } catch (e) {}
-    }
-
-    function verifyAdmin(name, password) {
-      if (name === SUPER_ADMIN_NAME && password === SUPER_ADMIN_PASSWORD) {
-        return { ok: true };
-      }
-      const accounts = getAdminAccounts();
-      const acc = accounts.find(a => a.name === name);
-      if (!acc) return { ok: false, error: "Tài khoản không tồn tại trong hệ thống." };
-      if (acc.password !== password) return { ok: false, error: "Mật khẩu không chính xác." };
-      if (acc.status === "pending") return { ok: false, error: "⏳ Tài khoản đang CHỜ SUPER ADMIN PHÊ DUYỆT! Vui lòng liên hệ Super Admin." };
-      if (acc.status !== "approved") return { ok: false, error: "Tài khoản chưa được kích hoạt." };
-      return { ok: true };
+    // Compatibility shims for the removed local account-management UI.
+    // Credentials are never read from or written to localStorage anymore.
+    function getAdminAccounts() { return []; }
+    function saveAdminAccounts() {
+      try { localStorage.removeItem(STORAGE_ADMIN_ACCOUNTS_KEY); } catch (e) {}
     }
 
     function isAdmin() {
-      return currentRole === "admin";
+      return currentRole === "admin" && currentUserIsAdmin && Boolean(firebaseAuth?.currentUser);
     }
 
     function setRole(newRole, adminName = null) {
       if (newRole !== "admin" && newRole !== "member") return;
-      currentRole = newRole;
-      if (newRole === "admin" && adminName) {
-        currentAdminName = adminName;
-        try { localStorage.setItem(STORAGE_ADMIN_NAME_KEY, adminName); } catch (e) {}
-      } else if (newRole === "member") {
-        currentAdminName = SUPER_ADMIN_NAME;
-        try { localStorage.removeItem(STORAGE_ADMIN_NAME_KEY); } catch (e) {}
-      }
+      currentRole = newRole === "admin" && currentUserIsAdmin && firebaseAuth?.currentUser ? "admin" : "member";
+      currentAdminName = currentRole === "admin"
+        ? (adminName || firebaseAuth.currentUser.displayName || firebaseAuth.currentUser.email || "Admin")
+        : "";
       try {
-        localStorage.setItem(STORAGE_ROLE_KEY, newRole);
+        localStorage.setItem(STORAGE_ROLE_KEY, currentRole);
       } catch (e) {}
       updateRoleUI();
       render();
@@ -5976,6 +5964,35 @@
       } else {
         showToast(isEn ? "👤 Member Mode: Read-only access." : "👤 Đã chuyển sang quyền Thành viên: Chế độ chỉ xem.");
       }
+    }
+
+    if (firebaseAuth) {
+      firebaseAuth.onAuthStateChanged(async (user) => {
+        if (user) {
+          try {
+            const token = await user.getIdTokenResult();
+            currentUserIsAdmin = token.claims.admin === true;
+          } catch (error) {
+            currentUserIsAdmin = false;
+            console.error("Firebase token verification error:", error);
+          }
+          if (!currentUserIsAdmin) {
+            setRole("member");
+            return;
+          }
+          setRole("admin", user.displayName || user.email || "Admin");
+          closeAuthModal();
+          // Writes that were queued while Auth restored can now be retried safely.
+          if (typeof saveState === "function" && remoteStateReady) saveState();
+          if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady) {
+            attendanceRemotePermissionDenied = false;
+            pushAttendanceToFirebase();
+          }
+        } else {
+          currentUserIsAdmin = false;
+          setRole("member");
+        }
+      });
     }
 
     function updateRoleUI() {
@@ -6709,17 +6726,8 @@
     }
 
     function populateAdminNameDropdown() {
-      const sel = document.getElementById("adminNameSelect");
-      if (!sel) return;
-      const accounts = getAdminAccounts();
-      const approved = accounts.filter(a => a.status === "approved");
-      const options = [
-        { name: SUPER_ADMIN_NAME, isSuperAdmin: true },
-        ...approved.map(a => ({ name: a.name, isSuperAdmin: false }))
-      ];
-      sel.innerHTML = options.map(o =>
-        `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name)}${o.isSuperAdmin ? " 👑" : ""}</option>`
-      ).join("");
+      const input = elements.adminEmailInput;
+      if (input && firebaseAuth?.currentUser?.email) input.value = firebaseAuth.currentUser.email;
     }
 
     function showAuthStep(step) {
@@ -6762,12 +6770,27 @@
       syncModalScrollLock();
     }
 
-    function enterMemberMode() {
+    async function enterMemberMode() {
+      if (firebaseAuth?.currentUser) {
+        try {
+          await firebaseAuth.signOut();
+        } catch (error) {
+          console.error("Firebase sign-out error:", error);
+        }
+      }
       setRole("member");
       closeAuthModal();
     }
 
     function requestAdminLogin() {
+      if (firebaseAuth?.currentUser) {
+        if (currentUserIsAdmin) {
+          setRole("admin", firebaseAuth.currentUser.displayName || firebaseAuth.currentUser.email || "Admin");
+        } else {
+          showToast("Tài khoản Firebase này chưa được cấp quyền Admin.");
+        }
+        return;
+      }
       openAuthModal("admin");
     }
 
@@ -9535,7 +9558,7 @@
           requestAdminLogin();
           return;
         }
-        setRole("member");
+        enterMemberMode();
       });
     });
 
@@ -9559,25 +9582,55 @@
     elements.adminPasswordInput.addEventListener("input", () => {
       elements.adminLoginError.style.display = "none";
     });
-    elements.adminLoginForm.addEventListener("submit", (event) => {
+    elements.adminLoginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const nameSelect = document.getElementById("adminNameSelect");
-      const selectedName = nameSelect ? nameSelect.value : SUPER_ADMIN_NAME;
+      const email = elements.adminEmailInput?.value.trim();
       const enteredPass = elements.adminPasswordInput.value;
+      const submitBtn = elements.adminLoginForm.querySelector('button[type="submit"]');
+      const errEl = elements.adminLoginError;
 
-      const res = verifyAdmin(selectedName, enteredPass);
-      if (res.ok) {
-        setRole("admin", selectedName);
-        closeAuthModal();
+      if (!firebaseAuth) {
+        if (errEl) {
+          errEl.querySelector("span").textContent = "Firebase Authentication chưa được tải.";
+          errEl.style.display = "flex";
+        }
         return;
       }
-      const errEl = elements.adminLoginError;
-      if (errEl) {
-        errEl.querySelector("span").textContent = res.error || "Mật khẩu không chính xác.";
-        errEl.style.display = "flex";
+
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const credential = await firebaseAuth.signInWithEmailAndPassword(email, enteredPass);
+        const token = await credential.user.getIdTokenResult(true);
+        if (token.claims.admin !== true) {
+          currentUserIsAdmin = false;
+          await firebaseAuth.signOut();
+          throw Object.assign(new Error("Admin claim required"), { code: "auth/not-admin" });
+        }
+        currentUserIsAdmin = true;
+        setRole("admin", credential.user.displayName || credential.user.email || "Admin");
+        elements.adminPasswordInput.value = "";
+        closeAuthModal();
+      } catch (error) {
+        console.error("Firebase admin sign-in error:", error?.code || error);
+        if (errEl) {
+          const messages = {
+            "auth/invalid-email": "Email Admin không hợp lệ.",
+            "auth/user-disabled": "Tài khoản Admin đã bị vô hiệu hóa.",
+            "auth/too-many-requests": "Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau.",
+            "auth/operation-not-allowed": "Chưa bật Email/Password trong Firebase Authentication.",
+            "auth/not-admin": "Tài khoản này chưa được cấp quyền Admin.",
+            "auth/invalid-login-credentials": "Email hoặc mật khẩu không chính xác.",
+            "auth/wrong-password": "Email hoặc mật khẩu không chính xác.",
+            "auth/user-not-found": "Email hoặc mật khẩu không chính xác."
+          };
+          errEl.querySelector("span").textContent = messages[error?.code] || "Không thể đăng nhập Firebase. Vui lòng thử lại.";
+          errEl.style.display = "flex";
+        }
+        elements.adminPasswordInput.select();
+        elements.adminPasswordInput.focus();
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
-      elements.adminPasswordInput.select();
-      elements.adminPasswordInput.focus();
     });
 
     document.getElementById("gotoRegisterBtn")?.addEventListener("click", () => {
@@ -9780,7 +9833,7 @@
       const err = document.getElementById("saAuthError");
       if (!input) return;
 
-      if (input.value === SUPER_ADMIN_PASSWORD) {
+      if (false) {
         const saModal = document.getElementById("superAdminAuthModal");
         if (saModal) saModal.classList.remove("open");
         syncModalScrollLock();
@@ -12987,7 +13040,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.02.v7";
+    const CURRENT_APP_VERSION = "2026.10.02.v8-auth";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
