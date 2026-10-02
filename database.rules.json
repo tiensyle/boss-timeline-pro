@@ -7,14 +7,30 @@
       ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
     },
     "boss_timeline_discord_config": {
-      ".read": true,
+      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
       ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
     },
     "boss_timeline_discord_alerts": {
-      ".read": true,
+      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
       ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
     },
     "boss_timeline_servers": {
+      "$serverId": {
+        "state": {
+          ".read": true,
+          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+        },
+        "discord_config": {
+          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+        },
+        "discord_alerts": {
+          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+        }
+      }
+    },
+    "boss_timeline_servers_list": {
       ".read": true,
       ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
     },
