@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
@@ -6148,7 +6148,7 @@
     }
 
 
-    let serverTimeOffset = 0;
+    var serverTimeOffset = 0;
 
     function updateServerTimeOffset(serverIsoString) {
       if (!serverIsoString) return;
@@ -9735,7 +9735,7 @@
       render();
 
       const svObj = serverList.find(s => s.id === currentServerId);
-      showToast(ðŸŒ ÄÃ£ chuyá»ƒn sang:  + (svObj ? svObj.name : currentServerId));
+      showToast("ðŸŒ ÄÃ£ chuyá»ƒn sang: " + (svObj ? svObj.name : currentServerId));
     }
 
     async function createNewServer(name, cloneTemplate = true) {
@@ -9870,8 +9870,6 @@
         } catch (e) {}
       }
 
-      /* ==========================================================================
-       BẢNG CHẤM CÔNG & TỰ ĐỘNG TÍNH LƯƠNG HOẠT ĐỘNG / BOSS
       renderServerListUI();
       showToast(`✅ Đã đổi tên máy chủ thành: "${trimmed}"`);
     }
@@ -11075,9 +11073,10 @@
     initAttendanceEvents();
     renderAttendanceTable();
     initAttendanceRealtimeSync();
-
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get("tab") || urlParams.get("page") || urlParams.get("view");
     const initialHash = window.location.hash.replace("#", "");
-    if (initialHash === "attendance" || initialHash === "salary" || initialHash === "attendance-salary") {
+    if (tabParam === "attendance" || tabParam === "salary" || initialHash === "attendance" || initialHash === "salary" || initialHash === "attendance-salary") {
       switchPageView("attendance");
     } else {
       switchPageView("boss");
