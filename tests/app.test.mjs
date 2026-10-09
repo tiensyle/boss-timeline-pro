@@ -335,6 +335,50 @@ test("two admin tabs claim a Discord alert atomically and a failed send can retr
   assert.equal(await first.sendDiscordAlertOnce("failed-event", 60000, async () => true, true), true);
 });
 
+test("manual Discord schedule can bypass the automatic-notifications master switch", async () => {
+  let sentForced;
+  const ctx = load(["sendDiscordDailySchedule"], {
+    discordConfig: { enabled: false, notifyDailySchedule: true },
+    getNow: () => new Date("2026-10-09T00:00:00"),
+    dateToYMD: () => "2026-10-09",
+    sendDiscordAlertOnce: async (_id, _ttl, _deliver, forced) => { sentForced = forced; return true; }
+  });
+
+  assert.equal(await ctx.sendDiscordDailySchedule(true), true);
+  assert.equal(sentForced, true);
+  assert.equal(await ctx.sendDiscordDailySchedule(false), false);
+
+  let deliveries = 0;
+  const alertCtx = load(["sendDiscordAlertOnce"], {
+    isAdmin: () => true,
+    discordConfig: { enabled: false },
+    activeDiscordNotified: {},
+    firebaseDb: null,
+    CLIENT_ID: "manual-test",
+    currentServerId: "s1"
+  });
+  assert.equal(await alertCtx.sendDiscordAlertOnce("automatic", 60000, async () => { deliveries++; return true; }), false);
+  assert.equal(await alertCtx.sendDiscordAlertOnce("manual", 60000, async () => { deliveries++; return true; }, true), true);
+  assert.equal(deliveries, 1);
+});
+
+test("manual webhook delivery bypasses the automatic master switch only when explicitly allowed", async () => {
+  const requests = [];
+  const ctx = load(["deliverDiscordWebhook"], {
+    discordConfig: { enabled: false },
+    firebaseAuth: { currentUser: { getIdToken: async () => "admin-token" } },
+    isAdmin: () => true,
+    window: { location: { href: "https://site.example/", origin: "https://site.example" } },
+    URL,
+    AbortSignal,
+    fetch: async (...args) => { requests.push(args); return { ok: true }; }
+  });
+
+  assert.equal(await ctx.deliverDiscordWebhook({}, null, "image.png", "s1"), false);
+  assert.equal(await ctx.deliverDiscordWebhook({}, null, "image.png", "s1", true), true);
+  assert.equal(requests.length, 1);
+});
+
 test("guest Discord alerts make no Firebase requests", async () => {
   let requests = 0;
   const ctx = load(["sendDiscordAlertOnce"], { isAdmin: () => false, discordConfig: { enabled: true }, firebaseDb: { ref() { requests++; } } });
@@ -376,11 +420,12 @@ test("large daily schedules use a complete CSV attachment instead of an oversize
     Blob, getBossScheduleItems: () => items, discordConfig: { tagEveryone: false },
     buildScheduleCsv: received => received.map(item => item.boss.name).join("\n"),
     generateScheduleImageBlob: () => { throw new Error("Oversized canvas must not be used"); },
-    sendDiscordWebhook: async (payload, blob, name, serverId) => { attachment = { payload, blob, name, serverId }; return true; }
+    sendDiscordWebhook: async (payload, blob, name, serverId, allowWhenDisabled) => { attachment = { payload, blob, name, serverId, allowWhenDisabled }; return true; }
   });
   assert.equal(await ctx.deliverDiscordDailySchedule(Date.now(), true, "s2"), true);
   assert.ok(attachment.name.endsWith(".csv"));
   assert.ok((await attachment.blob.text()).includes("Boss 150"));
   assert.equal(attachment.serverId, "s2");
+  assert.equal(attachment.allowWhenDisabled, true);
   assert.ok(!attachment.payload.content.includes("@everyone"));
 });
