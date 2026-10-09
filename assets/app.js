@@ -322,16 +322,14 @@
           statePath: "boss_timeline_state",
           discordPath: "boss_timeline_discord_config",
           alertsPath: "boss_timeline_discord_alerts",
-          // Keep Attendance under the existing rules-approved state tree.
-          // The database rejects writes to new root-level attendance nodes.
-          attendancePath: "boss_timeline_state/attendance_global"
+          attendancePath: "boss_timeline_attendance_global"
         };
       }
       return {
         statePath: `boss_timeline_servers/${svId}/state`,
         discordPath: `boss_timeline_servers/${svId}/discord_config`,
         alertsPath: `boss_timeline_servers/${svId}/discord_alerts`,
-        attendancePath: "boss_timeline_state/attendance_global"
+        attendancePath: "boss_timeline_attendance_global"
       };
     }
 
@@ -345,7 +343,7 @@
       stateDbRef = firebaseDb.ref(paths.statePath);
       discordConfigDbRef = firebaseDb.ref(paths.discordPath);
       alertsDbRef = firebaseDb.ref(paths.alertsPath);
-      attendanceDbRef = firebaseDb.ref(paths.attendancePath);
+      if (!attendanceDbRef) attendanceDbRef = firebaseDb.ref(paths.attendancePath);
     }
 
     if (REALTIME_ENABLED) {
@@ -364,6 +362,8 @@
     }
 
 
+    let firebaseAuthReady = !firebaseAuth;
+
     const elements = {
       metrics: document.getElementById("metrics"),
       nextPanel: null,
@@ -379,6 +379,7 @@
       todayScheduleBody: document.getElementById("todayScheduleBody"),
       todayScheduleSubtitle: document.getElementById("todayScheduleSubtitle"),
       todayBossCount: document.getElementById("todayBossCount"),
+      exportCsvBtn: document.getElementById("exportCsvBtn"),
       exportPdfBtn: document.getElementById("exportPdfBtn"),
       todayToggleIconBtn: document.getElementById("todayToggleIconBtn"),
       weeklySchedulePanel: document.getElementById("weeklySchedulePanel"),
@@ -535,6 +536,10 @@
       } catch (e) {}
       updateRoleUI();
       render();
+      if (typeof attendanceState !== "undefined") {
+        initAttendanceRealtimeSync();
+        initRealtimeSync();
+      }
       const isEn = currentLang === "en";
       if (isAdmin()) {
         showToast(isEn ? `👑 Logged in as ${currentAdminName}. Full boss control enabled.` : `👑 Đăng nhập với quyền Admin: ${currentAdminName}`);
@@ -545,21 +550,26 @@
 
     if (firebaseAuth) {
       firebaseAuth.onAuthStateChanged(async (user) => {
+        firebaseAuthReady = false;
         if (user) {
           try {
             const access = await getFirebaseAdminAccess(user);
+            if (firebaseAuth.currentUser?.uid !== user.uid) return;
             currentUserIsAdmin = access.allowed;
             currentUserIsSuperAdmin = access.superAdmin;
           } catch (error) {
+            if (firebaseAuth.currentUser?.uid !== user.uid) return;
             currentUserIsAdmin = false;
             console.error("Firebase token verification error:", error);
           }
           if (!currentUserIsAdmin) {
             stopWatchingCurrentAdminAccess();
+            firebaseAuthReady = true;
             setRole("member");
             return;
           }
           watchCurrentAdminAccess(user, currentUserIsSuperAdmin);
+          firebaseAuthReady = true;
           setRole("admin", user.displayName || user.email || "Admin");
           closeAuthModal();
           // Writes that were queued while Auth restored can now be retried safely.
@@ -572,6 +582,7 @@
           stopWatchingCurrentAdminAccess();
           currentUserIsAdmin = false;
           currentUserIsSuperAdmin = false;
+          firebaseAuthReady = true;
           setRole("member");
         }
       });
@@ -759,7 +770,15 @@
       }
     }
 
-    async function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png") {
+    let discordSendQueue = Promise.resolve();
+
+    function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png", serverId = currentServerId) {
+      const task = discordSendQueue.then(() => deliverDiscordWebhook(payload, fileBlob, fileName, serverId));
+      discordSendQueue = task.catch(() => false);
+      return task;
+    }
+
+    async function deliverDiscordWebhook(payload, fileBlob, fileName, serverId) {
       if (!discordConfig.enabled) {
         console.warn("[Discord Bot] Bỏ qua gửi: bot chưa bật trong cài đặt", discordConfig);
         return false;
@@ -778,24 +797,79 @@
           }
           file = { base64: btoa(binary), name: fileName, type: fileBlob.type || "image/png" };
         }
-        const proxyRes = await fetch("/api/discord", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${idToken}`
-          },
-          body: JSON.stringify({ payload, serverId: currentServerId, file })
-        });
-        if (proxyRes.ok || proxyRes.status === 204) {
-          console.log("[Discord Bot] Gửi webhook thành công qua /api/discord!");
-          return true;
+        const relayUrl = new URL(window.BOSS_TIMELINE_DISCORD_API || "/api/discord", window.location.href);
+        if (relayUrl.protocol !== "https:" && !(relayUrl.origin === window.location.origin && relayUrl.protocol === "http:")) return false;
+        if (relayUrl.username || relayUrl.password) return false;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const proxyRes = await fetch(relayUrl.href, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+            body: JSON.stringify({ payload, serverId, file }),
+            signal: AbortSignal.timeout(45000)
+          });
+          if (proxyRes.ok) return true;
+          const errorData = await proxyRes.json().catch(() => ({}));
+          const retryMs = Number(errorData.retryAfterMs) || 1200;
+          if (proxyRes.status === 429 && attempt < 2 && retryMs <= 30000) {
+            await new Promise(resolve => window.setTimeout(resolve, Math.max(100, retryMs)));
+            continue;
+          }
+          console.warn("[Discord Bot] API từ chối yêu cầu:", proxyRes.status, errorData.error || "");
+          return false;
         }
-        const errorData = await proxyRes.json().catch(() => ({}));
-        console.warn("[Discord Bot] API từ chối yêu cầu:", proxyRes.status, errorData.error || "");
         return false;
       } catch (e) {
         console.warn("[Discord Bot] Discord API relay error:", e);
         return false;
+      }
+    }
+
+    async function sendDiscordAlertOnce(alertId, ttlMs, deliver, forced = false) {
+      if (!isAdmin() || !discordConfig.enabled) return false;
+      const notified = activeDiscordNotified;
+      if (notified[alertId] === "pending" || (!forced && notified[alertId] === "sent")) return false;
+      notified[alertId] = "pending";
+      const serverId = currentServerId;
+      const owner = CLIENT_ID + "_" + Math.random().toString(36).slice(2);
+      let alertRef = null;
+      let claimed = false;
+      let sent = false;
+      let alreadySent = false;
+      try {
+        if (firebaseDb && !forced) {
+          const safeKey = alertId.replace(/[.#$\[\]\/]/g, "_");
+          alertRef = firebaseDb.ref(getFirebaseServerPaths(serverId).alertsPath + "/" + safeKey);
+          const claimTime = Date.now();
+          const result = await alertRef.transaction(current => {
+            const sentAt = typeof current === "number" ? current : current?.sentAt;
+            if (sentAt && claimTime - sentAt < ttlMs) return;
+            if (current?.state === "pending" && claimTime - current.claimedAt < 600000) return;
+            return { owner, state: "pending", claimedAt: claimTime };
+          }, undefined, false);
+          if (!result.committed) {
+            const current = result.snapshot.val();
+            alreadySent = typeof current === "number" || current?.state === "sent";
+            return false;
+          }
+          claimed = true;
+        }
+        sent = await deliver(serverId);
+        if (sent && alertRef) {
+          await alertRef.transaction(current => current?.owner === owner
+            ? { ...current, state: "sent", sentAt: Date.now() } : undefined, undefined, false);
+        }
+        return sent;
+      } catch (error) {
+        console.warn("[Discord Bot] Alert delivery error:", error);
+        return sent;
+      } finally {
+        if (sent || alreadySent) notified[alertId] = "sent";
+        else {
+          delete notified[alertId];
+          if (claimed && alertRef) {
+            await alertRef.transaction(current => current?.owner === owner && current.state === "pending" ? null : undefined, undefined, false).catch(() => {});
+          }
+        }
       }
     }
 
@@ -814,25 +888,6 @@
         if (!eventKey) return;
 
         const alertId = boss.id + "_" + milestoneType + "_" + eventKey;
-        if (activeDiscordNotified[alertId]) return;
-        activeDiscordNotified[alertId] = true;
-
-        const safeKey = alertId.replace(/[.#$\[\]\/]/g, "_");
-        const alertsPath = getFirebaseServerPaths(currentServerId).alertsPath;
-
-        // Kiem tra xem alert nay da duoc gui thanh cong trong 5 phut qua chua (tranh 2 tab gui trung)
-        if (firebaseDb) {
-          try {
-            const alertRef = firebaseDb.ref(alertsPath + "/" + safeKey);
-            const snap = await alertRef.once("value");
-            if (snap.exists() && (Date.now() - Number(snap.val()) < 5 * 60 * 1000)) {
-              console.log("[Discord Bot] Alert nay da duoc tab khac gui:", alertId);
-              return;
-            }
-          } catch (e) {
-            console.warn("[Discord Bot] Firebase check error:", e);
-          }
-        }
 
         const baseUrl = (window.location && window.location.origin && window.location.origin.startsWith("http"))
           ? window.location.origin
@@ -898,13 +953,8 @@
           ]
         };
 
-        const sentOk = await sendDiscordWebhook(payload);
-        // Chi danh dau da gui KHI Discord thuc su nhan thanh cong (tranh chan oan)
-        if (sentOk && firebaseDb) {
-          try {
-            firebaseDb.ref(alertsPath + "/" + safeKey).set(Date.now()).catch(function() {});
-          } catch (e) {}
-        }
+        await sendDiscordAlertOnce(alertId, 5 * 60 * 1000,
+          serverId => sendDiscordWebhook(payload, null, "image.png", serverId));
       } catch (err) {
         console.error("[Discord Bot] sendDiscordBossAlert error:", err);
       }
@@ -942,7 +992,7 @@
           // Total badge
           ctx.fillStyle = "#0c2461";
           ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
-          const countStr = "Tổng số Boss: " + items.length;
+          const countStr = "Tổng số lượt: " + items.length;
           const countWidth = ctx.measureText(countStr).width;
           ctx.fillText(countStr, width - 24 - countWidth, 55);
 
@@ -1068,41 +1118,18 @@
     async function sendDiscordDailySchedule(forced = false) {
       if (!discordConfig.enabled) return false;
       if (!forced && discordConfig.notifyDailySchedule === false) return false;
-
       const now = getNow();
+      const alertId = `daily_schedule_${dateToYMD(now)}`;
+      return sendDiscordAlertOnce(alertId, 20 * 60 * 60 * 1000,
+        serverId => deliverDiscordDailySchedule(now, forced, serverId), forced);
+    }
+
+    async function deliverDiscordDailySchedule(now, forced, serverId) {
       const nowDate = new Date(now);
       const dateKey = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}-${String(nowDate.getDate()).padStart(2, "0")}`;
-      const alertId = `daily_schedule_${dateKey}`;
-
-      if (!forced) {
-        if (activeDiscordNotified[alertId]) return false;
-        activeDiscordNotified[alertId] = true;
-
-        if (firebaseDb) {
-          try {
-            const alertsPath = getFirebaseServerPaths(currentServerId).alertsPath;
-            const alertRef = firebaseDb.ref(alertsPath + "/" + alertId);
-            const snap = await alertRef.once("value");
-            if (snap.exists() && (Date.now() - Number(snap.val()) < 20 * 60 * 60 * 1000)) {
-              return false;
-            }
-            await alertRef.set(Date.now());
-          } catch (e) {
-            console.warn("Firebase daily schedule dedup error:", e);
-          }
-        } else if (!isAdmin()) {
-          return false;
-        }
-      }
 
       // Thu thập danh sách boss ngày hôm nay
-      const items = [];
-      state.bosses.forEach((boss) => {
-        const eventTime = getBossScheduleEventTime(boss, now, "today");
-        if (eventTime !== null) {
-          items.push({ boss, eventTime });
-        }
-      });
+      const items = getBossScheduleItems(now, "today");
 
       items.sort((a, b) => {
         if (a.eventTime && b.eventTime) return a.eventTime - b.eventTime;
@@ -1130,17 +1157,18 @@
             }
           ]
         };
-        return await sendDiscordWebhook(emptyPayload);
+        return await sendDiscordWebhook(emptyPayload, null, "image.png", serverId);
       }
 
       // Tạo file ảnh bảng lịch boss trực tiếp từ Canvas
-      const imgBlob = await generateScheduleImageBlob(items, dateDisplay, now);
+      const imgBlob = items.length <= 150 ? await generateScheduleImageBlob(items, dateDisplay, now) : null;
+      const reportBlob = imgBlob || new Blob([buildScheduleCsv(items, now, false)], { type: "text/csv;charset=utf-8" });
 
-      const fileName = `lich_boss_${dateKey}.png`;
+      const fileName = `lich_boss_${dateKey}.${imgBlob ? "png" : "csv"}`;
       const payload = {
         username: "Boss Tracker Alert",
         avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
-        content: (forced || discordConfig.tagEveryone) ? "@everyone 📢 **BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**" : "📢 **BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**",
+        content: discordConfig.tagEveryone ? "@everyone 📢 **BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**" : "📢 **BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**",
         embeds: [
           {
             title: `📅 BÁO CÁO LỊCH BOSS HÔM NAY — ${dateDisplay}`,
@@ -1153,11 +1181,7 @@
         ]
       };
 
-      if (imgBlob) {
-        return await sendDiscordWebhook(payload, imgBlob, fileName);
-      } else {
-        return await sendDiscordWebhook(payload);
-      }
+      return await sendDiscordWebhook(payload, reportBlob, fileName, serverId);
     }
 
     function checkDailyScheduleAlert(now) {
@@ -1557,21 +1581,6 @@
 
     var serverTimeOffset = 0;
 
-    function updateServerTimeOffset(serverIsoString) {
-      if (!serverIsoString) return;
-      const serverMs = new Date(serverIsoString).getTime();
-      if (!isNaN(serverMs) && serverMs > 0) {
-        const ageMs = Date.now() - serverMs;
-        // Chi cap nhat offset neu timestamp Firebase moi (trong vong 5 phut)
-        // Neu data Firebase cu hon 5 phut -> reset offset ve 0, dung gio may
-        if (Math.abs(ageMs) < 5 * 60 * 1000) {
-          serverTimeOffset = serverMs - Date.now();
-        } else {
-          serverTimeOffset = 0;
-        }
-      }
-    }
-
     function getNow() {
       return Date.now() + serverTimeOffset;
     }
@@ -1631,23 +1640,25 @@
       let saved = false;
       try {
         const result = await saveRef.transaction(current => {
-          if (seedOnly && current) return;
+          if (seedOnly && current?.data) return;
           const merged = current ? mergeBossStateChanges(base, local, getBossRemoteData(current)) : cloneRealtimeValue(local);
           merged.history = merged.history.sort((a, b) => b.time - a.time).slice(0, 30);
+          const updatedAt = new Date(getNow()).toISOString();
+          const version = (Number(current?.version) || 0) + 1;
           return {
             ...current,
-            data: { ...current?.data, _clientId: CLIENT_ID, bosses: merged.bosses, history: merged.history },
+            data: { _clientId: CLIENT_ID, bosses: merged.bosses, history: merged.history, updated_at: updatedAt, version },
             bosses_map: Object.fromEntries(merged.bosses.map(boss => [boss.id, boss])),
             last_editor: CLIENT_ID,
-            updated_at: new Date(getNow()).toISOString(),
-            version: (Number(current?.version) || 0) + 1
+            updated_at: updatedAt,
+            version
           };
         }, undefined, false);
         if (generation !== bossSyncGeneration) return;
         const confirmed = result.snapshot.val();
         if (confirmed) {
           const remote = getBossRemoteData(confirmed);
-          applyRemoteState(remote.bosses, remote.history, confirmed.updated_at, CLIENT_ID, local);
+          applyRemoteState(remote.bosses, remote.history, confirmed.updated_at, CLIENT_ID, result.committed ? local : base);
           if (bossDeferredRemoteData && Number(bossDeferredRemoteData.version) > Number(confirmed.version)) {
             const deferred = getBossRemoteData(bossDeferredRemoteData);
             applyRemoteState(deferred.bosses, deferred.history, bossDeferredRemoteData.updated_at);
@@ -1662,7 +1673,7 @@
           remoteSaveInFlight = false;
           bossDeferredRemoteData = null;
           const savePending = pendingRemoteSave;
-          pendingRemoteSave = false;
+          pendingRemoteSave = !saved || savePending;
           if (saved && savePending) saveState();
         }
       }
@@ -1679,9 +1690,10 @@
 
     function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId, localBase = bossSyncBase) {
       if (!Array.isArray(incomingBosses)) return;
+      // Auth restoration must finish before choosing whether to preserve unsent admin edits.
+      if (!firebaseAuthReady) return;
 
       if (updatedAt) {
-        updateServerTimeOffset(updatedAt);
         const remoteTime = new Date(updatedAt).getTime();
         lastRemoteUpdatedAt = remoteTime || getNow();
       }
@@ -1720,9 +1732,14 @@
 
       // Giam sat ket noi Firebase connection state (chi can gan 1 lan)
       if (!connectedRefBound && firebaseDb) {
+        firebaseDb.ref(".info/serverTimeOffset").on("value", (snap) => {
+          serverTimeOffset = Number(snap.val()) || 0;
+        });
         firebaseDb.ref(".info/connected").on("value", (snap) => {
           if (snap.val() === true) {
             setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
+            if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
+            if (isAdmin() && attendanceRemoteStateReady && attendancePendingRemoteSave) pushAttendanceToFirebase();
           } else {
             setRealtimeStatus("connecting", "Đang kết nối lại Firebase Realtime…");
           }
@@ -1731,12 +1748,14 @@
       }
 
       // Lang nghe thay doi truc tiep tu Firebase Realtime Database cua server hien tai
-      activeStateRef = stateDbRef;
-      const subscribedRef = stateDbRef;
+      // Subscribe only to public boss data; the parent also contains legacy payroll.
+      activeStateRef = stateDbRef.child("data");
+      const subscribedRef = activeStateRef;
       const generation = bossSyncGeneration;
       activeStateRef.on("value", (snapshot) => {
         if (generation !== bossSyncGeneration || subscribedRef !== activeStateRef) return;
-        const val = snapshot.val();
+        const data = snapshot.val();
+        const val = data ? { data, last_editor: data._clientId, updated_at: data.updated_at, version: data.version } : null;
         remoteStateReady = true;
         if (remoteSaveInFlight) {
           bossDeferredRemoteData = cloneRealtimeValue(val);
@@ -1761,7 +1780,7 @@
       });
 
       // Lang nghe cau hinh Discord Webhook tu Firebase cua server hien tai
-      if (discordConfigDbRef) {
+      if (discordConfigDbRef && isAdmin()) {
         activeDiscordConfigRef = discordConfigDbRef;
         activeDiscordConfigRef.on("value", (snapshot) => {
           const remoteCfg = snapshot.val();
@@ -2804,71 +2823,44 @@
 
     let scheduleDayFilter = "all";
 
-    function getBossScheduleEventTime(boss, now, dayFilter) {
-      const isFixed = boss.spawnMode === "fixed";
+    function getBossScheduleEventTimes(boss, now, dayFilter) {
       const nowDate = new Date(now);
+      const targetDate = dayFilter === "all" ? nowDate : getTargetDateForFilter(nowDate, dayFilter);
+      const start = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const end = new Date(start);
+      end.setDate(end.getDate() + (dayFilter === "all" ? 7 : 1));
+      const times = new Set();
 
-      if (dayFilter === "all") {
-        if (isFixed) {
-          return boss.respawnsAt || getNextFixedSpawnTime(boss, now);
-        } else {
-          const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
-          let nextRespawn = boss.respawnsAt;
-          if (!nextRespawn && boss.lastRespawnAt) nextRespawn = boss.lastRespawnAt + intervalMs;
-          if (!nextRespawn && boss.diedAt) nextRespawn = boss.diedAt + intervalMs;
-          if (!nextRespawn) nextRespawn = now;
-          if (nextRespawn < now) {
-            const diff = now - nextRespawn;
-            const steps = Math.ceil(diff / intervalMs);
-            nextRespawn += steps * intervalMs;
-          }
-          return nextRespawn;
-        }
-      }
-
-      // Specific day filter: today, 1 (T2), 2 (T3), 3 (T4), 4 (T5), 5 (T6), 6 (T7), 0 (CN)
-      const targetDate = getTargetDateForFilter(nowDate, dayFilter);
-      const startDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0).getTime();
-      const endDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999).getTime();
-      const targetDow = targetDate.getDay();
-
-      if (isFixed) {
+      if (boss.spawnMode === "fixed") {
         const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
           ? boss.fixedSchedules
           : [{ day: "all", time: boss.fixedTime || "18:00" }];
-
-        const matchingSlots = schedules.filter(s => s.day === "all" || Number(s.day) === targetDow);
-        if (!matchingSlots.length) return null;
-        
-        const slotTimes = matchingSlots.map(s => {
-          const [h, m] = (s.time || "18:00").split(":").map(Number);
-          return new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), h || 0, m || 0, 0, 0).getTime();
-        }).sort((a, b) => a - b);
-
-        if (dayFilter === "today" || Number(dayFilter) === nowDate.getDay()) {
-          const upcoming = slotTimes.find(t => t >= now);
-          if (upcoming) return upcoming;
+        for (const date = new Date(start); date < end; date.setDate(date.getDate() + 1)) {
+          for (const slot of schedules) {
+            if (slot.day !== "all" && Number(slot.day) !== date.getDay()) continue;
+            const [h, m] = (slot.time || "18:00").split(":").map(Number);
+            if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) continue;
+            times.add(new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m).getTime());
+          }
         }
-        return slotTimes[0];
       } else {
-        const intervalMs = (boss.respawnMinutes || 30) * 60 * 1000;
-        let baseTime = boss.respawnsAt;
-        if (!baseTime && boss.diedAt) baseTime = boss.diedAt + intervalMs;
-        if (!baseTime && boss.lastRespawnAt) baseTime = boss.lastRespawnAt + intervalMs;
-        if (!baseTime) baseTime = now;
-
-        let cur = baseTime;
-        if (cur < startDay) {
-          const diff = startDay - cur;
-          const steps = Math.ceil(diff / intervalMs);
-          cur += steps * intervalMs;
-        } else if (cur > endDay) {
-          const diff = cur - endDay;
-          const steps = Math.ceil(diff / intervalMs);
-          cur -= steps * intervalMs;
+        const intervalMs = Math.max(1, Number(boss.respawnMinutes) || 30) * 60000;
+        const baseTime = boss.diedAt ? boss.diedAt + intervalMs
+          : (boss.respawnsAt || (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : null));
+        // An untracked interval boss has no reliable anchor for a forecast.
+        if (!Number.isFinite(baseTime) || !Number.isFinite(intervalMs)) return [];
+        const first = baseTime + Math.max(0, Math.ceil((start.getTime() - baseTime) / intervalMs)) * intervalMs;
+        for (let time = first; time < end.getTime(); time += intervalMs) {
+          times.add(time);
         }
-        return (cur >= startDay && cur <= endDay) ? cur : null;
       }
+      return [...times].sort((a, b) => a - b);
+    }
+
+    function getBossScheduleItems(now, dayFilter) {
+      return state.bosses.flatMap(boss => getBossScheduleEventTimes(boss, now, dayFilter)
+        .map(eventTime => ({ boss, eventTime })))
+        .sort((a, b) => (a.eventTime - b.eventTime) || a.boss.name.localeCompare(b.boss.name, "vi"));
     }
 
     let lastTodayScheduleKey = "";
@@ -2880,21 +2872,15 @@
         elements.todayScheduleSubtitle.textContent = getTodayScheduleSubtitle(new Date(now));
       }
 
-      const items = [];
-      state.bosses.forEach((boss) => {
-        const eventTime = getBossScheduleEventTime(boss, now, scheduleDayFilter);
-        if (eventTime !== null) {
-          items.push({ boss, eventTime });
-        }
-      });
+      const items = getBossScheduleItems(now, scheduleDayFilter);
 
       const totalBoss = items.length;
       const isEn = currentLang === "en";
       if (elements.todayHeaderBadge) {
-        elements.todayHeaderBadge.textContent = `${totalBoss} ${isEn ? 'bosses' : 'boss'}`;
+        elements.todayHeaderBadge.textContent = `${totalBoss} ${isEn ? 'spawns' : 'lượt'}`;
       }
       if (elements.todayBossCount) {
-        elements.todayBossCount.textContent = `${totalBoss} ${isEn ? 'bosses' : 'boss'}`;
+        elements.todayBossCount.textContent = `${totalBoss} ${isEn ? 'spawns' : 'lượt'}`;
       }
 
       if (!totalBoss) {
@@ -2916,7 +2902,7 @@
         return a.boss.name.localeCompare(b.boss.name, "vi");
       });
 
-      const tableKey = items.map(i => `${i.boss.id}:${i.eventTime}:${getBossStatus(i.boss, now)}:${i.boss.notes || ""}`).join(",") + "_" + currentLang + "_" + scheduleDayFilter;
+      const tableKey = JSON.stringify(items) + items.map(({ boss }) => getBossStatus(boss, now)).join(",") + "_" + currentLang + "_" + scheduleDayFilter;
 
       if (tableKey !== lastTodayScheduleKey) {
         lastTodayScheduleKey = tableKey;
@@ -3113,13 +3099,7 @@
         isSingleDay = true;
       }
 
-      const items = [];
-      state.bosses.forEach((boss) => {
-        const eventTime = getBossScheduleEventTime(boss, now, scheduleDayFilter);
-        if (eventTime !== null) {
-          items.push({ boss, eventTime });
-        }
-      });
+      const items = getBossScheduleItems(now, scheduleDayFilter);
 
       items.sort((a, b) => {
         if (a.eventTime && b.eventTime) return a.eventTime - b.eventTime;
@@ -3309,7 +3289,7 @@
       <div style="font-size:15px; font-weight:800; color:#0c2461;">${filterTitle}</div>
       <div style="font-size:11.5px; color:#64748b; margin-top:2px;">${filterSubDate}</div>
     </div>
-    <div style="font-weight:800; font-size:13px; color:#0c2461;">${isEn ? "Total Bosses:" : "Tổng số Boss:"} ${counts.total}</div>
+    <div style="font-weight:800; font-size:13px; color:#0c2461;">${isEn ? "Total Spawns:" : "Tổng số lượt:"} ${counts.total}</div>
   </div>
 
   <table>
@@ -3331,7 +3311,7 @@
 
   <div class="report-footer">
     <div>${isEn ? "Generated automatically from Boss Timeline Pro" : "Xuất tự động từ hệ thống Boss Timeline Pro"}</div>
-    <div>${isEn ? "Detailed Data Report · A4 Landscape" : "Báo cáo dữ liệu chi tiết 1 trang A4 Landscape"}</div>
+    <div>${isEn ? "Detailed Data Report · A4 Landscape" : "Báo cáo dữ liệu chi tiết · A4 Landscape"}</div>
   </div>
 </body>
 </html>`;
@@ -3346,27 +3326,18 @@
       }
     }
 
-    function exportTodayScheduleCSV() {
-      const now = getNow();
-      const isEn = currentLang === "en";
+    function escapeCsvCell(value) {
+      let text = String(value ?? "");
+      if (/^[\s\u0000-\u001f]*[=+@-]/.test(text) || /^[\t\r\n]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function buildScheduleCsv(items, now, isEn) {
       const rows = [
         isEn
           ? ["SPAWN TIME & DATE", "LEVEL", "BOSS", "CYCLE", "STATUS", "LOCATION", "NOTES"]
           : ["GIỜ & NGÀY HỒI SINH", "LEVEL", "BOSS", "CHU KỲ", "TRẠNG THÁI", "ĐỊA ĐIỂM", "GHI CHÚ"]
       ];
-
-      const items = [];
-      state.bosses.forEach((boss) => {
-        const eventTime = getBossScheduleEventTime(boss, now, scheduleDayFilter);
-        if (eventTime !== null) {
-          items.push({ boss, eventTime });
-        }
-      });
-
-      items.sort((a, b) => {
-        if (a.eventTime && b.eventTime) return a.eventTime - b.eventTime;
-        return a.boss.name.localeCompare(b.boss.name, "vi");
-      });
 
       items.forEach(({ boss, eventTime }) => {
         const status = getBossStatus(boss, now);
@@ -3377,21 +3348,27 @@
         else if (status === "soon") statusText = isEn ? "SPAWNING SOON" : "Sắp hồi sinh";
 
         rows.push([
-          `"${timeFormatted}"`,
-          `"Lv. ${boss.level || 80}"`,
-          `"${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${boss.name}"`,
-          `"${cycleText}"`,
-          `"${statusText}"`,
-          `"${boss.map}"`,
-          `"${(boss.notes || "").replace(/"/g, '""')}"`
+          timeFormatted,
+          `Lv. ${boss.level || 80}`,
+          `${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${boss.name}`,
+          cycleText,
+          statusText,
+          boss.map,
+          boss.notes || ""
         ]);
       });
 
-      const csvContent = "\uFEFF" + rows.map((e) => e.join(",")).join("\r\n");
+      return "\uFEFF" + rows.map(row => row.map(escapeCsvCell).join(",")).join("\r\n");
+    }
+
+    function exportTodayScheduleCSV() {
+      const now = getNow();
+      const isEn = currentLang === "en";
+      const csvContent = buildScheduleCsv(getBossScheduleItems(now, scheduleDayFilter), now, isEn);
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const dateIso = new Date(now).toISOString().slice(0, 10);
+      const dateIso = dateToYMD(scheduleDayFilter === "all" ? now : getTargetDateForFilter(new Date(now), scheduleDayFilter));
       link.setAttribute("href", url);
       link.setAttribute("download", `lich_boss_${scheduleDayFilter}_${dateIso}.csv`);
       document.body.appendChild(link);
@@ -3407,7 +3384,42 @@
       });
     }
 
-    function killBoss(id) {
+    let pendingBossAction = null;
+
+    function closeBossActionConfirmation() {
+      document.getElementById("killConfirmModal")?.classList.remove("open");
+      document.getElementById("reviveConfirmModal")?.classList.remove("open");
+      pendingBossAction = null;
+      syncModalScrollLock();
+    }
+
+    function openBossActionConfirmation(action, id) {
+      if (!isAdmin()) return;
+      const boss = state.bosses.find(item => item.id === id);
+      if (!boss || !["kill", "revive"].includes(action)) return;
+      closeBossActionConfirmation();
+      const time = getNow();
+      pendingBossAction = { action, id, time, serverId: currentServerId, generation: bossSyncGeneration };
+      document.getElementById(`${action}ConfirmBossName`).textContent = boss.name;
+      document.getElementById(`${action}ConfirmAdmin`).textContent = currentAdminName;
+      if (action === "kill") {
+        document.getElementById("killConfirmTime").textContent = format24hTime(time);
+        document.getElementById("killConfirmRespawn").textContent = formatSpawnLabel(boss);
+      }
+      document.getElementById(`${action}ConfirmModal`).classList.add("open");
+      syncModalScrollLock();
+      document.getElementById(`${action}ConfirmCancelBtn`).focus();
+    }
+
+    function confirmBossAction(action) {
+      const pending = pendingBossAction;
+      closeBossActionConfirmation();
+      if (!pending || pending.action !== action || pending.serverId !== currentServerId || pending.generation !== bossSyncGeneration || !isAdmin()) return;
+      if (action === "kill") killBoss(pending.id, pending.time);
+      else reviveBoss(pending.id);
+    }
+
+    function killBoss(id, diedAt = getNow()) {
       const isEn = currentLang === "en";
       if (!isAdmin()) {
         showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
@@ -3416,7 +3428,7 @@
       const boss = state.bosses.find((item) => item.id === id);
       if (!boss) return;
 
-      const now = getNow();
+      const now = diedAt;
       boss.diedAt = now;
       if (boss.spawnMode === "fixed") {
         boss.respawnsAt = getNextFixedSpawnTime(boss, now);
@@ -3947,7 +3959,7 @@
       render();
     }
 
-    function showConfirmModal({ title, subtitle, message, confirmText = "Đồng ý", cancelText = "Hủy bỏ", isDanger = true }) {
+    function showConfirmModal({ title, subtitle, message, html = false, confirmText = "Đồng ý", cancelText = "Hủy bỏ", isDanger = true }) {
       return new Promise((resolve) => {
         const modal = document.getElementById("customConfirmModal");
         const titleEl = document.getElementById("confirmModalTitle");
@@ -3959,7 +3971,8 @@
 
         titleEl.textContent = title || "Xác nhận thao tác";
         subEl.textContent = subtitle || "";
-        msgEl.innerHTML = message || "";
+        if (html) msgEl.innerHTML = message || "";
+        else msgEl.textContent = message || "";
         okBtn.textContent = confirmText;
         cancelBtn.textContent = cancelText;
 
@@ -4004,9 +4017,12 @@
       if (!editingBossId) return;
       const boss = state.bosses.find((item) => item.id === editingBossId);
       if (!boss) return;
+      const bossId = boss.id;
+      const generation = bossSyncGeneration;
 
       const confirmed = await showConfirmModal({
         title: isEn ? `Delete boss ${boss.name}?` : `Xóa boss ${boss.name}?`,
+        html: true,
         subtitle: isEn ? `This action will permanently remove ${boss.name}.` : `Hành động này sẽ xóa vĩnh viễn ${boss.name} khỏi hệ thống.`,
         message: isEn
           ? `Are you sure you want to delete <strong>${escapeHtml(boss.name)}</strong> (Lv.${boss.level || 80} - ${escapeHtml(boss.map)}) from the tracker?`
@@ -4015,9 +4031,9 @@
         cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed) return;
+      if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
 
-      state.bosses = state.bosses.filter((item) => item.id !== editingBossId);
+      state.bosses = state.bosses.filter((item) => item.id !== bossId);
       saveState();
       closeModal();
       render();
@@ -4026,6 +4042,7 @@
 
     async function resetAllTimers() {
       const isEn = currentLang === "en";
+      const generation = bossSyncGeneration;
       if (!isAdmin()) {
         showToast(isEn ? "Only Admin can reset boss timers after maintenance." : "Chỉ Admin mới có quyền reset thời gian boss sau bảo trì.");
         return;
@@ -4033,6 +4050,7 @@
 
       const confirmed = await showConfirmModal({
         title: isEn ? "💥 SERVER MAINTENANCE FINISHED?" : "💥 BẢO TRÌ SERVER GAME XONG?",
+        html: true,
         subtitle: isEn ? "Reset all bosses to ALIVE state (Ready to spawn)." : "Đặt lại toàn bộ boss về trạng thái SỐNG (Sẵn sàng xuất hiện).",
         message: isEn
           ? "This action will set <strong>ALL BOSSES</strong> to <strong>ALIVE</strong> state and clear all countdowns.<br><br><span style='color:var(--green); font-weight:600;'>✓ Boss list, level, map and notes remain 100% intact.</span>"
@@ -4041,7 +4059,7 @@
         cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed) return;
+      if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
 
       const now = getNow();
       state.bosses.forEach((boss) => {
@@ -4067,6 +4085,7 @@
 
     async function clearHistory() {
       const isEn = currentLang === "en";
+      const generation = bossSyncGeneration;
       if (!isAdmin()) {
         showToast(isEn ? "Only Admin can clear timeline history." : "Chỉ Admin mới có quyền xóa lịch sử timeline.");
         return;
@@ -4075,6 +4094,7 @@
 
       const confirmed = await showConfirmModal({
         title: isEn ? "Clear all timeline history?" : "Xóa toàn bộ lịch sử timeline?",
+        html: true,
         subtitle: isEn ? "Death and respawn event logs will be wiped." : "Lịch sử chết và hồi sinh của boss sẽ bị dọn dẹp.",
         message: isEn
           ? "Are you sure you want to completely wipe the <strong>recent timeline history log</strong>?"
@@ -4083,7 +4103,7 @@
         cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed) return;
+      if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
 
       state.history = [];
       saveState();
@@ -4315,24 +4335,24 @@
 
     // ── Kill Confirm Modal Listeners ──
     document.getElementById("killConfirmOkBtn")?.addEventListener("click", () => {
-      killBossConfirmed();
+      confirmBossAction("kill");
     });
     document.getElementById("killConfirmCancelBtn")?.addEventListener("click", () => {
-      const modal = document.getElementById("killConfirmModal");
-      if (modal) modal.classList.remove("open");
-      syncModalScrollLock();
-      _pendingKillBossId = null;
+      closeBossActionConfirmation();
     });
 
     // ── Revive Confirm Modal Listeners ──
     document.getElementById("reviveConfirmOkBtn")?.addEventListener("click", () => {
-      reviveBossConfirmed();
+      confirmBossAction("revive");
     });
     document.getElementById("reviveConfirmCancelBtn")?.addEventListener("click", () => {
-      const modal = document.getElementById("reviveConfirmModal");
-      if (modal) modal.classList.remove("open");
-      syncModalScrollLock();
-      _pendingReviveBossId = null;
+      closeBossActionConfirmation();
+    });
+    ["killConfirmModal", "reviveConfirmModal"].forEach(id => {
+      const modal = document.getElementById(id);
+      modal?.addEventListener("click", event => {
+        if (event.target === modal) closeBossActionConfirmation();
+      });
     });
 
     // ── Admin Account Manager Logic ──
@@ -4591,9 +4611,9 @@
       const id = button.dataset.id;
       const action = button.dataset.action;
       if (action === "kill") {
-        killBoss(id);
+        openBossActionConfirmation("kill", id);
       } else if (action === "revive") {
-        reviveBoss(id);
+        openBossActionConfirmation("revive", id);
       } else if (action === "edit") {
         openModal(id);
       } else if (action === "offset-menu") {
@@ -4609,6 +4629,7 @@
         toggleTodaySchedule();
       });
       elements.todayScheduleToggle.addEventListener("keydown", (event) => {
+        if (event.target !== elements.todayScheduleToggle) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           toggleTodaySchedule();
@@ -4629,6 +4650,13 @@
           card.classList.add("highlighted");
           window.setTimeout(() => card.classList.remove("highlighted"), 1600);
         }
+      });
+    }
+
+    if (elements.exportCsvBtn) {
+      elements.exportCsvBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        exportTodayScheduleCSV();
       });
     }
 
@@ -4710,6 +4738,10 @@
     });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
+        if (pendingBossAction) {
+          closeBossActionConfirmation();
+          return;
+        }
         const customConfirmModal = document.getElementById("customConfirmModal");
         if (customConfirmModal && customConfirmModal.classList.contains("open")) {
           document.getElementById("confirmModalCancelBtn")?.click();
@@ -4812,7 +4844,7 @@
       const modal = document.getElementById("discordSettingsModal");
       if (modal) modal.classList.add("open");
       syncModalScrollLock();
-      if (urlInput) urlInput.focus();
+      logoInput?.focus();
     }
 
     function closeDiscordModal() {
@@ -5091,6 +5123,7 @@
         return;
       }
       currentServerId = newServerId;
+      closeBossActionConfirmation();
       bossSyncGeneration++;
       remoteStateReady = false;
       remoteSaveInFlight = false;
@@ -5526,6 +5559,7 @@
     let attendanceRemoteStateReady = false;
     let attendanceRemoteDataExists = false;
     let activeAttendanceRef = null;
+    let attendanceSyncGeneration = 0;
 
     function getAttendanceSyncData(value) {
       const { diasPool, usdtPool, activities, members, updatedAt, updatedBy, version, ...data } = value;
@@ -6058,7 +6092,7 @@
         cancelText: "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed) return;
+      if (!confirmed || !isAdmin()) return;
 
       attendanceState.weeks = attendanceState.weeks.filter(w => w.id !== weekId);
       if (attendanceState.activeWeekId === weekId) {
@@ -6148,6 +6182,10 @@
       if (!firebaseDb || attendanceFirebaseMigrationInFlight) return null;
       attendanceFirebaseMigrationInFlight = true;
       try {
+        const globalSnapshot = await firebaseDb.ref("boss_timeline_state/attendance_global").once("value");
+        if (globalSnapshot.exists()) {
+          return normalizeAttendanceState(cloneRealtimeValue(globalSnapshot.val()), getDefaultAttendanceServerId());
+        }
         const legacyItems = [];
         for (const sv of serverList) {
           const serverId = sv.id || getDefaultAttendanceServerId();
@@ -6197,6 +6235,8 @@
       const base = cloneRealtimeValue(attendanceSyncBase || local);
       if (!seedOnly && JSON.stringify(base) === JSON.stringify(local)) return;
       const saveRef = attendanceDbRef;
+      const generation = attendanceSyncGeneration;
+      const fallbackServerId = getDefaultAttendanceServerId();
       attendanceRemoteSaveInFlight = true;
       attendancePendingRemoteSave = false;
       attendanceDeferredRemoteData = null;
@@ -6204,15 +6244,16 @@
       try {
         const result = await saveRef.transaction(current => {
           if (seedOnly && current) return;
-          const remote = current ? getAttendanceSyncData(normalizeAttendanceState(cloneRealtimeValue(current), getDefaultAttendanceServerId())) : null;
+          const remote = current ? getAttendanceSyncData(normalizeAttendanceState(cloneRealtimeValue(current), fallbackServerId)) : null;
           const merged = remote ? mergeRealtimeChanges(base, local, remote) : cloneRealtimeValue(local);
           return normalizeAttendanceState({
             ...merged,
             updatedAt: Date.now(),
             updatedBy: CLIENT_ID,
             version: (Number(current?.version) || 0) + 1
-          }, getDefaultAttendanceServerId());
+          }, fallbackServerId);
         }, undefined, false);
+        if (generation !== attendanceSyncGeneration || !isAdmin()) return;
         const confirmed = result.snapshot.val();
         if (confirmed) {
           applyAttendanceRemoteData(confirmed, result.committed ? local : (seedBase || local));
@@ -6222,29 +6263,41 @@
         }
         saved = true;
       } catch (err) {
-        handleAttendanceSyncError(err);
+        if (generation === attendanceSyncGeneration && isAdmin()) handleAttendanceSyncError(err);
       } finally {
-        attendanceRemoteSaveInFlight = false;
-        attendanceDeferredRemoteData = null;
-        const savePending = attendancePendingRemoteSave;
-        attendancePendingRemoteSave = false;
-        if (saved && (savePending || JSON.stringify(attendanceSyncBase) !== JSON.stringify(getAttendanceSyncData(attendanceState)))) {
-          pushAttendanceToFirebase();
+        if (generation === attendanceSyncGeneration) {
+          attendanceRemoteSaveInFlight = false;
+          attendanceDeferredRemoteData = null;
+          const savePending = attendancePendingRemoteSave;
+          attendancePendingRemoteSave = !saved || savePending;
+          if (saved && (savePending || JSON.stringify(attendanceSyncBase) !== JSON.stringify(getAttendanceSyncData(attendanceState)))) {
+            pushAttendanceToFirebase();
+          }
         }
       }
     }
 
     function initAttendanceRealtimeSync() {
       if (!attendanceDbRef) return;
-      if (activeAttendanceRef === attendanceDbRef) return;
+      if (isAdmin() && activeAttendanceRef === attendanceDbRef) return;
       try {
         if (activeAttendanceRef) activeAttendanceRef.off();
       } catch (e) {}
+      attendanceSyncGeneration++;
+      attendanceRemoteStateReady = false;
+      attendanceRemoteSaveInFlight = false;
+      attendanceRemotePermissionDenied = false;
+      attendanceDeferredRemoteData = null;
+      attendanceFirebaseSeedAttempted = false;
+      attendanceRemoteDataExists = false;
+      activeAttendanceRef = null;
+      if (!isAdmin()) return;
       activeAttendanceRef = attendanceDbRef;
       const subscribedRef = attendanceDbRef;
+      const generation = attendanceSyncGeneration;
 
       subscribedRef.on("value", (snapshot) => {
-        if (subscribedRef !== activeAttendanceRef || attendanceRemotePermissionDenied) return;
+        if (generation !== attendanceSyncGeneration || subscribedRef !== activeAttendanceRef || !isAdmin() || attendanceRemotePermissionDenied) return;
         const remoteData = snapshot.val();
         attendanceRemoteStateReady = true;
         if (remoteData) attendanceRemoteDataExists = true;
@@ -6258,7 +6311,7 @@
             attendanceFirebaseSeedAttempted = true;
             const beforeMigration = getAttendanceSyncData(attendanceState);
             migrateLegacyFirebaseAttendanceIfNeeded().then(migrated => {
-              if (attendanceRemotePermissionDenied) return;
+              if (generation !== attendanceSyncGeneration || !isAdmin() || attendanceRemotePermissionDenied) return;
               if (attendanceRemoteDataExists) {
                 pushAttendanceToFirebase();
                 return;
@@ -6271,14 +6324,18 @@
                 renderAttendanceTable();
               }
               pushAttendanceToFirebase(true, seedBase);
-            }).catch(handleAttendanceSyncError);
+            }).catch(err => {
+              if (generation === attendanceSyncGeneration && isAdmin()) handleAttendanceSyncError(err);
+            });
           }
           return;
         }
 
         applyAttendanceRemoteData(remoteData);
         if (isAdmin()) pushAttendanceToFirebase();
-      }, handleAttendanceSyncError);
+      }, err => {
+        if (generation === attendanceSyncGeneration && isAdmin()) handleAttendanceSyncError(err);
+      });
     }
 
     function formatPoints(val) {
@@ -6479,6 +6536,20 @@
     }
 
     function renderAttendanceTable() {
+      const content = document.getElementById("attendanceContent");
+      const notice = document.getElementById("attendanceAccessNotice");
+      if (content) content.hidden = !isAdmin();
+      if (notice) notice.hidden = isAdmin();
+      if (!isAdmin()) {
+        for (const id of ["attTableHead", "attTableBody", "attWeekTabs", "attServerSummary", "attExportTextarea"]) {
+          const element = document.getElementById(id);
+          if (element) {
+            element.textContent = "";
+            if ("value" in element) element.value = "";
+          }
+        }
+        return;
+      }
       if (!attendanceState) attendanceState = loadAttendanceState();
 
       renderWeekTabs();
@@ -6774,7 +6845,7 @@
             isDanger: true
           });
           if (confirmed) {
-            deleteAttendanceMember(memberId);
+            deleteAttendanceMember(memberId, currWeek.id);
           }
         });
       });
@@ -6805,7 +6876,7 @@
             isDanger: true
           });
           if (confirmed) {
-            deleteAttendanceActivity(actId);
+            deleteAttendanceActivity(actId, currWeek.id);
           }
         });
       });
@@ -7039,9 +7110,10 @@
       renderAttendanceTable();
     }
 
-    function deleteAttendanceMember(memberId) {
+    function deleteAttendanceMember(memberId, weekId = attendanceState?.activeWeekId) {
       if (!isAdmin() || !attendanceState) return;
-      const currWeek = getActiveWeek();
+      const currWeek = attendanceState.weeks.find(week => week.id === weekId);
+      if (!currWeek) return;
       currWeek.members = currWeek.members.filter(m => m.id !== memberId);
       saveAttendanceState(attendanceState, true);
       closeAttendanceMemberModal();
@@ -7143,9 +7215,10 @@
       renderAttendanceTable();
     }
 
-    function deleteAttendanceActivity(actId) {
+    function deleteAttendanceActivity(actId, weekId = attendanceState?.activeWeekId) {
       if (!isAdmin() || !attendanceState) return;
-      const currWeek = getActiveWeek();
+      const currWeek = attendanceState.weeks.find(week => week.id === weekId);
+      if (!currWeek) return;
       currWeek.activities = currWeek.activities.filter(a => a.id !== actId);
       // Clean up records for this activity
       currWeek.members.forEach(m => {
@@ -7613,6 +7686,7 @@
     initAttendanceEvents();
     renderAttendanceTable();
     initAttendanceRealtimeSync();
+    document.getElementById("attendanceLoginBtn")?.addEventListener("click", requestAdminLogin);
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get("tab") || urlParams.get("page") || urlParams.get("view");
     const initialHash = window.location.hash.replace("#", "");
@@ -7629,7 +7703,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.03.v18-secure-discord-relay";
+    const CURRENT_APP_VERSION = "2026.10.09.v19-reviewed-sync-and-schedule";
     window.setInterval(async () => {
       try {
         const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });

@@ -1,4 +1,8 @@
 // Google Firebase configuration for Boss Timeline Pro
+// GitHub Pages serves static files; the existing Vercel deployment runs the relay.
+window.BOSS_TIMELINE_DISCORD_API = window.location.origin === "https://tiensyle.github.io"
+  ? "https://bosschill.vercel.app/api/discord"
+  : "/api/discord";
 window.BOSS_TIMELINE_FIREBASE = {
   apiKey: "AIzaSyCfVwcvXqDeurizrqEbHmGopNIPHFa-D7Q",
   authDomain: "time-boss-chill.firebaseapp.com",

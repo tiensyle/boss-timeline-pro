@@ -1,0 +1,12 @@
+{
+  "name": "boss-timeline-pro",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node tools/dev-server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node tests/browser.mjs",
+    "check": "node --check assets/app.js && node --check api/discord.js && node --check tools/dev-server.mjs"
+  }
+}

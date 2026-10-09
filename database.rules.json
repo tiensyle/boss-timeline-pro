@@ -3,8 +3,26 @@
     ".read": false,
     ".write": false,
     "boss_timeline_state": {
-      ".read": true,
+      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+      "data": {
+        ".read": true,
+        "bosses": { ".validate": true },
+        "history": { ".validate": true },
+        "_clientId": { ".validate": "newData.isString()" },
+        "updated_at": { ".validate": "newData.isString()" },
+        "version": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      },
+      "bosses_map": { ".read": true }
+    },
+    "boss_timeline_attendance_global": {
+      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
       ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+    },
+    "boss_timeline_attendance": {
+      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+      ".write": false
     },
     "boss_timeline_discord_config": {
       ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
@@ -17,8 +35,22 @@
     "boss_timeline_servers": {
       "$serverId": {
         "state": {
-          ".read": true,
-          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+          "data": {
+            ".read": true,
+            "bosses": { ".validate": true },
+            "history": { ".validate": true },
+            "_clientId": { ".validate": "newData.isString()" },
+            "updated_at": { ".validate": "newData.isString()" },
+            "version": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          },
+          "bosses_map": { ".read": true }
+        },
+        "attendance": {
+          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+          ".write": false
         },
         "discord_config": {
           ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
