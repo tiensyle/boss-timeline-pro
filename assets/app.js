@@ -304,7 +304,16 @@
         });
         // A remotely deleted item is not recreated by a stale local edit.
         const added = local.filter(item => !baseMap.has(item.id) && !remoteIds.has(item.id)).map(cloneRealtimeValue);
-        return local[0] && !baseMap.has(local[0].id) ? [...added, ...merged] : [...merged, ...added];
+        const combined = local[0] && !baseMap.has(local[0].id) ? [...added, ...merged] : [...merged, ...added];
+        const baseOrder = baseList.filter(item => localMap.has(item.id)).map(item => item.id);
+        const localOrder = local.filter(item => baseMap.has(item.id)).map(item => item.id);
+        const localReorderedItems = baseOrder.some((id, index) => id !== localOrder[index]);
+        if (!localReorderedItems) return combined;
+
+        const mergedById = new Map(combined.map(item => [item.id, item]));
+        const localOrdered = local.map(item => mergedById.get(item.id)).filter(Boolean);
+        const remoteOnly = combined.filter(item => !localMap.has(item.id));
+        return [...localOrdered, ...remoteOnly];
       }
       const before = base && typeof base === "object" && !Array.isArray(base) ? base : {};
       const merged = remote && typeof remote === "object" && !Array.isArray(remote) ? cloneRealtimeValue(remote) : {};

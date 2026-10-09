@@ -35,6 +35,17 @@ test("concurrent field edits, attendance checkboxes and additions are preserved"
   assert.equal(merged.weeks[0].members[1].id, "m2");
 });
 
+test("intentional array reorders survive realtime merges with remote-only additions", () => {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges"]);
+  const base = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  const local = [{ id: "c" }, { id: "a" }, { id: "b" }];
+  const remote = [{ id: "a", note: "remote edit" }, { id: "b" }, { id: "c" }, { id: "d" }];
+  const merged = copy(ctx.mergeRealtimeChanges(base, local, remote));
+
+  assert.deepEqual(merged.map(item => item.id), ["c", "a", "b", "d"]);
+  assert.equal(merged[1].note, "remote edit");
+});
+
 test("attendance server scopes preserve guild totals and allocated payroll", () => {
   const ctx = load(["getAttendanceScopeData"]);
   const membersCalc = [
@@ -77,7 +88,9 @@ test("maintenance reset uses the requested boss order and keeps unknown bosses s
     ],
     history: []
   };
-  const ctx = load(["sortBossesForMaintenance", "resetAllTimers"], {
+  const baseBosses = copy(state.bosses);
+  const remoteBosses = [...copy(baseBosses), { id: "remote-add", name: "Remote addition" }];
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "sortBossesForMaintenance", "resetAllTimers"], {
     state,
     currentLang: "vi",
     bossSyncGeneration: 0,
@@ -93,6 +106,10 @@ test("maintenance reset uses the requested boss order and keeps unknown bosses s
 
   assert.deepEqual(copy(state.bosses.map(boss => boss.id)), [
     ...requestedOrder.map((_, index) => `rank-${index}`), "other-a", "other-b"
+  ]);
+  const syncedBosses = copy(ctx.mergeRealtimeChanges(baseBosses, state.bosses, remoteBosses));
+  assert.deepEqual(syncedBosses.map(boss => boss.id), [
+    ...requestedOrder.map((_, index) => `rank-${index}`), "other-a", "other-b", "remote-add"
   ]);
   assert.ok(state.bosses.every(boss => boss.diedAt === null && boss.respawnsAt === null && boss.lastRespawnAt === 1000));
 });
