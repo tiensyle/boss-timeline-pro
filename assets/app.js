@@ -2275,9 +2275,36 @@
         if (aTime && !bTime) return -1;
         if (!aTime && bTime) return 1;
 
-        // 3. Cả 2 boss đều đang sống (READY): xếp theo tên A-Z
-        return a.name.localeCompare(b.name, "vi");
+        // Giữ thứ tự danh sách đã được thiết lập khi reset bảo trì.
+        return 0;
       });
+    }
+
+    function sortBossesForMaintenance(bosses) {
+      const preferredNames = [
+        "Quý bà Dalia", "Tướng Aquileus", "Amentis", "Wannitas", "Duplican", "Metus",
+        "Nam Tước Bradmore", "Gareth", "Titore", "Catena", "Shuliar", "Larba",
+        "Secreta", "Ordo", "Asta", "Supore"
+      ];
+      const normalizeName = value => String(value || "")
+        .replace(/^\s*(?:lv\.?\s*)?\d{1,3}\s*[-–:]?\s*/i, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[đĐ]/g, "d")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+      const rankByName = new Map(preferredNames.map((name, index) => [normalizeName(name), index]));
+
+      return bosses
+        .map((boss, index) => ({ boss, index, rank: rankByName.get(normalizeName(boss.name)) }))
+        .sort((a, b) => {
+          if (a.rank !== undefined && b.rank !== undefined) return a.rank - b.rank;
+          if (a.rank !== undefined) return -1;
+          if (b.rank !== undefined) return 1;
+          return a.index - b.index;
+        })
+        .map(item => item.boss);
     }
 
     let lastRenderedGridKey = "";
@@ -4066,6 +4093,7 @@
       if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
 
       const now = getNow();
+      state.bosses = sortBossesForMaintenance(state.bosses);
       state.bosses.forEach((boss) => {
         boss.diedAt = null;
         boss.respawnsAt = null;

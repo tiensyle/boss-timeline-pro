@@ -58,6 +58,45 @@ test("attendance server scopes preserve guild totals and allocated payroll", () 
   assert.equal(ctx.getAttendanceScopeData(calc, "missing").membersCount, 0);
 });
 
+test("maintenance reset uses the requested boss order and keeps unknown bosses stable", async () => {
+  const requestedOrder = [
+    "Quý bà Dalia", "Tướng Aquileus", "Amentis", "Wannitas", "Duplican", "Metus",
+    "Nam Tước Bradmore", "Gareth", "Titore", "Catena", "Shuliar", "Larba",
+    "Secreta", "Ordo", "Asta", "Supore"
+  ];
+  const state = {
+    bosses: [
+      { id: "other-a", name: "Unlisted boss A", diedAt: 10, respawnsAt: 20 },
+      ...requestedOrder.slice().reverse().map((name, index) => ({
+        id: `rank-${requestedOrder.length - index - 1}`,
+        name: index % 2 ? `${80 + index} ${name}` : name,
+        diedAt: 10,
+        respawnsAt: 20
+      })),
+      { id: "other-b", name: "Unlisted boss B", diedAt: 10, respawnsAt: 20 }
+    ],
+    history: []
+  };
+  const ctx = load(["sortBossesForMaintenance", "resetAllTimers"], {
+    state,
+    currentLang: "vi",
+    bossSyncGeneration: 0,
+    isAdmin: () => true,
+    showConfirmModal: async () => true,
+    getNow: () => 1000,
+    saveState: () => {},
+    render: () => {},
+    showToast: () => {}
+  });
+
+  await ctx.resetAllTimers();
+
+  assert.deepEqual(copy(state.bosses.map(boss => boss.id)), [
+    ...requestedOrder.map((_, index) => `rank-${index}`), "other-a", "other-b"
+  ]);
+  assert.ok(state.bosses.every(boss => boss.diedAt === null && boss.respawnsAt === null && boss.lastRespawnAt === 1000));
+});
+
 test("suggested attendance weeks run from Saturday through the following Friday", () => {
   const ctx = load(["getSuggestedWeekRange"]);
   assert.equal(ctx.getSuggestedWeekRange(0, new Date(2026, 9, 9, 12)), "10/10 - 16/10/2026");
