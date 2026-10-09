@@ -158,7 +158,10 @@ try {
   checks.push("Attendance server scopes, shared-pool allocation, filters and XSS-safe deletion popup");
 
   const originalWeek = await page.evaluate(() => JSON.stringify(attendanceState.weeks[0]));
-  await page.locator("#attAddNewWeekBtn").click();
+  assert.equal(await page.locator("#attAddNewWeekBtn").count(), 0);
+  assert.equal((await page.locator("#attAddWeekTabBtn").textContent()).trim(), "Thêm Tuần Mới");
+  await page.locator("#attAddWeekTabBtn").click();
+  assert.equal(await page.locator("#attWeekDateRangeInput").inputValue(), await page.evaluate(() => getSuggestedWeekRange(0)));
   await page.locator("#attWeekNameInput").fill("New Week");
   await page.locator("#attWeekClearBossesOption").uncheck();
   await page.evaluate(() => saveAttendanceWeek());

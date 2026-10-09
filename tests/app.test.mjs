@@ -58,6 +58,43 @@ test("attendance server scopes preserve guild totals and allocated payroll", () 
   assert.equal(ctx.getAttendanceScopeData(calc, "missing").membersCount, 0);
 });
 
+test("suggested attendance weeks run from Saturday through the following Friday", () => {
+  const ctx = load(["getSuggestedWeekRange"]);
+  assert.equal(ctx.getSuggestedWeekRange(0, new Date(2026, 9, 9, 12)), "10/10 - 16/10/2026");
+  assert.equal(ctx.getSuggestedWeekRange(1, new Date(2026, 9, 9, 12)), "17/10 - 23/10/2026");
+  assert.equal(ctx.getSuggestedWeekRange(0, new Date(2027, 0, 3, 12)), "09/01 - 15/01/2027");
+});
+
+test("checking attendance in a historical week keeps that week selected after sync merge", () => {
+  const state = {
+    activeWeekId: "w2",
+    weeks: [
+      { id: "w1", members: [{ id: "m1", records: {} }], activities: [{ id: "a" }] },
+      { id: "w2", members: [{ id: "m1", records: {} }], activities: [{ id: "a" }] }
+    ]
+  };
+  const remote = copy(state);
+  const ctx = load(["cloneRealtimeValue", "switchAttendanceWeek", "toggleAttendanceCheck", "mergeRealtimeChanges"], {
+    attendanceState: state,
+    attendanceSyncBase: copy(state),
+    getActiveWeek: () => state.weeks.find(week => week.id === state.activeWeekId),
+    saveAttendanceState: () => {},
+    cacheAttendanceSyncState: () => {},
+    renderAttendanceTable: () => {},
+    showToast: () => {}
+  });
+
+  ctx.switchAttendanceWeek("w1");
+  ctx.toggleAttendanceCheck("m1", "a", true);
+  const merged = copy(ctx.mergeRealtimeChanges(ctx.attendanceSyncBase, ctx.attendanceState, remote));
+
+  assert.equal(ctx.attendanceState.activeWeekId, "w1");
+  assert.equal(ctx.attendanceSyncBase.activeWeekId, "w2");
+  assert.equal(merged.activeWeekId, "w1");
+  assert.equal(merged.weeks[0].members[0].records.a, true);
+  assert.equal(merged.weeks[1].members[0].records.a, undefined);
+});
+
 test("attendance bulk selection follows the active server and visible filters", () => {
   const ctx = load(["filterAttendanceMembers"], {
     attendanceSearchTerm: "",

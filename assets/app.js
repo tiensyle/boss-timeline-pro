@@ -5831,18 +5831,16 @@
       }
     }
 
-    function getSuggestedWeekRange(offsetWeeks = 0) {
-      const now = new Date();
-      const day = now.getDay();
-      const diffToMon = (day === 0 ? -6 : 1) - day + (offsetWeeks * 7);
-      const mon = new Date(now);
-      mon.setDate(now.getDate() + diffToMon);
-      const sun = new Date(mon);
-      sun.setDate(mon.getDate() + 6);
+    function getSuggestedWeekRange(offsetWeeks = 0, referenceDate = new Date()) {
+      const daysUntilSaturday = (6 - referenceDate.getDay() + 7) % 7;
+      const saturday = new Date(referenceDate);
+      saturday.setDate(referenceDate.getDate() + daysUntilSaturday + (offsetWeeks * 7));
+      const friday = new Date(saturday);
+      friday.setDate(saturday.getDate() + 6);
       
       const pad = n => String(n).padStart(2, '0');
-      const d1 = `${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`;
-      const d2 = `${pad(sun.getDate())}/${pad(sun.getMonth() + 1)}/${sun.getFullYear()}`;
+      const d1 = `${pad(saturday.getDate())}/${pad(saturday.getMonth() + 1)}`;
+      const d2 = `${pad(friday.getDate())}/${pad(friday.getMonth() + 1)}/${friday.getFullYear()}`;
       return `${d1} - ${d2}`;
     }
 
@@ -6072,7 +6070,6 @@
       const target = attendanceState.weeks.find(w => w.id === weekId);
       if (!target) return;
       attendanceState.activeWeekId = weekId;
-      if (attendanceSyncBase) attendanceSyncBase.activeWeekId = weekId;
       saveAttendanceState(attendanceState, false);
       cacheAttendanceSyncState();
       renderAttendanceTable();
@@ -6147,7 +6144,7 @@
       if (adminMode) {
         tabsHtml += `<button type="button" class="att-add-week-tab-btn" id="attAddWeekTabBtn" title="Thêm tuần mới">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>Thêm Tuần</span>
+          <span>Thêm Tuần Mới</span>
         </button>`;
       }
 
@@ -6693,7 +6690,7 @@
         `).join("");
         serverSummaryEl.innerHTML = summaryHtml + `
           <button type="button" class="att-server-summary-pill${attendanceServerFilter === "all" ? " is-active" : ""}" data-server-scope="all" aria-pressed="${attendanceServerFilter === "all"}">
-            <strong>TOÀN GUILD</strong>
+            <strong>Tổng Các Guild</strong>
             <span>${guildCalc.membersCount} thành viên • ${formatPoints(guildCalc.totalGuildPPoints)} P.Point • 100%</span>
           </button>
         `;
@@ -7337,9 +7334,6 @@
       const addActBtn = document.getElementById("attAddActivityBtn");
       if (addActBtn) addActBtn.style.display = adminMode ? "inline-flex" : "none";
 
-      const addWeekBtn = document.getElementById("attAddNewWeekBtn");
-      if (addWeekBtn) addWeekBtn.style.display = adminMode ? "inline-flex" : "none";
-
       const backupBtn = document.getElementById("attBackupDataBtn");
       if (backupBtn) backupBtn.style.display = adminMode ? "inline-flex" : "none";
 
@@ -7606,9 +7600,6 @@
 
       const addActBtn = document.getElementById("attAddActivityBtn");
       if (addActBtn) addActBtn.addEventListener("click", () => openAttendanceActivityModal());
-
-      const addNewWeekBtn = document.getElementById("attAddNewWeekBtn");
-      if (addNewWeekBtn) addNewWeekBtn.addEventListener("click", () => openAttendanceWeekModal());
 
       const backupDataBtn = document.getElementById("attBackupDataBtn");
       if (backupDataBtn) backupDataBtn.addEventListener("click", downloadFullDataBackup);

@@ -3906,9 +3906,9 @@
       min-width: max-content;
       padding: 0 14px;
       border-radius: var(--radius);
-      border: 1px dashed var(--cyan);
-      background: var(--cyan-soft);
-      color: var(--cyan);
+      border: 1px solid var(--red);
+      background: var(--red-soft);
+      color: var(--red);
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
@@ -3920,10 +3920,9 @@
       flex-shrink: 0;
     }
     .att-add-week-tab-btn:hover {
-      background: var(--cyan);
+      background: var(--red);
       color: #ffffff !important;
-      border-style: solid;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 2px 8px rgba(226, 87, 76, 0.2);
     }
     .att-add-week-tab-btn svg {
       width: 14px;
