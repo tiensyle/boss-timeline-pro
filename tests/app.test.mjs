@@ -69,6 +69,16 @@ test("attendance server scopes preserve guild totals and allocated payroll", () 
   assert.equal(ctx.getAttendanceScopeData(calc, "missing").membersCount, 0);
 });
 
+test("Firebase reads preserve the ordered boss array instead of map key order", () => {
+  const ordered = [{ id: "dalia", name: "Quý bà Dalia" }, { id: "aquileus", name: "Tướng Aquileus" }];
+  const map = { z: ordered[0], a: ordered[1] };
+  const ctx = load(["getBossRemoteData"], { normalizeBoss: boss => boss });
+
+  assert.deepEqual(copy(ctx.getBossRemoteData({ data: { bosses: ordered, history: [] }, bosses_map: map }).bosses), ordered);
+  assert.deepEqual(copy(ctx.getBossRemoteData({ bosses_map: map, data: { history: [] } }).bosses), [ordered[0], ordered[1]]);
+  assert.deepEqual(copy(ctx.getBossRemoteData({ data: { bosses: [], history: [] }, bosses_map: map }).bosses), []);
+});
+
 test("maintenance reset uses the requested boss order and keeps unknown bosses stable", async () => {
   const requestedOrder = [
     "Quý bà Dalia", "Tướng Aquileus", "Amentis", "Wannitas", "Duplican", "Metus",

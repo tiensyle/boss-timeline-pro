@@ -1605,9 +1605,11 @@
     }
 
     function getBossRemoteData(value) {
+      const bosses = Array.isArray(value.data?.bosses)
+        ? value.data.bosses
+        : (value.bosses_map && typeof value.bosses_map === "object" ? Object.values(value.bosses_map) : []);
       return {
-        bosses: (value.bosses_map && typeof value.bosses_map === "object"
-          ? Object.values(value.bosses_map) : (value.data?.bosses || [])).map(normalizeBoss),
+        bosses: bosses.map(normalizeBoss),
         history: Array.isArray(value.data?.history) ? value.data.history.slice(0, 30) : []
       };
     }
