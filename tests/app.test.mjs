@@ -303,7 +303,7 @@ test("auth restoration cannot discard offline admin edits before permissions are
   assert.equal(ctx.state.bosses[0].respawnsAt, 200);
 });
 
-const scheduleContext = () => load(["getTargetDateForFilter", "getBossScheduleEventTimes", "getBossScheduleItems"], { state: { bosses: [] }, scheduleDayFilter: "all" });
+const scheduleContext = () => load(["getTargetDateForFilter", "getBossScheduleEventTimes", "getBossScheduleItems"], { state: { bosses: [], history: [] }, scheduleDayFilter: "all" });
 
 test("fixed schedule includes all daily slots, removes duplicates and excludes next midnight", () => {
   const ctx = scheduleContext();
@@ -313,6 +313,25 @@ test("fixed schedule includes all daily slots, removes duplicates and excludes n
   assert.equal(today.length, 2);
   assert.equal(new Date(today[0]).getHours(), 0);
   assert.equal(ctx.getBossScheduleEventTimes(boss, now, "all").length, 14);
+});
+
+test("maintenance reset spawns appear in today's schedule before fixed boss times", () => {
+  const now = new Date(2026, 9, 9, 14, 52).getTime();
+  const fixedAt = time => new Date(2026, 9, 9, time, 0).getTime();
+  const state = {
+    bosses: [
+      { id: "dalia", name: "Quý bà Dalia", spawnMode: "interval", respawnMinutes: 1080, lastRespawnAt: now },
+      { id: "aquileus", name: "Tướng Aquileus", spawnMode: "interval", respawnMinutes: 1740, lastRespawnAt: now },
+      { id: "roderick", name: "Roderick", spawnMode: "fixed", fixedSchedules: [{ day: 5, time: "18:00" }], lastRespawnAt: now },
+      { id: "auraq", name: "Auraq", spawnMode: "fixed", fixedSchedules: [{ day: 5, time: "21:00" }], lastRespawnAt: now }
+    ],
+    history: [{ id: "maintenance", type: "respawn", bossId: "all", time: now }]
+  };
+  const ctx = load(["getTargetDateForFilter", "getBossScheduleEventTimes", "getBossScheduleItems"], { state });
+  const today = copy(ctx.getBossScheduleItems(now, "today"));
+
+  assert.deepEqual(today.map(item => item.boss.id), ["dalia", "aquileus", "roderick", "auraq"]);
+  assert.deepEqual(today.map(item => item.eventTime), [now, now, fixedAt(18), fixedAt(21)]);
 });
 
 test("interval forecasts cover all 7 days, long cycles, boundaries and unknown anchors", () => {

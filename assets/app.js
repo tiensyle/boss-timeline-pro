@@ -1140,10 +1140,6 @@
       // Thu thập danh sách boss ngày hôm nay
       const items = getBossScheduleItems(now, "today");
 
-      items.sort((a, b) => {
-        if (a.eventTime && b.eventTime) return a.eventTime - b.eventTime;
-        return a.boss.name.localeCompare(b.boss.name, "vi");
-      });
 
       const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
       const dayStr = dayNames[nowDate.getDay()];
@@ -2887,6 +2883,14 @@
         }
       } else {
         const intervalMs = Math.max(1, Number(boss.respawnMinutes) || 30) * 60000;
+        const lastRespawnAt = boss.lastRespawnAt == null ? NaN : Number(boss.lastRespawnAt);
+        const hasRecordedSpawn = Number.isFinite(lastRespawnAt) && Array.isArray(state.history)
+          && state.history.some(event => event.type === "respawn"
+            && (event.bossId === "all" || event.bossId === boss.id)
+            && Number(event.time) === lastRespawnAt);
+        if (hasRecordedSpawn && lastRespawnAt >= start.getTime() && lastRespawnAt < end.getTime()) {
+          times.add(lastRespawnAt);
+        }
         const baseTime = boss.diedAt ? boss.diedAt + intervalMs
           : (boss.respawnsAt || (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : null));
         // An untracked interval boss has no reliable anchor for a forecast.
@@ -2900,9 +2904,10 @@
     }
 
     function getBossScheduleItems(now, dayFilter) {
-      return state.bosses.flatMap(boss => getBossScheduleEventTimes(boss, now, dayFilter)
-        .map(eventTime => ({ boss, eventTime })))
-        .sort((a, b) => (a.eventTime - b.eventTime) || a.boss.name.localeCompare(b.boss.name, "vi"));
+      return state.bosses.flatMap((boss, bossOrder) => getBossScheduleEventTimes(boss, now, dayFilter)
+        .map(eventTime => ({ boss, eventTime, bossOrder })))
+        .sort((a, b) => (a.eventTime - b.eventTime) || (a.bossOrder - b.bossOrder))
+        .map(({ boss, eventTime }) => ({ boss, eventTime }));
     }
 
     let lastTodayScheduleKey = "";
