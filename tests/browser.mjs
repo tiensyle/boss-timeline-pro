@@ -120,6 +120,22 @@ try {
   checks.push("Boss add/delete/reset/search and server-specific localStorage");
 
   await page.evaluate(() => switchPageView("attendance"));
+  const scopeTotals = await page.evaluate(() => {
+    const calculation = calculateAttendanceData(attendanceState);
+    const all = getAttendanceScopeData(calculation, "all");
+    const s1 = getAttendanceScopeData(calculation, "s1");
+    const s2 = getAttendanceScopeData(calculation, "s2");
+    return { allMembers: all.membersCount, allDias: all.diasPool, allUsdt: all.usdtPool,
+      serverDias: s1.diasPool + s2.diasPool, serverUsdt: s1.usdtPool + s2.usdtPool };
+  });
+  assert.equal(scopeTotals.allMembers, 2);
+  assert.equal(scopeTotals.serverDias, scopeTotals.allDias);
+  assert.equal(scopeTotals.serverUsdt, scopeTotals.allUsdt);
+  await page.locator('#attServerSummary [data-server-scope="s1"]').click();
+  assert.equal(await page.locator("#attFilterServer").inputValue(), "s1");
+  assert.equal(await page.locator("#attTotalMembersCount").textContent(), "1");
+  await page.locator('#attServerSummary [data-server-scope="all"]').click();
+  assert.equal(await page.locator("#attTotalMembersCount").textContent(), "2");
   await page.locator("#attFilterServer").selectOption("s1");
   assert.equal(await page.locator('#attTableBody tr[data-member-id]').count(), 1);
   await page.locator("#attFilterServer").selectOption("all");
@@ -131,7 +147,7 @@ try {
   assert.ok((await page.locator("#confirmModalMessage").textContent()).includes("<img"));
   assert.equal(await page.evaluate(() => window.__xss), undefined);
   await page.locator("#confirmModalCancelBtn").click();
-  checks.push("Attendance server/search filters and XSS-safe deletion popup");
+  checks.push("Attendance server scopes, shared-pool allocation, filters and XSS-safe deletion popup");
 
   const originalWeek = await page.evaluate(() => JSON.stringify(attendanceState.weeks[0]));
   await page.locator("#attAddNewWeekBtn").click();

@@ -35,6 +35,29 @@ test("concurrent field edits, attendance checkboxes and additions are preserved"
   assert.equal(merged.weeks[0].members[1].id, "m2");
 });
 
+test("attendance server scopes preserve guild totals and allocated payroll", () => {
+  const ctx = load(["getAttendanceScopeData"]);
+  const membersCalc = [
+    { serverId: "s1", rawPoints: 8, pPoints: 12, eligible: true, eligiblePPoints: 12, dias: 70, usdt: 7.01 },
+    { serverId: "s1", rawPoints: 3, pPoints: 3, eligible: false, eligiblePPoints: 0, dias: 0, usdt: 0 },
+    { serverId: "s2", rawPoints: 4, pPoints: 8, eligible: true, eligiblePPoints: 8, dias: 31, usdt: 3.00 }
+  ];
+  const calc = { membersCalc, membersCount: 3, totalGuildRawPoints: 15, totalGuildPPoints: 23, totalEligiblePPoints: 20,
+    eligibleMembersCount: 2, ineligibleMembersCount: 1, diasPool: 101, usdtPool: 10.01, diasRate: 5.05, usdtRate: 0.5005 };
+  const all = ctx.getAttendanceScopeData(calc, "all");
+  const s1 = ctx.getAttendanceScopeData(calc, "s1");
+  const s2 = ctx.getAttendanceScopeData(calc, "s2");
+
+  assert.equal(s1.membersCount, 2);
+  assert.equal(s1.totalGuildPPoints, 15);
+  assert.equal(s1.eligibleMembersCount, 1);
+  assert.equal(s1.ineligibleMembersCount, 1);
+  assert.equal(s1.diasPool + s2.diasPool, all.diasPool);
+  assert.equal(s1.usdtPool + s2.usdtPool, all.usdtPool);
+  assert.equal(all.membersCount, 3);
+  assert.equal(ctx.getAttendanceScopeData(calc, "missing").membersCount, 0);
+});
+
 test("stale edits do not resurrect deleted bosses, weeks or members", () => {
   const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges"]);
   const base = [{ id: "a", name: "old" }, { id: "b", name: "keep" }];

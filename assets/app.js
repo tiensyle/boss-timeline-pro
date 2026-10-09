@@ -6539,6 +6539,32 @@
       };
     }
 
+    function getAttendanceScopeData(calc, serverId = "all") {
+      const membersCalc = serverId === "all"
+        ? calc.membersCalc
+        : calc.membersCalc.filter(member => member.serverId === serverId);
+      const totalGuildRawPoints = membersCalc.reduce((sum, member) => sum + member.rawPoints, 0);
+      const totalGuildPPoints = membersCalc.reduce((sum, member) => sum + member.pPoints, 0);
+      const totalEligiblePPoints = membersCalc.reduce((sum, member) => sum + member.eligiblePPoints, 0);
+      const diasPool = membersCalc.reduce((sum, member) => sum + member.dias, 0);
+      const usdtPool = membersCalc.reduce((sum, member) => sum + member.usdt, 0);
+
+      return {
+        ...calc,
+        membersCalc,
+        membersCount: membersCalc.length,
+        totalGuildRawPoints,
+        totalGuildPPoints,
+        totalEligiblePPoints,
+        eligibleMembersCount: membersCalc.filter(member => member.eligible).length,
+        ineligibleMembersCount: membersCalc.filter(member => !member.eligible).length,
+        diasPool,
+        usdtPool,
+        diasRate: totalEligiblePPoints > 0 ? diasPool / totalEligiblePPoints : 0,
+        usdtRate: totalEligiblePPoints > 0 ? usdtPool / totalEligiblePPoints : 0
+      };
+    }
+
     function renderAttendanceTable() {
       const content = document.getElementById("attendanceContent");
       const notice = document.getElementById("attendanceAccessNotice");
@@ -6559,28 +6585,36 @@
       renderWeekTabs();
 
       const currWeek = getActiveWeek();
-      const calc = calculateAttendanceData(attendanceState);
+      const guildCalc = calculateAttendanceData(attendanceState);
       renderAttendanceServerFilterOptions();
+      const calc = getAttendanceScopeData(guildCalc, attendanceServerFilter);
+      const scopeName = attendanceServerFilter === "all" ? "Toàn Guild" : getServerNameById(attendanceServerFilter);
 
       // 1. Update Top Stat Cards
       const diasInput = document.getElementById("attDiasPoolInput");
       if (diasInput && document.activeElement !== diasInput) {
-        diasInput.value = calc.diasPool;
+        diasInput.value = guildCalc.diasPool;
         diasInput.readOnly = !isAdmin();
       }
       const diasRateEl = document.getElementById("attDiasRateText");
       if (diasRateEl) diasRateEl.textContent = calc.diasRate.toFixed(2);
+      const diasAllocationEl = document.getElementById("attDiasAllocationText");
+      if (diasAllocationEl) diasAllocationEl.textContent = `${scopeName}: ${calc.diasPool.toLocaleString("vi-VN")} DIAS được phân bổ`;
 
       const usdtInput = document.getElementById("attUsdtPoolInput");
       if (usdtInput && document.activeElement !== usdtInput) {
-        usdtInput.value = calc.usdtPool;
+        usdtInput.value = guildCalc.usdtPool;
         usdtInput.readOnly = !isAdmin();
       }
       const usdtRateEl = document.getElementById("attUsdtRateText");
       if (usdtRateEl) usdtRateEl.textContent = calc.usdtRate.toFixed(4);
+      const usdtAllocationEl = document.getElementById("attUsdtAllocationText");
+      if (usdtAllocationEl) usdtAllocationEl.textContent = `${scopeName}: ${calc.usdtPool.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USDT được phân bổ`;
 
       const membersCountEl = document.getElementById("attTotalMembersCount");
       if (membersCountEl) membersCountEl.textContent = calc.membersCount;
+      const membersLabel = document.getElementById("attMembersStatLabel");
+      if (membersLabel) membersLabel.textContent = `👥 Thành Viên Tham Gia (${scopeName})`;
 
       const actCountEl = document.getElementById("attTotalActivitiesCount");
       if (actCountEl) actCountEl.textContent = calc.activitiesCount;
@@ -6590,6 +6624,8 @@
 
       const guildPPointsEl = document.getElementById("attTotalGuildPPoints");
       if (guildPPointsEl) guildPPointsEl.textContent = formatPoints(calc.totalGuildPPoints);
+      const pointsLabel = document.getElementById("attPointsStatLabel");
+      if (pointsLabel) pointsLabel.textContent = `⭐ Tổng P.Point (${scopeName})`;
 
       const guildRawPointsEl = document.getElementById("attTotalGuildRawPoints");
       if (guildRawPointsEl) guildRawPointsEl.textContent = calc.totalGuildRawPoints.toLocaleString("vi-VN");
@@ -6617,22 +6653,28 @@
       if (serverBadge) {
         serverBadge.textContent = attendanceServerFilter === "all"
           ? "Toàn Guild • Tất cả Server"
-          : `Toàn Guild • Lọc: ${getServerNameById(attendanceServerFilter)}`;
+          : `Chấm công & lương • ${scopeName}`;
+      }
+      const subtitle = document.getElementById("attSubtitle");
+      if (subtitle) {
+        subtitle.textContent = attendanceServerFilter === "all"
+          ? "Chấm công và xem lương tổng hợp của tất cả Server. Quỹ tuần được chia chung theo Reward P.Point."
+          : `Chấm công và xem phần lương được phân bổ cho ${scopeName}. Quỹ DIAS và USDT vẫn dùng chung toàn Guild.`;
       }
 
       const serverSummaryEl = document.getElementById("attServerSummary");
       if (serverSummaryEl) {
-        const summaryHtml = calc.serverSummaries.map(item => `
-          <div class="att-server-summary-pill">
+        const summaryHtml = guildCalc.serverSummaries.map(item => `
+          <button type="button" class="att-server-summary-pill${attendanceServerFilter === item.serverId ? " is-active" : ""}" data-server-scope="${escapeHtml(item.serverId)}" aria-pressed="${attendanceServerFilter === item.serverId}">
             <strong>${escapeHtml(item.serverName)}</strong>
             <span>${item.members} thành viên • ${formatPoints(item.pPoints)} P.Point • ${item.share.toFixed(2)}%</span>
-          </div>
+          </button>
         `).join("");
         serverSummaryEl.innerHTML = summaryHtml + `
-          <div class="att-server-summary-pill">
+          <button type="button" class="att-server-summary-pill${attendanceServerFilter === "all" ? " is-active" : ""}" data-server-scope="all" aria-pressed="${attendanceServerFilter === "all"}">
             <strong>TOÀN GUILD</strong>
-            <span>${calc.membersCount} thành viên • ${formatPoints(calc.totalGuildPPoints)} P.Point • 100%</span>
-          </div>
+            <span>${guildCalc.membersCount} thành viên • ${formatPoints(guildCalc.totalGuildPPoints)} P.Point • 100%</span>
+          </button>
         `;
       }
 
@@ -7237,16 +7279,17 @@
     // Export Discord
     function exportAttendanceToDiscord() {
       if (!attendanceState) attendanceState = loadAttendanceState();
-      const calc = calculateAttendanceData(attendanceState);
+      const calc = getAttendanceScopeData(calculateAttendanceData(attendanceState), attendanceServerFilter);
       const currWeek = getActiveWeek();
+      const scopeName = attendanceServerFilter === "all" ? "Toàn Guild / Tất cả Server" : getServerNameById(attendanceServerFilter);
 
-      let md = `📊 **BẢNG TỔNG KẾT CHẤM CÔNG & LƯƠNG GUILD**\n`;
-      md += `🌐 **Phạm vi:** Toàn Guild / Tất cả Server\n`;
+      let md = `📊 **BẢNG TỔNG KẾT CHẤM CÔNG & LƯƠNG • ${scopeName}**\n`;
+      md += `🌐 **Phạm vi:** ${scopeName}\n`;
       md += `📅 **Tuần:** ${currWeek?.name || "Tuần hiện tại"}${currWeek?.dateRange ? ` (${currWeek.dateRange})` : ""}\n`;
       md += `🎯 Điều kiện nhận thưởng: ≥ ${calc.minimumParticipationPercent}%\n`;
       md += `💎 **Quỹ Kim Cương (DIAS):** ${calc.diasPool.toLocaleString("vi-VN")} DIAS (Hệ số: ${calc.diasRate.toFixed(2)})\n`;
       md += `💵 **Quỹ USDT:** ${calc.usdtPool.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT (Hệ số: ${calc.usdtRate.toFixed(4)})\n`;
-      md += `⭐ **Tổng P.Point Guild:** ${formatPoints(calc.totalGuildPPoints)} P.Point\n`;
+      md += `⭐ **Tổng P.Point ${scopeName}:** ${formatPoints(calc.totalGuildPPoints)} P.Point\n`;
       md += `⭐ **Tổng Reward P.Point:** ${formatPoints(calc.totalEligiblePPoints)} P.Point\n`;
       md += `👥 **Tổng thành viên:** ${calc.membersCount} | **Hoạt động:** ${calc.activitiesCount} mục\n`;
       md += `─────────────────────────────────────────\n`;
@@ -7542,6 +7585,15 @@
       if (serverFilter) {
         serverFilter.addEventListener("change", (e) => {
           attendanceServerFilter = e.target.value || "all";
+          renderAttendanceTable();
+        });
+      }
+      const serverSummary = document.getElementById("attServerSummary");
+      if (serverSummary) {
+        serverSummary.addEventListener("click", (event) => {
+          const button = event.target.closest("button[data-server-scope]");
+          if (!button) return;
+          attendanceServerFilter = button.dataset.serverScope || "all";
           renderAttendanceTable();
         });
       }

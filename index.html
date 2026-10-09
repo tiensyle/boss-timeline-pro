@@ -276,7 +276,7 @@
                 <span class="attendance-badge-week" id="attWeekLabel">Tuần Này</span>
                 <span class="attendance-badge-server" id="attServerBadge">Toàn Guild • Tất cả Server</span>
               </div>
-              <div class="attendance-subtitle">Một bảng chấm công toàn Guild, chia quỹ DIAS & USDT chung cho tất cả Server</div>
+              <div class="attendance-subtitle" id="attSubtitle">Chấm công theo từng Server hoặc xem toàn Guild. Quỹ tuần được chia chung theo Reward P.Point.</div>
             </div>
           </div>
           <div class="attendance-header-actions">
@@ -295,36 +295,38 @@
           <div class="attendance-top-stats">
             <div class="att-stat-card pool-dias">
               <div class="att-stat-label">
-                <span>💎 Quỹ Kim Cương (DIAS)</span>
+                <span>💎 Tổng quỹ DIAS (toàn Guild)</span>
                 <span class="att-admin-tag" id="attDiasAdminTag" style="display:none;">Admin</span>
               </div>
               <div class="att-stat-val-row">
-                <input type="number" class="att-pool-input" id="attDiasPoolInput" value="52500" min="0" step="100" title="Nhập tổng quỹ DIAS tuần này">
+                <input type="number" class="att-pool-input" id="attDiasPoolInput" value="52500" min="0" step="100" title="Nhập tổng quỹ DIAS tuần này cho tất cả Server">
                 <span class="att-pool-unit">DIAS</span>
               </div>
+              <div class="att-stat-sub" id="attDiasAllocationText">Toàn Guild: 0 DIAS</div>
               <div class="att-stat-sub">Hệ số: <strong id="attDiasRateText">0</strong> DIAS / Reward P.Point</div>
             </div>
 
             <div class="att-stat-card pool-usdt">
               <div class="att-stat-label">
-                <span>💵 Quỹ USDT</span>
+                <span>💵 Tổng quỹ USDT (toàn Guild)</span>
                 <span class="att-admin-tag" id="attUsdtAdminTag" style="display:none;">Admin</span>
               </div>
               <div class="att-stat-val-row">
-                <input type="number" class="att-pool-input" id="attUsdtPoolInput" value="867" min="0" step="0.01" title="Nhập tổng quỹ USDT tuần này">
+                <input type="number" class="att-pool-input" id="attUsdtPoolInput" value="867" min="0" step="0.01" title="Nhập tổng quỹ USDT tuần này cho tất cả Server">
                 <span class="att-pool-unit">USDT</span>
               </div>
+              <div class="att-stat-sub" id="attUsdtAllocationText">Toàn Guild: 0 USDT</div>
               <div class="att-stat-sub">Hệ số: <strong id="attUsdtRateText">0</strong> USDT / Reward P.Point</div>
             </div>
 
             <div class="att-stat-card stat-members">
-              <div class="att-stat-label">👥 Thành Viên Tham Gia</div>
+              <div class="att-stat-label" id="attMembersStatLabel">👥 Thành Viên Tham Gia</div>
               <div class="att-stat-number"><span id="attTotalMembersCount">0</span> <span style="font-size:13px; font-weight:normal; color:var(--muted);">thành viên</span></div>
               <div class="att-stat-sub">Tổng hoạt động: <strong id="attTotalActivitiesCount">0</strong> mục (<strong id="attMaxPossiblePoints">0</strong> điểm max)</div>
             </div>
 
             <div class="att-stat-card stat-points">
-              <div class="att-stat-label">⭐ Tổng Điểm Quy Đổi (Guild)</div>
+              <div class="att-stat-label" id="attPointsStatLabel">⭐ Tổng Điểm Quy Đổi (Guild)</div>
               <div class="att-stat-number" id="attTotalGuildPPoints">0</div>
               <div class="att-stat-sub">Tổng điểm thực tế: <strong id="attTotalGuildRawPoints">0</strong> điểm</div>
             </div>
