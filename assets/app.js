@@ -772,14 +772,14 @@
 
     let discordSendQueue = Promise.resolve();
 
-    function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png", serverId = currentServerId) {
-      const task = discordSendQueue.then(() => deliverDiscordWebhook(payload, fileBlob, fileName, serverId));
+    function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png", serverId = currentServerId, allowWhenDisabled = false) {
+      const task = discordSendQueue.then(() => deliverDiscordWebhook(payload, fileBlob, fileName, serverId, allowWhenDisabled));
       discordSendQueue = task.catch(() => false);
       return task;
     }
 
-    async function deliverDiscordWebhook(payload, fileBlob, fileName, serverId) {
-      if (!discordConfig.enabled) {
+    async function deliverDiscordWebhook(payload, fileBlob, fileName, serverId, allowWhenDisabled = false) {
+      if (!discordConfig.enabled && !allowWhenDisabled) {
         console.warn("[Discord Bot] Bỏ qua gửi: bot chưa bật trong cài đặt", discordConfig);
         return false;
       }
@@ -825,7 +825,7 @@
     }
 
     async function sendDiscordAlertOnce(alertId, ttlMs, deliver, forced = false) {
-      if (!isAdmin() || !discordConfig.enabled) return false;
+      if (!isAdmin() || (!discordConfig.enabled && !forced)) return false;
       const notified = activeDiscordNotified;
       if (notified[alertId] === "pending" || (!forced && notified[alertId] === "sent")) return false;
       notified[alertId] = "pending";
@@ -1116,7 +1116,7 @@
     }
 
     async function sendDiscordDailySchedule(forced = false) {
-      if (!discordConfig.enabled) return false;
+      if (!discordConfig.enabled && !forced) return false;
       if (!forced && discordConfig.notifyDailySchedule === false) return false;
       const now = getNow();
       const alertId = `daily_schedule_${dateToYMD(now)}`;
@@ -1157,7 +1157,7 @@
             }
           ]
         };
-        return await sendDiscordWebhook(emptyPayload, null, "image.png", serverId);
+        return await sendDiscordWebhook(emptyPayload, null, "image.png", serverId, forced);
       }
 
       // Tạo file ảnh bảng lịch boss trực tiếp từ Canvas
@@ -1181,7 +1181,7 @@
         ]
       };
 
-      return await sendDiscordWebhook(payload, reportBlob, fileName, serverId);
+      return await sendDiscordWebhook(payload, reportBlob, fileName, serverId, forced);
     }
 
     function checkDailyScheduleAlert(now) {
@@ -4921,7 +4921,7 @@
           }
           showToast("✅ Đã gửi Lịch Boss hôm nay sang Discord!");
         } else {
-          throw new Error("Không thể gửi webhook, vui lòng kiểm tra URL!");
+          throw new Error("Không thể gửi lịch Discord. Vui lòng kiểm tra quyền Admin, API hoặc webhook.");
         }
       } catch (err) {
         if (resEl) {
