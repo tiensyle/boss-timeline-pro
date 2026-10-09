@@ -71,6 +71,33 @@ function bossSyncContext(transaction) {
   });
 }
 
+test("role and server changes retain the current Firebase connection status", () => {
+  const callbacks = new Map();
+  const statuses = [];
+  const ctx = load(["initRealtimeSync"], {
+    REALTIME_ENABLED: true,
+    stateDbRef: { child: () => ({ on() {}, off() {} }) },
+    firebaseDb: { ref: path => ({ on: (_event, callback) => callbacks.set(path, callback) }) },
+    activeStateRef: null, activeDiscordConfigRef: null, discordConfigDbRef: null,
+    connectedRefBound: false, firebaseRealtimeConnected: false, bossSyncGeneration: 1,
+    isAdmin: () => false, setRealtimeStatus: type => statuses.push(type)
+  });
+  ctx.initRealtimeSync();
+  assert.equal(statuses.at(-1), "connecting");
+  callbacks.get(".info/connected")({ val: () => true });
+  assert.equal(statuses.at(-1), "online");
+  ctx.initRealtimeSync();
+  ctx.bossSyncGeneration++;
+  ctx.initRealtimeSync();
+  assert.equal(statuses.at(-1), "online");
+  assert.equal(callbacks.size, 2);
+  callbacks.get(".info/connected")({ val: () => false });
+  ctx.initRealtimeSync();
+  assert.equal(statuses.at(-1), "connecting");
+  callbacks.get(".info/connected")({ val: () => true });
+  assert.equal(statuses.at(-1), "online");
+});
+
 test("edits made while a Firebase save is pending survive the acknowledgement", async () => {
   let resolveFirst;
   let remote;

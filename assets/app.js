@@ -1712,6 +1712,7 @@
     let activeStateRef = null;
     let activeDiscordConfigRef = null;
     let connectedRefBound = false;
+    let firebaseRealtimeConnected = false;
 
     function initRealtimeSync() {
       if (!REALTIME_ENABLED || !stateDbRef) {
@@ -1728,7 +1729,9 @@
         activeDiscordConfigRef = null;
       }
 
-      setRealtimeStatus("connecting", "Đang kết nối Google Firebase Realtime…");
+      setRealtimeStatus(firebaseRealtimeConnected ? "online" : "connecting", firebaseRealtimeConnected
+        ? "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team"
+        : "Đang kết nối Google Firebase Realtime…");
 
       // Giam sat ket noi Firebase connection state (chi can gan 1 lan)
       if (!connectedRefBound && firebaseDb) {
@@ -1736,7 +1739,8 @@
           serverTimeOffset = Number(snap.val()) || 0;
         });
         firebaseDb.ref(".info/connected").on("value", (snap) => {
-          if (snap.val() === true) {
+          firebaseRealtimeConnected = snap.val() === true;
+          if (firebaseRealtimeConnected) {
             setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
             if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
             if (isAdmin() && attendanceRemoteStateReady && attendancePendingRemoteSave) pushAttendanceToFirebase();
