@@ -2246,6 +2246,21 @@
       if (!elements.nextPanel) return;
     }
 
+    function sortBossesForDisplay(bosses, now, levelMode = activeLevelFilter) {
+      return bosses.sort((a, b) => {
+        const aTime = getNextBossEventTime(a, now);
+        const bTime = getNextBossEventTime(b, now);
+        const aRespawning = Number.isFinite(aTime) && aTime > now;
+        const bRespawning = Number.isFinite(bTime) && bTime > now;
+
+        if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
+        if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
+        if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);
+        if (aRespawning && aTime !== bTime) return aTime - bTime;
+        return 0;
+      });
+    }
+
     function getVisibleBosses(now) {
       const query = elements.searchBoss.value.trim().toLowerCase();
       const filtered = state.bosses.filter((boss) => {
@@ -2261,30 +2276,7 @@
         return matchesFilter && matchesLevel && (!query || text.includes(query));
       });
 
-      if (activeLevelFilter === "level-asc") {
-        return filtered.sort((a, b) => (a.level || 80) - (b.level || 80));
-      }
-      if (activeLevelFilter === "level-desc") {
-        return filtered.sort((a, b) => (b.level || 80) - (a.level || 80));
-      }
-
-      return filtered.sort((a, b) => {
-        const aTime = getNextBossEventTime(a, now);
-        const bTime = getNextBossEventTime(b, now);
-
-        // 1. Cả 2 đều đang đếm ngược hồi sinh: sắp xếp theo timeline (gần ra nhất lên đầu)
-        if (aTime && bTime) {
-          if (aTime !== bTime) return aTime - bTime;
-          return a.name.localeCompare(b.name, "vi");
-        }
-
-        // 2. Boss đang đếm ngược (sắp ra) luôn đứng TRƯỚC boss đang sống (READY)
-        if (aTime && !bTime) return -1;
-        if (!aTime && bTime) return 1;
-
-        // Giữ thứ tự danh sách đã được thiết lập khi reset bảo trì.
-        return 0;
-      });
+      return sortBossesForDisplay(filtered, now);
     }
 
     function sortBossesForMaintenance(bosses) {

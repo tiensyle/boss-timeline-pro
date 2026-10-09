@@ -124,6 +124,42 @@ test("maintenance reset uses the requested boss order and keeps unknown bosses s
   assert.ok(state.bosses.every(boss => boss.diedAt === null && boss.respawnsAt === null && boss.lastRespawnAt === 1000));
 });
 
+test("ready bosses stay above bosses recorded dead while respawns remain time-ordered", () => {
+  const now = 1000;
+  const ctx = load(["sortBossesForDisplay"], {
+    activeLevelFilter: "all",
+    getNextBossEventTime: boss => boss.nextAt
+  });
+  const bosses = [
+    { id: "respawn-later", nextAt: 4000 },
+    { id: "ready-first", nextAt: null },
+    { id: "respawn-soon", nextAt: 2000 },
+    { id: "ready-second", nextAt: null }
+  ];
+
+  assert.deepEqual(ctx.sortBossesForDisplay(bosses, now).map(boss => boss.id), [
+    "ready-first", "ready-second", "respawn-soon", "respawn-later"
+  ]);
+});
+
+test("level sorting applies within ready and respawning groups", () => {
+  const now = 1000;
+  const ctx = load(["sortBossesForDisplay"], {
+    activeLevelFilter: "level-asc",
+    getNextBossEventTime: boss => boss.nextAt
+  });
+  const bosses = [
+    { id: "respawn-low", nextAt: 5000, level: 50 },
+    { id: "ready-high", nextAt: null, level: 100 },
+    { id: "respawn-high", nextAt: 3000, level: 90 },
+    { id: "ready-low", nextAt: null, level: 60 }
+  ];
+
+  assert.deepEqual(ctx.sortBossesForDisplay(bosses, now).map(boss => boss.id), [
+    "ready-low", "ready-high", "respawn-low", "respawn-high"
+  ]);
+});
+
 test("suggested attendance weeks run from Saturday through the following Friday", () => {
   const ctx = load(["getSuggestedWeekRange"]);
   assert.equal(ctx.getSuggestedWeekRange(0, new Date(2026, 9, 9, 12)), "10/10 - 16/10/2026");
