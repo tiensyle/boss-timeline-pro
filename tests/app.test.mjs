@@ -544,6 +544,47 @@ test("guest Discord alerts make no Firebase requests", async () => {
   assert.equal(requests, 0);
 });
 
+test("member mode reads shared attendance data without sending writes", () => {
+  let valueListener;
+  let errorListener;
+  let appliedData = null;
+  let writes = 0;
+  const ref = {
+    off() {},
+    on(event, onValue, onError) {
+      assert.equal(event, "value");
+      valueListener = onValue;
+      errorListener = onError;
+    }
+  };
+  const ctx = load(["initAttendanceRealtimeSync"], {
+    attendanceDbRef: ref,
+    activeAttendanceRef: null,
+    attendanceSyncGeneration: 0,
+    attendanceRemoteStateReady: false,
+    attendanceRemoteSaveInFlight: false,
+    attendanceRemotePermissionDenied: false,
+    attendanceDeferredRemoteData: null,
+    attendanceFirebaseSeedAttempted: false,
+    attendanceRemoteDataExists: false,
+    isAdmin: () => false,
+    applyAttendanceRemoteData: data => { appliedData = data; },
+    pushAttendanceToFirebase: () => { writes += 1; },
+    handleAttendanceSyncError: error => { throw error; }
+  });
+
+  ctx.initAttendanceRealtimeSync();
+  assert.equal(typeof valueListener, "function");
+  const sharedData = { weeks: [{ id: "week-1", members: [{ id: "m1", name: "Member" }] }] };
+  valueListener({ val: () => sharedData });
+
+  assert.equal(appliedData, sharedData);
+  assert.equal(ctx.attendanceRemoteStateReady, true);
+  assert.equal(ctx.attendanceRemoteDataExists, true);
+  assert.equal(writes, 0);
+  assert.equal(typeof errorListener, "function");
+});
+
 test("attendance deletion stays in the week that was confirmed even if the active week changes", () => {
   const state = { activeWeekId: "w2", weeks: ["w1", "w2"].map(id => ({ id, members: [{ id: "m", records: { a: true } }], activities: [{ id: "a" }] })) };
   const ctx = load(["deleteAttendanceMember", "deleteAttendanceActivity"], {

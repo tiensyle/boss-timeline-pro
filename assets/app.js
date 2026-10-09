@@ -6316,7 +6316,7 @@
 
     function initAttendanceRealtimeSync() {
       if (!attendanceDbRef) return;
-      if (isAdmin() && activeAttendanceRef === attendanceDbRef) return;
+      if (activeAttendanceRef === attendanceDbRef) return;
       try {
         if (activeAttendanceRef) activeAttendanceRef.off();
       } catch (e) {}
@@ -6328,13 +6328,12 @@
       attendanceFirebaseSeedAttempted = false;
       attendanceRemoteDataExists = false;
       activeAttendanceRef = null;
-      if (!isAdmin()) return;
       activeAttendanceRef = attendanceDbRef;
       const subscribedRef = attendanceDbRef;
       const generation = attendanceSyncGeneration;
 
       subscribedRef.on("value", (snapshot) => {
-        if (generation !== attendanceSyncGeneration || subscribedRef !== activeAttendanceRef || !isAdmin() || attendanceRemotePermissionDenied) return;
+        if (generation !== attendanceSyncGeneration || subscribedRef !== activeAttendanceRef || attendanceRemotePermissionDenied) return;
         const remoteData = snapshot.val();
         attendanceRemoteStateReady = true;
         if (remoteData) attendanceRemoteDataExists = true;
@@ -6371,7 +6370,7 @@
         applyAttendanceRemoteData(remoteData);
         if (isAdmin()) pushAttendanceToFirebase();
       }, err => {
-        if (generation === attendanceSyncGeneration && isAdmin()) handleAttendanceSyncError(err);
+        if (generation === attendanceSyncGeneration) handleAttendanceSyncError(err);
       });
     }
 
@@ -6622,18 +6621,8 @@
     function renderAttendanceTable() {
       const content = document.getElementById("attendanceContent");
       const notice = document.getElementById("attendanceAccessNotice");
-      if (content) content.hidden = !isAdmin();
+      if (content) content.hidden = false;
       if (notice) notice.hidden = isAdmin();
-      if (!isAdmin()) {
-        for (const id of ["attTableHead", "attTableBody", "attWeekTabs", "attServerSummary", "attExportTextarea"]) {
-          const element = document.getElementById(id);
-          if (element) {
-            element.textContent = "";
-            if ("value" in element) element.value = "";
-          }
-        }
-        return;
-      }
       if (!attendanceState) attendanceState = loadAttendanceState();
 
       renderWeekTabs();
@@ -7771,7 +7760,6 @@
     initAttendanceEvents();
     renderAttendanceTable();
     initAttendanceRealtimeSync();
-    document.getElementById("attendanceLoginBtn")?.addEventListener("click", requestAdminLogin);
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get("tab") || urlParams.get("page") || urlParams.get("view");
     const initialHash = window.location.hash.replace("#", "");

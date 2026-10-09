@@ -20,8 +20,8 @@ function permitted(path, action, auth) {
   return false;
 }
 
-test("public boss data stays readable while current and legacy attendance are protected", () => {
-  const privatePaths = ["boss_timeline_state", "boss_timeline_state/attendance_global", "boss_timeline_attendance_global", "boss_timeline_attendance", "boss_timeline_servers/s2/attendance"];
+test("public boss and attendance data are readable while legacy attendance stays protected", () => {
+  const privatePaths = ["boss_timeline_state", "boss_timeline_state/attendance_global", "boss_timeline_attendance", "boss_timeline_servers/s2/attendance"];
   for (const path of privatePaths) {
     assert.equal(permitted(path, ".read", null), false, path);
     assert.equal(permitted(path, ".read", { uid: "unapproved", token: {} }), false, path);
@@ -32,6 +32,14 @@ test("public boss data stays readable while current and legacy attendance are pr
     assert.equal(permitted(path, ".read", null), true, path);
     assert.equal(permitted(path, ".write", null), false, path);
   }
+
+  const publicAttendancePath = "boss_timeline_attendance_global/weeks/0/members";
+  assert.equal(permitted(publicAttendancePath, ".read", null), true);
+  assert.equal(permitted(publicAttendancePath, ".read", { uid: "unapproved", token: {} }), true);
+  assert.equal(permitted(publicAttendancePath, ".write", null), false);
+  assert.equal(permitted(publicAttendancePath, ".write", { uid: "unapproved", token: {} }), false);
+  assert.equal(permitted(publicAttendancePath, ".write", { uid: "approved", token: {} }), true);
+  assert.equal(permitted(publicAttendancePath, ".write", { uid: "super", token: { admin: true } }), true);
 });
 
 test("only approved admins can write attendance and approval removal takes effect", () => {
