@@ -58,6 +58,28 @@ test("attendance server scopes preserve guild totals and allocated payroll", () 
   assert.equal(ctx.getAttendanceScopeData(calc, "missing").membersCount, 0);
 });
 
+test("attendance bulk selection follows the active server and visible filters", () => {
+  const ctx = load(["filterAttendanceMembers"], {
+    attendanceSearchTerm: "",
+    attendanceServerFilter: "s1",
+    attendanceMultiplierFilter: "all",
+    getMemberServerId: member => member.serverId || "s1",
+    getServerNameById: serverId => serverId === "s1" ? "One" : "Two"
+  });
+  const members = [
+    { id: "m1", name: "Alice", serverId: "s1", multiplier: 1 },
+    { id: "m2", name: "Bob", serverId: "s2", multiplier: 2 }
+  ];
+
+  assert.deepEqual(copy(ctx.filterAttendanceMembers(members)).map(member => member.id), ["m1"]);
+  ctx.attendanceServerFilter = "all";
+  ctx.attendanceSearchTerm = "bob";
+  assert.deepEqual(copy(ctx.filterAttendanceMembers(members)).map(member => member.id), ["m2"]);
+  ctx.attendanceSearchTerm = "";
+  ctx.attendanceMultiplierFilter = "2";
+  assert.deepEqual(copy(ctx.filterAttendanceMembers(members)).map(member => member.id), ["m2"]);
+});
+
 test("stale edits do not resurrect deleted bosses, weeks or members", () => {
   const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges"]);
   const base = [{ id: "a", name: "old" }, { id: "b", name: "keep" }];

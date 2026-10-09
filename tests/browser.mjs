@@ -131,9 +131,17 @@ try {
   assert.equal(scopeTotals.allMembers, 2);
   assert.equal(scopeTotals.serverDias, scopeTotals.allDias);
   assert.equal(scopeTotals.serverUsdt, scopeTotals.allUsdt);
+  await page.evaluate(() => {
+    attendanceState.weeks[0].members.forEach(member => { if (member.records) delete member.records.a; });
+    renderAttendanceTable();
+  });
   await page.locator('#attServerSummary [data-server-scope="s1"]').click();
   assert.equal(await page.locator("#attFilterServer").inputValue(), "s1");
   assert.equal(await page.locator("#attTotalMembersCount").textContent(), "1");
+  await page.locator('.att-check-all-box[data-act-id="a"]').check();
+  const scopedChecks = await page.evaluate(() => Object.fromEntries(attendanceState.weeks[0].members.map(member => [member.id, Boolean(member.records?.a)])));
+  assert.equal(scopedChecks.m1, true);
+  assert.equal(scopedChecks.m2, false);
   await page.locator('#attServerSummary [data-server-scope="all"]').click();
   assert.equal(await page.locator("#attTotalMembersCount").textContent(), "2");
   await page.locator("#attFilterServer").selectOption("s1");

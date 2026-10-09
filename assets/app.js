@@ -6565,6 +6565,27 @@
       };
     }
 
+    function filterAttendanceMembers(members) {
+      let filtered = members;
+      if (attendanceSearchTerm.trim()) {
+        const query = attendanceSearchTerm.trim().toLowerCase();
+        filtered = filtered.filter(member => {
+          const serverId = getMemberServerId(member);
+          const haystack = [member.name, member.role, member.serverName || getServerNameById(serverId), serverId]
+            .filter(Boolean).join(" ").toLowerCase();
+          return haystack.includes(query);
+        });
+      }
+      if (attendanceServerFilter !== "all") {
+        filtered = filtered.filter(member => getMemberServerId(member) === attendanceServerFilter);
+      }
+      if (attendanceMultiplierFilter !== "all") {
+        const targetMultiplier = Number(attendanceMultiplierFilter);
+        filtered = filtered.filter(member => Math.abs((Number(member.multiplier) || 1) - targetMultiplier) < 0.05);
+      }
+      return filtered;
+    }
+
     function renderAttendanceTable() {
       const content = document.getElementById("attendanceContent");
       const notice = document.getElementById("attendanceAccessNotice");
@@ -6712,7 +6733,7 @@
             <div class="act-header-points">⭐ ${act.points} Điểm</div>
             ${adminMode ? `
               <div class="act-header-bottom">
-                <label class="act-check-all-label" title="Tích chọn tất cả thành viên cột này">
+                <label class="act-check-all-label" title="Tích chọn tất cả thành viên đang hiển thị">
                   <input type="checkbox" class="att-check-all-box" data-act-id="${escapeHtml(act.id)}">
                   <span>Tất cả</span>
                 </label>
@@ -6733,26 +6754,7 @@
       headEl.innerHTML = headHtml;
 
       // 3. Filter Members
-      let filteredMembers = calc.membersCalc;
-      if (attendanceSearchTerm.trim()) {
-        const q = attendanceSearchTerm.trim().toLowerCase();
-        filteredMembers = filteredMembers.filter(m => {
-          const haystack = [
-            m.name,
-            m.role,
-            m.serverName,
-            m.serverId
-          ].filter(Boolean).join(" ").toLowerCase();
-          return haystack.includes(q);
-        });
-      }
-      if (attendanceServerFilter !== "all") {
-        filteredMembers = filteredMembers.filter(m => m.serverId === attendanceServerFilter);
-      }
-      if (attendanceMultiplierFilter !== "all") {
-        const targetMult = Number(attendanceMultiplierFilter);
-        filteredMembers = filteredMembers.filter(m => Math.abs(m.multiplier - targetMult) < 0.05);
-      }
+      const filteredMembers = filterAttendanceMembers(calc.membersCalc);
 
       // 4. Render Table Body
       const bodyEl = document.getElementById("attTableBody");
@@ -6946,7 +6948,7 @@
     function toggleAllAttendanceForActivity(actId, isChecked) {
       if (!attendanceState) return;
       const currWeek = getActiveWeek();
-      currWeek.members.forEach(m => {
+      filterAttendanceMembers(currWeek.members).forEach(m => {
         if (!m.records) m.records = {};
         if (isChecked) {
           m.records[actId] = true;
