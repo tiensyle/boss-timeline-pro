@@ -5635,12 +5635,14 @@
       const confirmed = normalizeAttendanceState(cloneRealtimeValue(remoteData), getDefaultAttendanceServerId());
       const remote = getAttendanceSyncData(confirmed);
       const local = attendanceState ? getAttendanceSyncData(attendanceState) : remote;
-      const merged = isAdmin() ? mergeRealtimeChanges(localBase || local, local, remote) : remote;
-      attendanceSyncBase = remote;
+      const base = localBase ? cloneRealtimeValue(localBase) : local;
+      const merged = isAdmin() ? mergeRealtimeChanges(base, local, remote) : cloneRealtimeValue(remote);
+      attendanceSyncBase = cloneRealtimeValue(remote);
       attendanceState = normalizeAttendanceState({ ...confirmed, ...merged }, getDefaultAttendanceServerId());
       cacheAttendanceSyncState();
       renderAttendanceTable();
     }
+
 
     function getDefaultAttendanceServerId() {
       if (serverList.some(s => s.id === currentServerId)) return currentServerId;
@@ -5827,8 +5829,9 @@
     }
 
     function normalizeAttendanceState(parsed, fallbackServerId) {
-      let stateObj = parsed && typeof parsed === "object" ? parsed : JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE));
+      let stateObj = parsed && typeof parsed === "object" ? cloneRealtimeValue(parsed) : cloneDefaultAttendanceState();
       const persistedWeeks = Array.isArray(stateObj.weeks);
+
 
       if (!stateObj.weeks || !Array.isArray(stateObj.weeks) || stateObj.weeks.length === 0) {
         const legacyWeek = {
@@ -6042,8 +6045,10 @@
       if (!attendanceState) attendanceState = loadAttendanceState();
       if (!attendanceSyncBase) {
         try { attendanceSyncBase = JSON.parse(localStorage.getItem(STORAGE_ATTENDANCE_SYNC_BASE_KEY)); } catch (e) {}
-        if (!attendanceSyncBase) attendanceSyncBase = getAttendanceSyncData(attendanceState);
+        if (!attendanceSyncBase) attendanceSyncBase = cloneRealtimeValue(getAttendanceSyncData(attendanceState));
       }
+
+
       if (!attendanceState.weeks || !Array.isArray(attendanceState.weeks) || attendanceState.weeks.length === 0) {
         attendanceState = cloneDefaultAttendanceState();
       }
@@ -6460,6 +6465,8 @@
       } catch (err) {
         if (generation === attendanceSyncGeneration && isAdmin()) handleAttendanceSyncError(err);
       } finally {
+
+
         if (generation === attendanceSyncGeneration) {
           attendanceRemoteSaveInFlight = false;
           attendanceDeferredRemoteData = null;
@@ -7729,6 +7736,8 @@
           member.combatPower = parseCombatPowerInput(input.value);
         }
       });
+
+
 
       const tiers = collectCpTiersFromModal();
       const scope = document.getElementById("attCpScopeGuild")?.checked ? "guild" : "server";
