@@ -18,10 +18,13 @@
 - Nút **Sao Lưu** trong bảng Chấm Công & Lương tải xuống một tệp JSON chứa dữ liệu Boss, máy chủ và chấm công. Tệp sao lưu không chứa mật khẩu hay Discord webhook.
 - Dữ liệu cũ trong `localStorage` chỉ được dùng làm bản dự phòng tương thích; dữ liệu trực tuyến nằm trong Firebase Realtime Database.
 - Lịch Boss công khai được đọc từ `.../state/data` (Server 1: `boss_timeline_state/data`). Không đọc cả nhánh cha có dữ liệu chấm công cũ.
-- Global Attendance nằm tại `boss_timeline_attendance_global`, chỉ Admin đã được cấp quyền được đọc và sửa. Chế độ Thành viên không hiển thị chấm công/lương.
+- Global Attendance nằm tại `boss_timeline_attendance_global`, được đọc công khai cho toàn Guild (Thành viên/Khách ở chế độ chỉ xem); chỉ Admin đã được cấp quyền mới được chỉnh sửa điểm danh, thêm tuần và điều chỉnh quỹ thưởng. Chế độ Thành viên không hiển thị các nút thao tác quản trị.
 - Lần đầu Admin mở phiên bản mới, nếu nhánh mới chưa có dữ liệu, ứng dụng chuyển toàn bộ bảng cũ tại `boss_timeline_state/attendance_global` sang nhánh mới bằng transaction chỉ khởi tạo khi trống. Dữ liệu cũ vẫn được giữ ở nhánh đã khóa quyền đọc công khai.
 - Các chỉnh sửa đồng thời được gộp theo từng trường và ID. Hai Admin sửa cùng một trường thì lần ghi cuối thắng; thao tác xóa không bị phục hồi bởi bản chỉnh sửa cũ.
 - Tuần mới giữ thành viên, server, hệ số thập phân và các tuần trước; chỉ điểm danh của tuần mới được bỏ chọn. Có thể chọn giữ hoặc xóa cột hoạt động cho tuần mới.
+- Tính năng **Thưởng Vị Trí / Chức Danh** (`🎖️ Thưởng VT`): Admin có thể cài đặt tỷ lệ % thưởng trích trước từ tổng quỹ (DIAS & USDT) cho các chức danh (Bang Chủ, Phó Bang, Thư Ký, Top cống hiến...). Phần quỹ còn lại được chia đều theo điểm danh cho thành viên đạt điều kiện. Thuật toán phân bổ bảo toàn chính xác 100% quỹ (không lệch xu/cent). Có hỗ trợ ghi đè % thưởng riêng cho từng thành viên.
+- **Thanh lọc Server ngay tại cột Server:** Tiêu đề cột `Server` trên bảng chấm công tích hợp thanh xổ chọn từng Server hoặc Tất cả Server, đồng bộ 2 chiều với bộ lọc toolbar và các nút thống kê server.
+- Tính năng **Xếp Hạng Lực Chiến & Áp Hệ Số Lương Tự Động** (`⚔️ Lực Chiến`): Mỗi thành viên có trường Lực Chiến (hỗ trợ nhập số hoặc viết tắt như `18.5M`, `900k`). Modal quản lý Lực Chiến cho phép Admin cập nhật nhanh hàng loạt hoặc dán danh sách từ game/Excel, thiết lập các mốc Top (ví dụ: Top 1-5 x2, Top 6-10 x1.5, Còn lại x1) và bấm "⚡ Sắp Xếp & Áp Hệ Số" để tự động gán hệ số cho thành viên (tùy chọn xếp top riêng theo từng Server hoặc tính chung toàn Guild).
 
 ## Lịch và báo cáo
 

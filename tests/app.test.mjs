@@ -392,7 +392,16 @@ test("CSV cells escape quotes, comma/newline text and spreadsheet formulas", () 
 });
 
 function attendanceContext(globals = {}) {
-  return load(["normalizeMinimumParticipationPercent", "allocateLargestRemainder", "getMemberServerId", "calculateAttendanceData"], {
+  return load(["normalizeRoleText", "getMemberRoleBonusPercent", "normalizeMinimumParticipationPercent", "allocateLargestRemainder", "getMemberServerId", "calculateAttendanceData"], {
+    DEFAULT_ROLE_BONUSES: [
+      { role: "Bang Chủ", percent: 4 },
+      { role: "Chủ Bang", percent: 4 },
+      { role: "Phó Bang", percent: 3 },
+      { role: "Thư Ký", percent: 3 },
+      { role: "Call Boss", percent: 2 },
+      { role: "Core DPS", percent: 2 },
+      { role: "Tanker", percent: 1.5 }
+    ],
     serverList: [{ id: "s1", name: "One" }, { id: "s2", name: "Two" }],
     getDefaultAttendanceServerId: () => "s1", getServerNameById: id => id, ...globals
   });
@@ -431,6 +440,104 @@ test("fractional point participation accepts an exact boundary", () => {
     members: [{ id: "m", multiplier: 1.5, records: { a: true } }] });
   assert.equal(calc.membersCalc[0].percent, 50);
   assert.equal(calc.membersCalc[0].dias, 1);
+});
+
+test("role position bonus allocates deducted pool first and preserves 100% total funds", () => {
+  const ctx = attendanceContext();
+  const week = {
+    diasPool: 50000,
+    usdtPool: 1000,
+    minimumParticipationPercent: 50,
+    roleBonuses: [
+      { role: "👑 Chủ Bang", percent: 4 },
+      { role: "Thư Ký", percent: 3 }
+    ],
+    activities: [{ id: "act1", points: 10 }],
+    members: [
+      { id: "m_leader", name: "Bang Chủ", role: "👑 Chủ Bang", multiplier: 2, records: { act1: true } },
+      { id: "m_sec", name: "Thư Ký", role: "Thư Ký", multiplier: 1.5, records: { act1: true } },
+      { id: "m_custom", name: "Top Cống Hiến", role: "Member", roleBonusPercent: 2, multiplier: 1, records: { act1: true } },
+      { id: "m_normal", name: "Thành Viên Thường", role: "Member", multiplier: 1, records: { act1: true } }
+    ]
+  };
+
+  const calc = ctx.calculateAttendanceData(week);
+  assert.equal(calc.membersCalc[0].bonusPercent, 4);
+  assert.equal(calc.membersCalc[0].roleBonusDias, 2000); // 4% of 50,000
+  assert.equal(calc.membersCalc[0].roleBonusUsdt, 40); // 4% of 1,000
+
+  assert.equal(calc.membersCalc[1].bonusPercent, 3);
+  assert.equal(calc.membersCalc[1].roleBonusDias, 1500); // 3% of 50,000
+  assert.equal(calc.membersCalc[1].roleBonusUsdt, 30); // 3% of 1,000
+
+  assert.equal(calc.membersCalc[2].bonusPercent, 2);
+  assert.equal(calc.membersCalc[2].roleBonusDias, 1000); // 2% of 50,000
+  assert.equal(calc.membersCalc[2].roleBonusUsdt, 20); // 2% of 1,000
+
+  assert.equal(calc.membersCalc[3].bonusPercent, 0);
+  assert.equal(calc.membersCalc[3].roleBonusDias, 0);
+  assert.equal(calc.membersCalc[3].roleBonusUsdt, 0);
+
+  // Remaining pool for points: 50,000 - 4,500 = 45,500 DIAS, 1,000 - 90 = 910 USDT
+  const totalDias = calc.membersCalc.reduce((sum, m) => sum + m.dias, 0);
+  const totalUsdtCents = calc.membersCalc.reduce((sum, m) => sum + Math.round(m.usdt * 100), 0);
+  assert.equal(totalDias, 50000);
+  assert.equal(totalUsdtCents, 100000);
+});
+
+test("combat power rankings automatically assign multipliers by tier and sort members", () => {
+  const ctx = load(["parseCombatPowerInput", "formatCombatPowerInput", "formatCombatPowerDisplay", "applyCombatPowerTiersToWeek", "getMemberServerId"], {
+    DEFAULT_CP_TIERS: [
+      { upToRank: 2, multiplier: 3.0, label: "Top 1 - 2" },
+      { upToRank: 5, multiplier: 2.5, label: "Top 3 - 5" },
+      { upToRank: null, multiplier: 1.0, label: "Còn lại" }
+    ],
+    getMemberServerId: m => m.serverId || "s1",
+    getDefaultAttendanceServerId: () => "s1"
+  });
+
+  assert.equal(ctx.parseCombatPowerInput("18.5M"), 18500000);
+  assert.equal(ctx.parseCombatPowerInput("900k"), 900000);
+  assert.equal(ctx.parseCombatPowerInput("15,000,000"), 15000000);
+  assert.equal(ctx.formatCombatPowerInput(18500000), "18.5M");
+
+  const week = {
+    members: [
+      { id: "m6", name: "MemberNew", serverId: "s1", combatPower: 5000000, multiplier: 1 },
+      { id: "m1", name: "Venarius", serverId: "s1", combatPower: 25000000, multiplier: 1 },
+      { id: "m3", name: "LongThần", serverId: "s1", combatPower: 15000000, multiplier: 1 },
+      { id: "m2", name: "Ông3Bi", serverId: "s1", combatPower: 20000000, multiplier: 1 },
+      { id: "m5", name: "BạchLong", serverId: "s1", combatPower: 10000000, multiplier: 1 },
+      { id: "m4", name: "TraiBao", serverId: "s1", combatPower: 12000000, multiplier: 1 }
+    ]
+  };
+
+  const tiers = [
+    { upToRank: 2, multiplier: 3.0 },
+    { upToRank: 5, multiplier: 2.5 },
+    { upToRank: null, multiplier: 1.0 }
+  ];
+
+  ctx.applyCombatPowerTiersToWeek(week, "server", tiers);
+
+  // Members should be sorted by CP descending: Venarius (25M), Ông3Bi (20M), LongThần (15M), TraiBao (12M), BạchLong (10M), MemberNew (5M)
+  assert.equal(week.members[0].name, "Venarius");
+  assert.equal(week.members[0].multiplier, 3.0);
+
+  assert.equal(week.members[1].name, "Ông3Bi");
+  assert.equal(week.members[1].multiplier, 3.0);
+
+  assert.equal(week.members[2].name, "LongThần");
+  assert.equal(week.members[2].multiplier, 2.5);
+
+  assert.equal(week.members[3].name, "TraiBao");
+  assert.equal(week.members[3].multiplier, 2.5);
+
+  assert.equal(week.members[4].name, "BạchLong");
+  assert.equal(week.members[4].multiplier, 2.5);
+
+  assert.equal(week.members[5].name, "MemberNew");
+  assert.equal(week.members[5].multiplier, 1.0);
 });
 
 test("legacy global attendance migration preserves all weeks and server assignments", async () => {

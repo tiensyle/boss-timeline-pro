@@ -66,7 +66,9 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
     }
 
     const file = req.body.file;
-    const attachmentExtension = file?.type === "image/png" ? "png" : (file?.type === "text/csv;charset=utf-8" ? "csv" : null);
+    const attachmentExtension = file?.type === "image/png"
+      ? "png"
+      : (/^text\/csv(?:\s*;\s*charset=[\w-]+)?$/i.test(file?.type || "") ? "csv" : null);
     if (file && (typeof file.base64 !== "string" || !file.base64 || !attachmentExtension || !new RegExp(`^[\\w.-]+\\.${attachmentExtension}$`, "i").test(file.name || ""))) {
       return res.status(400).json({ error: "Invalid attachment." });
     }

@@ -390,6 +390,14 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 <span>Thêm Boss / Hoạt Động</span>
               </button>
+              <button type="button" class="button-ghost att-admin-btn" id="attCombatPowerBtn" style="display:none;" title="Quản lý Lực Chiến và tự động áp dụng Hệ Số theo Top">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <span>⚔️ Lực Chiến & Hệ Số</span>
+              </button>
+              <button type="button" class="button-ghost att-admin-btn" id="attRoleBonusBtn" style="display:none;" title="Cài đặt tỷ lệ % thưởng theo Chức danh / Vị trí">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                <span>Thưởng Vị Trí</span>
+              </button>
               <button type="button" class="button-ghost att-admin-btn" id="attBackupDataBtn" style="display:none;" title="Tải bản sao dữ liệu Boss và Attendance về máy">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2"></path></svg>
                 <span>Sao Lưu</span>
@@ -1036,10 +1044,10 @@
         <div class="discord-option-row">
           <div>
             <strong style="display:block;font-size:12.5px;color:var(--text);">💀 Báo khi Admin ghi nhận chết</strong>
-            <span style="font-size:11px;color:var(--muted);">Gửi tin nhắn xác nhận giờ chết và giờ hồi sinh lần tới</span>
+            <span style="font-size:11px;color:var(--muted);">Gửi tin nhắn xác nhận giờ chết và giờ hồi sinh lần tới (Tạm khóa theo thiết kế tránh spam kênh)</span>
           </div>
           <label class="discord-switch">
-            <input type="checkbox" id="discordNotifyKill" checked>
+            <input type="checkbox" id="discordNotifyKill" disabled>
             <span class="discord-slider"></span>
           </label>
         </div>
@@ -1187,6 +1195,13 @@
           </div>
         </div>
 
+        <!-- LỰC CHIẾN (COMBAT POWER) -->
+        <div class="form-field" style="margin-bottom: 14px;">
+          <label for="attMemberCpInput">⚔️ Lực Chiến (CP)</label>
+          <input type="text" id="attMemberCpInput" placeholder="Ví dụ: 18.5M hoặc 18500000">
+          <small style="display:block; margin-top:4px; font-size:11px; color:var(--muted);">Dùng để xếp hạng phân bổ Hệ Số tự động (nhập được 18.5M, 900k hoặc số nguyên).</small>
+        </div>
+
         <div class="form-field" style="margin-bottom: 14px;">
           <label for="attMemberMultiplierInput">Hệ Số Nhân Lương (x1, x1.5, x2, x2.5, x3, ...)</label>
           <input type="number" id="attMemberMultiplierInput" value="1.0" min="0.1" max="10" step="any">
@@ -1227,6 +1242,16 @@
             <input type="color" id="attMemberCustomRoleColor" class="att-custom-color-input" value="#f59e0b" title="Chọn màu thẻ tự do">
             <input type="hidden" id="attMemberRoleColorVal" value="#f59e0b">
           </div>
+        </div>
+
+        <!-- TÙY CHỈNH % THƯỞNG VỊ TRÍ / TOP RIÊNG BIỆT -->
+        <div class="form-field" style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="attMemberRoleBonusInput" style="margin: 0;">% Thưởng Vị Trí / Top (Tùy chọn)</label>
+            <span id="attMemberRoleBonusHint" style="font-size: 11.5px; color: var(--amber); font-weight: 600;">Mặc định theo vai trò</span>
+          </div>
+          <input type="number" id="attMemberRoleBonusInput" min="0" max="100" step="0.5" placeholder="Để trống nếu muốn tự động nhận theo Chức Danh">
+          <small style="display:block; margin-top:4px; font-size:11px; color:var(--muted);">Nhập số % (ví dụ: 4 cho 4%) nếu muốn chỉ định riêng cho thành viên này (vd: Top 1 cống hiến, Thưởng nóng).</small>
         </div>
 
         <div id="attMemberModalError" style="display: none; margin-bottom: 12px; font-size: 12.5px; color: var(--red); font-weight: 600; padding: 8px 12px; background: var(--red-soft); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px;"></div>
@@ -1381,6 +1406,168 @@
           <button type="button" class="button-primary" id="attCopyExportBtn">
             <span>📋 Sao chép vào Clipboard</span>
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CẤU HÌNH % THƯỞNG VỊ TRÍ / CHỨC DANH -->
+  <div class="modal-backdrop" id="attRoleBonusModal" role="dialog" aria-modal="true" aria-labelledby="attRoleBonusModalTitle" style="z-index: 10005;">
+    <div class="modal" style="max-width: 520px;">
+      <div class="modal-head">
+        <div>
+          <h2 id="attRoleBonusModalTitle">🎖️ Cấu Hình Thưởng Vị Trí & Chức Danh</h2>
+          <p id="attRoleBonusModalSub">Thiết lập tỷ lệ % trích từ Tổng Quỹ thưởng cho các vị trí đặc biệt</p>
+        </div>
+        <button type="button" class="icon-button" id="closeAttRoleBonusModal" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div style="padding: 18px 20px; max-height: 70vh; overflow-y: auto;">
+        <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-2); line-height: 1.5;">
+          💡 <strong>Cơ chế tính:</strong> Tiền thưởng trích trước trực tiếp từ Tổng Quỹ chung (DIAS & USDT). Phần quỹ còn lại được chia đều theo điểm danh cho các thành viên đạt điều kiện. Bảo toàn 100% quỹ!
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label style="font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Danh sách chức danh & % thưởng</label>
+          <button type="button" class="button-secondary" id="attAddRoleBonusRowBtn" style="padding: 4px 10px; font-size: 11.5px;">+ Thêm chức danh</button>
+        </div>
+
+        <div id="attRoleBonusListContainer">
+          <!-- Injected dynamically -->
+        </div>
+
+        <div id="attRoleBonusModalError" style="display: none; margin-top: 10px; font-size: 12.5px; color: var(--red); font-weight: 600; padding: 8px 12px; background: var(--red-soft); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px;"></div>
+
+        <div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px;">
+          <button type="button" class="button-ghost" id="attResetRoleBonusBtn" style="font-size: 12px;">Khôi phục mặc định</button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="button-secondary" id="attCancelRoleBonusBtn">Hủy</button>
+            <button type="button" class="button-primary" id="attSaveRoleBonusBtn">Lưu Cấu Hình</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: QUẢN LÝ LỰC CHIẾN & XẾP HẠNG HỆ SỐ -->
+  <div class="modal-backdrop" id="attCombatPowerModal" role="dialog" aria-modal="true" aria-labelledby="attCpModalTitle" style="z-index: 10005;">
+    <div class="modal" style="max-width: 720px;">
+      <div class="modal-head">
+        <div>
+          <h2 id="attCpModalTitle">⚔️ Quản Lý Lực Chiến & Xếp Hạng Hệ Số</h2>
+          <p id="attCpModalSub">Cập nhật Lực Chiến hàng tuần, cấu hình mốc Top và tự động áp dụng Hệ Số lương</p>
+        </div>
+        <button type="button" class="icon-button" id="closeAttCombatPowerModal" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div style="padding: 18px 20px; max-height: 72vh; overflow-y: auto;">
+        <!-- Section 1: Cấu hình mốc Top & Hệ Số -->
+        <div class="att-cp-section">
+          <div class="att-cp-section-header">
+            <h4 style="margin:0; font-size:13.5px; font-weight:700; color:var(--text);">
+              🏆 Mốc Xếp Hạng & Hệ Số Lương
+            </h4>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:4px; cursor:pointer;" title="Mỗi server sẽ có bảng xếp hạng Top 1, Top 2... riêng biệt">
+                <input type="radio" name="attCpScope" value="server" id="attCpScopeServer" checked>
+                <span>Top theo từng Server</span>
+              </label>
+              <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:4px; cursor:pointer;" title="Xếp hạng Lực Chiến chung cho toàn Guild">
+                <input type="radio" name="attCpScope" value="guild" id="attCpScopeGuild">
+                <span>Top toàn Guild</span>
+              </label>
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <table class="att-cp-tiers-table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+              <thead>
+                <tr style="background:var(--surface-2); color:var(--muted); text-align:left;">
+                  <th style="padding:6px 10px; border-radius:4px 0 0 4px;">Thứ Hạng Top</th>
+                  <th style="padding:6px 10px; text-align:center;">Hệ Số Lương</th>
+                  <th style="padding:6px 10px; text-align:right; border-radius:0 4px 4px 0;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="attCpTiersBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+              <button type="button" class="button-ghost" id="attAddCpTierBtn" style="font-size:11.5px; padding:3px 8px;">
+                + Thêm mốc Top
+              </button>
+              <button type="button" class="button-ghost" id="attResetCpTiersBtn" style="font-size:11.5px; padding:3px 8px; color:var(--muted);">
+                Khôi phục mốc mẫu (Top 5: x2, Top 10: x1.5, Còn lại: x1)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Cập nhật Lực Chiến thành viên -->
+        <div class="att-cp-section" style="margin-bottom: 0;">
+          <div class="att-cp-section-header">
+            <h4 style="margin:0; font-size:13.5px; font-weight:700; color:var(--text);">
+              👥 Danh Sách Lực Chiến Tuần Này
+            </h4>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:12px; color:var(--muted);">Lọc Server:</span>
+              <select id="attCpModalServerSelect" class="att-select" style="padding:2px 6px; font-size:12px; height:auto;">
+                <option value="all">Tất cả Server</option>
+              </select>
+            </div>
+          </div>
+          <p style="font-size:11px; color:var(--muted); margin:4px 0 8px 0;">
+            💡 Có thể nhập số đầy đủ (ví dụ: <code>18500000</code>) hoặc viết tắt (ví dụ: <code>18.5M</code> hay <code>900k</code>).
+          </p>
+
+          <div style="max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:6px; background:var(--surface);">
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead style="position:sticky; top:0; background:var(--surface-2); z-index:2;">
+                <tr style="text-align:left; color:var(--muted);">
+                  <th style="padding:6px 8px; width:30px;">#</th>
+                  <th style="padding:6px 8px;">Thành Viên</th>
+                  <th style="padding:6px 8px; width:80px;">Server</th>
+                  <th style="padding:6px 8px; width:130px;">Lực Chiến (CP)</th>
+                  <th style="padding:6px 8px; width:70px; text-align:center;">Hệ Số</th>
+                </tr>
+              </thead>
+              <tbody id="attCpMembersTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Quick Paste Tool Toggle -->
+          <div style="margin-top:8px;">
+            <button type="button" class="button-ghost" id="attCpTogglePasteBtn" style="font-size:11.5px; padding:3px 8px;">
+              📋 Dán danh sách nhanh (Copy & Paste)
+            </button>
+            <div id="attCpPasteWrap" style="display:none; margin-top:6px;">
+              <p style="font-size:11px; color:var(--muted); margin-bottom:3px;">
+                Dán danh sách từ game hoặc Excel (mỗi dòng 1 người, định dạng: <code>Tên: Lực Chiến</code>, ví dụ: <code>Venarius: 25.5M</code>):
+              </p>
+              <textarea id="attCpPasteInput" rows="3" style="width:100%; font-family:monospace; font-size:11.5px; padding:6px; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); color:var(--text); box-sizing:border-box;" placeholder="Venarius: 25.5M&#10;Ông3Bi: 23M&#10;LongThần: 19.8M"></textarea>
+              <div style="margin-top:4px; text-align:right;">
+                <button type="button" class="button-ghost" id="attCpApplyPasteBtn" style="font-size:11px; padding:2px 8px;">Áp dụng từ nội dung dán</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="attCpModalError" style="display: none; margin-top: 10px; font-size: 12.5px; color: var(--red); font-weight: 600; padding: 8px 12px; background: var(--red-soft); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px;"></div>
+
+        <div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <button type="button" class="button-secondary" id="attCancelCombatPowerBtn">Đóng</button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="button-ghost" id="attCpSaveOnlyBtn" title="Chỉ lưu Lực Chiến mà không đổi Hệ Số">
+              💾 Chỉ Lưu Lực Chiến
+            </button>
+            <button type="button" class="button-primary" id="attCpApplyTiersBtn" style="background:#f59e0b; border-color:#f59e0b; color:#000; font-weight:700;">
+              ⚡ Sắp Xếp & Áp Hệ Số
+            </button>
+          </div>
         </div>
       </div>
     </div>

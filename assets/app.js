@@ -51,6 +51,7 @@
         navWeeklySchedule: "Boss Tiêu Biểu",
         navBossList: "Boss List",
         navTimeline: "Timeline",
+        navAttendance: "Chấm Công & Lương",
         resetMaintenance: "Reset sau bảo trì",
         realtimeCountdown: "Realtime countdown",
         realtimeConnected: "Realtime",
@@ -145,6 +146,7 @@
         navWeeklySchedule: "Featured Bosses",
         navBossList: "Boss List",
         navTimeline: "Timeline",
+        navAttendance: "Attendance & Payroll",
         resetMaintenance: "Reset Post-Maintenance",
         realtimeCountdown: "Realtime countdown",
         realtimeConnected: "Realtime",
@@ -775,7 +777,7 @@
       const isConnected = Boolean(discordConfig.enabled);
       btn.classList.toggle("connected", isConnected);
       if (text) {
-        text.textContent = isConnected ? "Discord: Bat" : "Discord Bot";
+        text.textContent = isConnected ? (currentLang === "en" ? "Discord: On" : "Discord: Bật") : "Discord Bot";
       }
     }
 
@@ -905,7 +907,7 @@
         const spawnedLogoUrl = `${baseUrl}/assets/boss-logo-spawned.png`;
 
         const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-        const remainMs = Number(eventKey) - Date.now();
+        const remainMs = Number(eventKey) - getNow();
         const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
 
         let title = "";
@@ -3334,17 +3336,18 @@
   <table>
     <thead>
       <tr>
-        <th style="width:5%; text-align:center;">STT</th>
-        <th style="width:18%;">${isEn ? "SPAWN TIME & DATE" : "GIỜ & NGÀY HỒI SINH"}</th>
-        <th style="width:8%; text-align:center;">LEVEL</th>
-        <th style="width:20%;">${isEn ? "BOSS NAME" : "TÊN BOSS"}</th>
-        <th style="width:15%;">${isEn ? "CYCLE" : "CHU KỲ"}</th>
-        <th style="width:14%; text-align:center;">${isEn ? "STATUS" : "TRẠNG THÁI"}</th>
-        <th style="width:20%;">${isEn ? "LOCATION / MAP" : "ĐỊA ĐIỂM"}</th>
+        <th style="width:4%; text-align:center;">STT</th>
+        <th style="width:17%;">${isEn ? "SPAWN TIME & DATE" : "GIỜ & NGÀY HỒI SINH"}</th>
+        <th style="width:7%; text-align:center;">LEVEL</th>
+        <th style="width:18%;">${isEn ? "BOSS NAME" : "TÊN BOSS"}</th>
+        <th style="width:13%;">${isEn ? "CYCLE" : "CHU KỲ"}</th>
+        <th style="width:12%; text-align:center;">${isEn ? "STATUS" : "TRẠNG THÁI"}</th>
+        <th style="width:15%;">${isEn ? "LOCATION / MAP" : "ĐỊA ĐIỂM"}</th>
+        <th style="width:14%;">${isEn ? "NOTES" : "GHI CHÚ"}</th>
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml || `<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">${isEn ? "No bosses scheduled in the selected time range." : "Không có boss nào xuất hiện trong khoảng thời gian được chọn."}</td></tr>`}
+      ${rowsHtml || `<tr><td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">${isEn ? "No bosses scheduled in the selected time range." : "Không có boss nào xuất hiện trong khoảng thời gian được chọn."}</td></tr>`}
     </tbody>
   </table>
 
@@ -4789,6 +4792,21 @@
         }
         if (elements.modal.classList.contains("open")) closeModal();
         if (elements.authModal.classList.contains("open")) enterMemberMode();
+        if (document.getElementById("discordSettingsModal")?.classList.contains("open")) closeDiscordModal();
+        if (document.getElementById("attWeekModal")?.classList.contains("open")) closeAttendanceWeekModal();
+        if (document.getElementById("attMemberModal")?.classList.contains("open")) closeAttendanceMemberModal();
+        if (document.getElementById("attActivityModal")?.classList.contains("open")) closeAttendanceActivityModal();
+        if (document.getElementById("attRoleBonusModal")?.classList.contains("open")) closeAttendanceRoleBonusModal();
+        if (document.getElementById("attCombatPowerModal")?.classList.contains("open")) closeAttendanceCombatPowerModal();
+        if (document.getElementById("attExportModal")?.classList.contains("open")) {
+          document.getElementById("attExportModal")?.classList.remove("open");
+          syncModalScrollLock();
+        }
+        if (document.getElementById("adminAccModal")?.classList.contains("open")) {
+          document.getElementById("adminAccModal")?.classList.remove("open");
+          syncModalScrollLock();
+        }
+        if (elements.serverModal?.classList.contains("open")) closeServerModal();
       }
     });
 
@@ -5639,6 +5657,132 @@
       return normalizeAttendanceState(JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_STATE)), getDefaultAttendanceServerId());
     }
 
+    const DEFAULT_ROLE_BONUSES = [
+      { role: "Bang Chủ", percent: 4 },
+      { role: "Chủ Bang", percent: 4 },
+      { role: "Phó Bang", percent: 3 },
+      { role: "Thư Ký", percent: 3 },
+      { role: "Call Boss", percent: 2 },
+      { role: "Core DPS", percent: 2 },
+      { role: "Tanker", percent: 1.5 }
+    ];
+
+    const DEFAULT_CP_TIERS = [
+      { upToRank: 5, multiplier: 2.0, label: "Top 1 - 5" },
+      { upToRank: 10, multiplier: 1.5, label: "Top 6 - 10" },
+      { upToRank: null, multiplier: 1.0, label: "Còn lại" }
+    ];
+
+    function parseCombatPowerInput(input) {
+      if (input === null || input === undefined) return 0;
+      let str = String(input).trim().toUpperCase();
+      if (!str) return 0;
+      str = str.replace(/[, ]/g, "");
+      if (str.endsWith("M") || str.endsWith("TR")) {
+        const val = parseFloat(str.replace(/M|TR/g, ""));
+        return isNaN(val) ? 0 : Math.max(0, Math.round(val * 1000000));
+      }
+      if (str.endsWith("K")) {
+        const val = parseFloat(str.replace(/K/g, ""));
+        return isNaN(val) ? 0 : Math.max(0, Math.round(val * 1000));
+      }
+      const val = parseFloat(str);
+      return isNaN(val) ? 0 : Math.max(0, Math.round(val));
+    }
+
+    function formatCombatPowerDisplay(cp) {
+      const num = Number(cp) || 0;
+      if (num <= 0) return `<span class="val-cp-empty">—</span>`;
+      if (num >= 1000000) {
+        const m = (num / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
+        return `<span class="val-cp" title="${num.toLocaleString('vi-VN')} CP">${m}</span>`;
+      }
+      if (num >= 1000) {
+        const k = (num / 1000).toFixed(1).replace(/\.?0+$/, "") + "k";
+        return `<span class="val-cp" title="${num.toLocaleString('vi-VN')} CP">${k}</span>`;
+      }
+      return `<span class="val-cp" title="${num.toLocaleString('vi-VN')} CP">${num.toLocaleString('vi-VN')}</span>`;
+    }
+
+    function formatCombatPowerInput(cp) {
+      const num = Number(cp) || 0;
+      if (num <= 0) return "";
+      if (num >= 1000000 && num % 10000 === 0) {
+        return (num / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
+      }
+      return String(num);
+    }
+
+    function applyCombatPowerTiersToWeek(week, scope, tiers) {
+      if (!week || !Array.isArray(week.members) || week.members.length === 0) return;
+      const normalizedTiers = Array.isArray(tiers) && tiers.length > 0 ? tiers : DEFAULT_CP_TIERS;
+
+      if (scope === "server") {
+        const byServer = new Map();
+        week.members.forEach(m => {
+          const sId = getMemberServerId(m);
+          if (!byServer.has(sId)) byServer.set(sId, []);
+          byServer.get(sId).push(m);
+        });
+        byServer.forEach(mList => {
+          mList.sort((a, b) => ((Number(b.combatPower) || 0) - (Number(a.combatPower) || 0)) || (a.name || "").localeCompare(b.name || ""));
+          mList.forEach((m, idx) => {
+            const rank = idx + 1;
+            const tier = normalizedTiers.find(t => t.upToRank === null || rank <= t.upToRank);
+            if (tier && typeof tier.multiplier === "number") {
+              m.multiplier = tier.multiplier;
+            }
+          });
+        });
+        week.members.sort((a, b) => {
+          const sComp = getMemberServerId(a).localeCompare(getMemberServerId(b));
+          if (sComp !== 0) return sComp;
+          return ((Number(b.combatPower) || 0) - (Number(a.combatPower) || 0)) || (a.name || "").localeCompare(b.name || "");
+        });
+      } else {
+        week.members.sort((a, b) => ((Number(b.combatPower) || 0) - (Number(a.combatPower) || 0)) || (a.name || "").localeCompare(b.name || ""));
+        week.members.forEach((m, idx) => {
+          const rank = idx + 1;
+          const tier = normalizedTiers.find(t => t.upToRank === null || rank <= t.upToRank);
+          if (tier && typeof tier.multiplier === "number") {
+            m.multiplier = tier.multiplier;
+          }
+        });
+      }
+      week.cpTiers = JSON.parse(JSON.stringify(normalizedTiers));
+      week.cpScope = scope;
+    }
+
+    function normalizeRoleText(role) {
+      if (!role || typeof role !== "string") return "";
+      return role.replace(/^[^\p{L}\p{N}]+/u, "").trim().toLowerCase();
+    }
+
+    function getMemberRoleBonusPercent(member, week) {
+      if (!member) return 0;
+      if (member.roleBonusPercent !== undefined && member.roleBonusPercent !== null && member.roleBonusPercent !== "") {
+        const num = Number(member.roleBonusPercent);
+        if (!isNaN(num)) return Math.max(0, Math.min(100, num));
+      }
+      const roleText = normalizeRoleText(member.role);
+      if (!roleText) return 0;
+
+      const roleBonuses = (week && Array.isArray(week.roleBonuses) && week.roleBonuses.length > 0)
+        ? week.roleBonuses
+        : (attendanceState?.roleBonuses && Array.isArray(attendanceState.roleBonuses) && attendanceState.roleBonuses.length > 0
+          ? attendanceState.roleBonuses
+          : DEFAULT_ROLE_BONUSES);
+
+      for (const item of roleBonuses) {
+        if (!item || !item.role) continue;
+        const target = normalizeRoleText(item.role);
+        if (target && (roleText === target || roleText.includes(target) || target.includes(roleText))) {
+          return Math.max(0, Math.min(100, Number(item.percent) || 0));
+        }
+      }
+      return 0;
+    }
+
     function normalizeAttendanceMember(member, fallbackServerId, usedIds = null) {
       const source = member && typeof member === "object" ? member : {};
       const serverId = source.serverId || fallbackServerId || getDefaultAttendanceServerId();
@@ -5657,17 +5801,25 @@
         usedIds.add(finalId);
       }
 
-      return {
+      const res = {
         ...source,
         id: finalId,
         name: String(source.name || "Thành viên").trim() || "Thành viên",
         serverId,
         multiplier: parseFloat(source.multiplier) || 1,
+        combatPower: parseCombatPowerInput(source.combatPower),
         role: source.role || "Member",
         color: source.color || "",
         roleColor: source.roleColor || "",
         records: source.records && typeof source.records === "object" ? { ...source.records } : {}
       };
+
+      if (source.roleBonusPercent !== undefined && source.roleBonusPercent !== null && source.roleBonusPercent !== "") {
+        const p = Number(source.roleBonusPercent);
+        if (!isNaN(p)) res.roleBonusPercent = Math.max(0, Math.min(100, p));
+      }
+
+      return res;
     }
 
     function normalizeMinimumParticipationPercent(value) {
@@ -5713,6 +5865,12 @@
         w.diasPool = Math.max(0, Math.round(Number(w.diasPool) || 0));
         w.usdtPool = Math.max(0, parseFloat(w.usdtPool) || 0);
         w.minimumParticipationPercent = normalizeMinimumParticipationPercent(w.minimumParticipationPercent);
+        if (Array.isArray(w.cpTiers) && w.cpTiers.length > 0) {
+          w.cpTiers = JSON.parse(JSON.stringify(w.cpTiers));
+        } else {
+          w.cpTiers = JSON.parse(JSON.stringify(DEFAULT_CP_TIERS));
+        }
+        w.cpScope = w.cpScope === "guild" ? "guild" : "server";
 
         const usedIds = new Set();
         w.members = w.members.map(m => normalizeAttendanceMember(m, fallbackServerId, usedIds));
@@ -6381,7 +6539,9 @@
     }
 
     function formatParticipationPercent(value) {
-      return Number(Number(value).toPrecision(15)).toString();
+      if (value == null || isNaN(value)) return "0";
+      const num = Number(value);
+      return Number.isInteger(num) ? String(num) : Number(num.toFixed(1)).toString();
     }
 
     function allocateLargestRemainder(weights, totalUnits) {
@@ -6433,17 +6593,38 @@
       return getServerNameById(getMemberServerId(member));
     }
 
+    function setAttendanceServerFilter(newVal) {
+      attendanceServerFilter = newVal || "all";
+      const mainFilter = document.getElementById("attFilterServer");
+      if (mainFilter && mainFilter.value !== attendanceServerFilter) {
+        mainFilter.value = attendanceServerFilter;
+      }
+      const headFilter = document.getElementById("attHeaderServerSelect");
+      if (headFilter && headFilter.value !== attendanceServerFilter) {
+        headFilter.value = attendanceServerFilter;
+      }
+      renderAttendanceTable();
+    }
+
     function renderAttendanceServerFilterOptions() {
       const filter = document.getElementById("attFilterServer");
-      if (!filter) return;
       const previousValue = attendanceServerFilter || "all";
       const options = [`<option value="all">Tất cả Server</option>`]
         .concat(serverList.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name || s.id)}</option>`));
-      filter.innerHTML = options.join("");
-      attendanceServerFilter = previousValue === "all" || serverList.some(s => s.id === previousValue)
-        ? previousValue
-        : "all";
-      filter.value = attendanceServerFilter;
+      if (filter) {
+        filter.innerHTML = options.join("");
+        attendanceServerFilter = previousValue === "all" || serverList.some(s => s.id === previousValue)
+          ? previousValue
+          : "all";
+        filter.value = attendanceServerFilter;
+      }
+      const headFilter = document.getElementById("attHeaderServerSelect");
+      if (headFilter) {
+        const headOptions = [`<option value="all">Tất cả Server</option>`]
+          .concat(serverList.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name || s.id)}</option>`));
+        headFilter.innerHTML = headOptions.join("");
+        headFilter.value = attendanceServerFilter;
+      }
     }
 
     function populateAttendanceMemberServerSelect(selectedServerId) {
@@ -6511,6 +6692,11 @@
         summary.rawPoints += rawPoints;
         summary.pPoints += pPoints;
 
+        const bonusPercent = getMemberRoleBonusPercent(m, week);
+        const roleBonusDias = diasPool > 0 && bonusPercent > 0 ? Math.round(diasPool * (bonusPercent / 100)) : 0;
+        const roleBonusUsdtCents = usdtPool > 0 && bonusPercent > 0 ? Math.round(Math.round(usdtPool * 100) * (bonusPercent / 100)) : 0;
+        const roleBonusUsdt = roleBonusUsdtCents / 100;
+
         return {
           ...m,
           serverId,
@@ -6521,24 +6707,41 @@
           percent,
           eligible,
           eligiblePPoints,
-          dias: 0,
-          usdt: 0
+          bonusPercent,
+          roleBonusDias,
+          roleBonusUsdt,
+          attendanceDias: 0,
+          attendanceUsdt: 0,
+          dias: roleBonusDias,
+          usdt: roleBonusUsdt
         };
       });
 
-      const diasRate = totalEligiblePPoints > 0 ? (diasPool / totalEligiblePPoints) : 0;
-      const usdtRate = totalEligiblePPoints > 0 ? (usdtPool / totalEligiblePPoints) : 0;
+      let totalRoleBonusDias = 0;
+      let totalRoleBonusUsdtCents = 0;
+      membersCalc.forEach(m => {
+        totalRoleBonusDias += m.roleBonusDias;
+        totalRoleBonusUsdtCents += Math.round(m.roleBonusUsdt * 100);
+      });
 
-      // Final rewards using Largest Remainder Method (Hamilton method)
-      if (totalEligiblePPoints > 0) {
+      const remainingDiasPool = Math.max(0, diasPool - totalRoleBonusDias);
+      const remainingUsdtCents = Math.max(0, Math.round(usdtPool * 100) - totalRoleBonusUsdtCents);
+
+      const diasRate = totalEligiblePPoints > 0 ? (remainingDiasPool / totalEligiblePPoints) : 0;
+      const usdtRate = totalEligiblePPoints > 0 ? (remainingUsdtCents / 100 / totalEligiblePPoints) : 0;
+
+      // Final rewards using Largest Remainder Method (Hamilton method) on remaining pool
+      if (totalEligiblePPoints > 0 && (remainingDiasPool > 0 || remainingUsdtCents > 0)) {
         const rewardedMembers = membersCalc.filter(m => m.eligible && m.eligiblePPoints > 0);
         const rawPtsList = rewardedMembers.map(m => m.eligiblePPoints);
-        const diasAlloc = allocateLargestRemainder(rawPtsList, diasPool);
-        const usdtCentsAlloc = allocateLargestRemainder(rawPtsList, Math.round(usdtPool * 100));
+        const diasAlloc = allocateLargestRemainder(rawPtsList, remainingDiasPool);
+        const usdtCentsAlloc = allocateLargestRemainder(rawPtsList, remainingUsdtCents);
 
         rewardedMembers.forEach((m, idx) => {
-          m.dias = diasAlloc[idx];
-          m.usdt = usdtCentsAlloc[idx] / 100;
+          m.attendanceDias = diasAlloc[idx] || 0;
+          m.attendanceUsdt = (usdtCentsAlloc[idx] || 0) / 100;
+          m.dias = m.roleBonusDias + m.attendanceDias;
+          m.usdt = Number((m.roleBonusUsdt + m.attendanceUsdt).toFixed(2));
         });
       }
 
@@ -6564,6 +6767,8 @@
         maxPossiblePoints,
         diasPool,
         usdtPool,
+        totalRoleBonusDias,
+        totalRoleBonusUsdt: totalRoleBonusUsdtCents / 100,
         diasRate,
         usdtRate,
         activitiesCount: activities.length,
@@ -6727,7 +6932,10 @@
       const usdtTag = document.getElementById("attUsdtAdminTag");
       if (usdtTag) usdtTag.style.display = isAdmin() ? "inline-block" : "none";
 
-      // 2. Render Table Header
+      // 2. Filter Members
+      const filteredMembers = filterAttendanceMembers(calc.membersCalc);
+
+      // 3. Render Table Header
       const headEl = document.getElementById("attTableHead");
       if (!headEl) return;
 
@@ -6737,8 +6945,17 @@
       let headHtml = `<tr>
         <th class="col-sticky col-stt">#</th>
         <th class="col-sticky col-name">Thành Viên</th>
-        <th class="col-sticky col-server">Server</th>
+        <th class="col-sticky col-server" title="Lọc theo Server">
+          <div class="att-header-server-wrap">
+            <select class="att-header-server-select" id="attHeaderServerSelect" title="Chọn Server để lọc">
+              <option value="all">Tất cả Server</option>
+              ${serverList.map(s => `<option value="${escapeHtml(s.id)}"${attendanceServerFilter === s.id ? " selected" : ""}>${escapeHtml(s.name || s.id)}</option>`).join("")}
+            </select>
+          </div>
+        </th>
+        <th class="col-sticky col-cp" title="Lực chiến thành viên (dùng để xếp hạng phân bổ hệ số lương)">⚔️ Lực Chiến</th>
         <th class="col-sticky col-mult">Hệ Số</th>
+        <th class="col-sticky col-bonus" title="Tỷ lệ % trích thưởng chức danh / vị trí từ tổng quỹ">🎖️ Thưởng VT</th>
         <th class="col-sticky col-usdt">💵 USDT</th>
         <th class="col-sticky col-dias">💎 DIAS</th>
         <th class="col-sticky col-ppoints">P.Point<br>thực tế</th>
@@ -6748,6 +6965,7 @@
         <th class="col-eligibility">Điều kiện thưởng</th>`;
 
       activities.forEach((act) => {
+        const allChecked = filteredMembers.length > 0 && filteredMembers.every(m => m.records && m.records[act.id]);
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
           <div class="act-card-header">
             <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
@@ -6756,7 +6974,7 @@
             ${adminMode ? `
               <div class="act-header-bottom">
                 <label class="act-check-all-label" title="Tích chọn tất cả thành viên đang hiển thị">
-                  <input type="checkbox" class="att-check-all-box" data-act-id="${escapeHtml(act.id)}">
+                  <input type="checkbox" class="att-check-all-box" data-act-id="${escapeHtml(act.id)}"${allChecked ? " checked" : ""}>
                   <span>Tất cả</span>
                 </label>
                 <div class="act-btn-row">
@@ -6775,15 +6993,12 @@
       headHtml += `</tr>`;
       headEl.innerHTML = headHtml;
 
-      // 3. Filter Members
-      const filteredMembers = filterAttendanceMembers(calc.membersCalc);
-
       // 4. Render Table Body
       const bodyEl = document.getElementById("attTableBody");
       if (!bodyEl) return;
 
       if (filteredMembers.length === 0) {
-        const colSpanTotal = 11 + activities.length + (adminMode ? 1 : 0);
+        const colSpanTotal = 13 + activities.length + (adminMode ? 1 : 0);
         bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
           Không tìm thấy thành viên nào phù hợp.
         </td></tr>`;
@@ -6793,6 +7008,7 @@
       let bodyHtml = "";
       filteredMembers.forEach((m, idx) => {
         const badgeClass = m.eligible ? "att-badge-high" : "att-badge-low";
+        const bonusPct = m.bonusPercent || 0;
 
         bodyHtml += `<tr data-member-id="${escapeHtml(m.id)}">
           <td class="col-sticky col-stt">${idx + 1}</td>
@@ -6805,14 +7021,22 @@
           <td class="col-sticky col-server">
             <span class="att-server-tag" title="${escapeHtml(m.serverName)}">${escapeHtml(m.serverName)}</span>
           </td>
+          <td class="col-sticky col-cp">
+            ${formatCombatPowerDisplay(m.combatPower)}
+          </td>
           <td class="col-sticky col-mult">
             <span class="att-mult-tag">x${m.multiplier}</span>
           </td>
+          <td class="col-sticky col-bonus">
+            <span class="att-bonus-badge${bonusPct > 0 ? '' : ' zero'}" title="${bonusPct > 0 ? `Thưởng vị trí: +${bonusPct}% quỹ (${(m.roleBonusDias || 0).toLocaleString('vi-VN')} DIAS / ${(m.roleBonusUsdt || 0).toFixed(2)} USDT)` : 'Không có thưởng vị trí'}">
+              ${bonusPct > 0 ? `+${bonusPct}%` : '—'}
+            </span>
+          </td>
           <td class="col-sticky col-usdt">
-            <span class="val-usdt">${m.usdt.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+            <span class="val-usdt" title="${bonusPct > 0 ? `Điểm danh: ${(m.attendanceUsdt || 0).toFixed(2)} + Thưởng VT: ${(m.roleBonusUsdt || 0).toFixed(2)}` : ''}">${m.usdt.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
           </td>
           <td class="col-sticky col-dias">
-            <span class="val-dias">${m.dias.toLocaleString("vi-VN")}</span>
+            <span class="val-dias" title="${bonusPct > 0 ? `Điểm danh: ${(m.attendanceDias || 0).toLocaleString('vi-VN')} + Thưởng VT: ${(m.roleBonusDias || 0).toLocaleString('vi-VN')}` : ''}">${m.dias.toLocaleString("vi-VN")}</span>
           </td>
           <td class="col-sticky col-ppoints">
             <span class="val-ppoints">${formatPoints(m.pPoints)}</span>
@@ -6861,6 +7085,14 @@
 
     function bindAttendanceTableEvents() {
       const adminMode = isAdmin();
+
+      // Header Server select
+      const headServerSelect = document.getElementById("attHeaderServerSelect");
+      if (headServerSelect) {
+        headServerSelect.addEventListener("change", (e) => {
+          setAttendanceServerFilter(e.target.value);
+        });
+      }
 
       // Checkbox click
       document.querySelectorAll(".att-table .att-checkbox").forEach(chk => {
@@ -7013,6 +7245,19 @@
           roleBadgePreview.style.display = "none";
         }
       }
+
+      const roleBonusHint = document.getElementById("attMemberRoleBonusHint");
+      const roleBonusInput = document.getElementById("attMemberRoleBonusInput");
+      if (roleBonusHint) {
+        const customVal = roleBonusInput?.value?.trim();
+        if (customVal !== "" && !isNaN(Number(customVal))) {
+          roleBonusHint.textContent = `Tùy chỉnh: +${Number(customVal)}%`;
+        } else {
+          const simulated = { role: roleInput?.value || "" };
+          const defaultPct = getMemberRoleBonusPercent(simulated, getActiveWeek());
+          roleBonusHint.textContent = defaultPct > 0 ? `Tự động: +${defaultPct}% theo vai trò` : "Mặc định (0%)";
+        }
+      }
     }
 
     function selectMemberColor(colorHex) {
@@ -7068,6 +7313,8 @@
       const nameInput = document.getElementById("attMemberNameInput");
       const multInput = document.getElementById("attMemberMultiplierInput");
       const roleInput = document.getElementById("attMemberRoleInput");
+      const bonusInput = document.getElementById("attMemberRoleBonusInput");
+      const cpInput = document.getElementById("attMemberCpInput");
       const editIdInput = document.getElementById("attMemberEditId");
       const delBtn = document.getElementById("attDeleteMemberBtn");
       const errEl = document.getElementById("attMemberModalError");
@@ -7082,8 +7329,10 @@
         if (editIdInput) editIdInput.value = member.id;
         if (nameInput) nameInput.value = member.name || "";
         populateAttendanceMemberServerSelect(member.serverId || getDefaultAttendanceServerId());
+        if (cpInput) cpInput.value = member.combatPower ? formatCombatPowerInput(member.combatPower) : "";
         if (multInput) multInput.value = member.multiplier || 1.0;
         if (roleInput) roleInput.value = member.role || "";
+        if (bonusInput) bonusInput.value = (member.roleBonusPercent !== undefined && member.roleBonusPercent !== null) ? member.roleBonusPercent : "";
         if (delBtn) delBtn.style.display = "inline-flex";
 
         selectMemberColor(member.color || "");
@@ -7093,8 +7342,10 @@
         if (editIdInput) editIdInput.value = "";
         if (nameInput) nameInput.value = "";
         populateAttendanceMemberServerSelect(attendanceServerFilter !== "all" ? attendanceServerFilter : getDefaultAttendanceServerId());
+        if (cpInput) cpInput.value = "";
         if (multInput) multInput.value = "1.0";
         if (roleInput) roleInput.value = "";
+        if (bonusInput) bonusInput.value = "";
         if (delBtn) delBtn.style.display = "none";
 
         selectMemberColor("");
@@ -7119,6 +7370,8 @@
       const serverSelect = document.getElementById("attMemberServerSelect");
       const multInput = document.getElementById("attMemberMultiplierInput");
       const roleInput = document.getElementById("attMemberRoleInput");
+      const bonusInput = document.getElementById("attMemberRoleBonusInput");
+      const cpInput = document.getElementById("attMemberCpInput");
       const colorValInput = document.getElementById("attMemberColorVal");
       const roleColorValInput = document.getElementById("attMemberRoleColorVal");
       const editIdInput = document.getElementById("attMemberEditId");
@@ -7127,10 +7380,13 @@
       const name = (nameInput?.value || "").trim();
       const serverId = (serverSelect?.value || getDefaultAttendanceServerId()).trim();
       const mult = parseFloat(multInput?.value) || 1.0;
+      const combatPower = cpInput ? parseCombatPowerInput(cpInput.value) : 0;
       const role = (roleInput?.value || "").trim();
       const color = (colorValInput?.value || "").trim();
       const roleColor = (roleColorValInput?.value || "").trim();
       const editId = (editIdInput?.value || "").trim();
+      const bonusRaw = (bonusInput?.value || "").trim();
+      const customBonus = bonusRaw !== "" && !isNaN(Number(bonusRaw)) ? Math.max(0, Math.min(100, Number(bonusRaw))) : null;
 
       if (!name) {
         if (errEl) {
@@ -7155,23 +7411,34 @@
           member.name = name;
           member.serverId = serverId;
           member.multiplier = mult;
+          member.combatPower = combatPower;
           member.role = role;
           member.color = color;
           member.roleColor = roleColor;
+          if (customBonus !== null) {
+            member.roleBonusPercent = customBonus;
+          } else {
+            delete member.roleBonusPercent;
+          }
           showToast(`✅ Đã cập nhật thành viên: ${name}`);
         }
       } else {
         const newId = "m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        currWeek.members.push({
+        const newMem = {
           id: newId,
           name,
           serverId,
           multiplier: mult,
+          combatPower,
           role,
           color,
           roleColor,
           records: {}
-        });
+        };
+        if (customBonus !== null) {
+          newMem.roleBonusPercent = customBonus;
+        }
+        currWeek.members.push(newMem);
         showToast(`✅ Đã thêm thành viên mới: ${name}`);
       }
 
@@ -7189,6 +7456,335 @@
       closeAttendanceMemberModal();
       renderAttendanceTable();
       showToast("🗑️ Đã xóa thành viên.");
+    }
+
+    // Modal Role Bonus Functions
+    function openAttendanceRoleBonusModal() {
+      if (!isAdmin()) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền cài đặt Thưởng Vị Trí.");
+        requestAdminLogin();
+        return;
+      }
+      const modal = document.getElementById("attRoleBonusModal");
+      if (!modal) return;
+      const errEl = document.getElementById("attRoleBonusModalError");
+      if (errEl) errEl.style.display = "none";
+
+      const currWeek = getActiveWeek();
+      const currentBonuses = (currWeek && Array.isArray(currWeek.roleBonuses) && currWeek.roleBonuses.length > 0)
+        ? currWeek.roleBonuses
+        : (attendanceState?.roleBonuses && Array.isArray(attendanceState.roleBonuses) && attendanceState.roleBonuses.length > 0
+          ? attendanceState.roleBonuses
+          : DEFAULT_ROLE_BONUSES);
+
+      renderRoleBonusRows(currentBonuses);
+      modal.classList.add("open");
+      syncModalScrollLock();
+    }
+
+    function closeAttendanceRoleBonusModal() {
+      const modal = document.getElementById("attRoleBonusModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    function renderRoleBonusRows(bonuses) {
+      const container = document.getElementById("attRoleBonusListContainer");
+      if (!container) return;
+      if (!bonuses || bonuses.length === 0) {
+        container.innerHTML = `<p style="text-align:center; color:var(--muted); font-size:12.5px; padding:12px;">Chưa có chức danh nào. Bấm nút "+ Thêm chức danh" ở trên.</p>`;
+        return;
+      }
+
+      container.innerHTML = bonuses.map((item, idx) => `
+        <div class="att-role-bonus-row" data-index="${idx}">
+          <input type="text" class="att-role-name-input" placeholder="Tên Chức Danh / Vai Trò" value="${escapeHtml(item.role || "")}" maxlength="30">
+          <div style="display:flex; align-items:center; gap:4px;">
+            <input type="number" class="att-role-pct-input" placeholder="%" min="0" max="100" step="0.5" value="${item.percent ?? 0}" style="width:70px;">
+            <span style="font-size:12px; font-weight:700; color:var(--amber);">%</span>
+          </div>
+          <button type="button" class="att-btn-micro att-del-role-bonus-btn" title="Xóa dòng này" style="color:var(--red);">🗑️</button>
+        </div>
+      `).join("");
+
+      container.querySelectorAll(".att-del-role-bonus-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const row = e.target.closest(".att-role-bonus-row");
+          if (row) row.remove();
+        });
+      });
+    }
+
+    function addRoleBonusRow(role = "", percent = 2) {
+      const container = document.getElementById("attRoleBonusListContainer");
+      if (!container) return;
+      if (container.querySelector("p")) container.innerHTML = "";
+      const div = document.createElement("div");
+      div.className = "att-role-bonus-row";
+      div.innerHTML = `
+        <input type="text" class="att-role-name-input" placeholder="Tên Chức Danh / Vai Trò" value="${escapeHtml(role)}" maxlength="30">
+        <div style="display:flex; align-items:center; gap:4px;">
+          <input type="number" class="att-role-pct-input" placeholder="%" min="0" max="100" step="0.5" value="${percent}" style="width:70px;">
+          <span style="font-size:12px; font-weight:700; color:var(--amber);">%</span>
+        </div>
+        <button type="button" class="att-btn-micro att-del-role-bonus-btn" title="Xóa dòng này" style="color:var(--red);">🗑️</button>
+      `;
+      div.querySelector(".att-del-role-bonus-btn")?.addEventListener("click", () => div.remove());
+      container.appendChild(div);
+      div.querySelector(".att-role-name-input")?.focus();
+    }
+
+    function saveAttendanceRoleBonuses() {
+      if (!isAdmin()) return;
+      const rows = document.querySelectorAll("#attRoleBonusListContainer .att-role-bonus-row");
+      const errEl = document.getElementById("attRoleBonusModalError");
+      if (errEl) errEl.style.display = "none";
+
+      const updated = [];
+      let hasError = false;
+      rows.forEach(row => {
+        const role = (row.querySelector(".att-role-name-input")?.value || "").trim();
+        const pctRaw = row.querySelector(".att-role-pct-input")?.value;
+        const percent = parseFloat(pctRaw);
+        if (!role) return;
+        if (isNaN(percent) || percent < 0 || percent > 100) {
+          hasError = true;
+          return;
+        }
+        updated.push({ role, percent });
+      });
+
+      if (hasError) {
+        if (errEl) {
+          errEl.textContent = "Tỷ lệ % thưởng phải từ 0% đến 100%.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      const currWeek = getActiveWeek();
+      currWeek.roleBonuses = updated;
+      if (attendanceState) {
+        attendanceState.roleBonuses = updated;
+      }
+
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceRoleBonusModal();
+      renderAttendanceTable();
+      showToast("🎖️ Đã lưu cấu hình Thưởng Vị Trí!");
+    }
+
+    // Modal Combat Power & Ranking Functions
+    function openAttendanceCombatPowerModal() {
+      if (!isAdmin()) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền quản lý Lực Chiến.");
+        requestAdminLogin();
+        return;
+      }
+      const modal = document.getElementById("attCombatPowerModal");
+      if (!modal) return;
+      const currWeek = getActiveWeek();
+      const tiers = (currWeek && Array.isArray(currWeek.cpTiers) && currWeek.cpTiers.length > 0)
+        ? currWeek.cpTiers
+        : DEFAULT_CP_TIERS;
+      const scope = currWeek?.cpScope || "server";
+
+      const serverRadio = document.getElementById("attCpScopeServer");
+      const guildRadio = document.getElementById("attCpScopeGuild");
+      if (serverRadio && guildRadio) {
+        serverRadio.checked = scope !== "guild";
+        guildRadio.checked = scope === "guild";
+      }
+
+      const serverSelect = document.getElementById("attCpModalServerSelect");
+      if (serverSelect) {
+        const options = [`<option value="all">Tất cả Server</option>`]
+          .concat(serverList.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name || s.id)}</option>`));
+        serverSelect.innerHTML = options.join("");
+        serverSelect.value = attendanceServerFilter || "all";
+      }
+
+      renderCpTiersBody(tiers);
+      renderCpMembersTableBody(serverSelect ? serverSelect.value : "all");
+
+      const errEl = document.getElementById("attCpModalError");
+      if (errEl) errEl.style.display = "none";
+
+      const pasteWrap = document.getElementById("attCpPasteWrap");
+      if (pasteWrap) pasteWrap.style.display = "none";
+
+      modal.classList.add("open");
+      syncModalScrollLock();
+    }
+
+    function closeAttendanceCombatPowerModal() {
+      const modal = document.getElementById("attCombatPowerModal");
+      if (modal) modal.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    function renderCpTiersBody(tiers) {
+      const tbody = document.getElementById("attCpTiersBody");
+      if (!tbody) return;
+      const list = (Array.isArray(tiers) && tiers.length > 0) ? tiers : DEFAULT_CP_TIERS;
+      let html = "";
+      list.forEach((tier, idx) => {
+        const isLast = tier.upToRank === null || tier.upToRank === undefined;
+        const prevRank = idx === 0 ? 0 : (list[idx - 1]?.upToRank || 0);
+        const fromRank = prevRank + 1;
+        html += `<tr data-tier-idx="${idx}">
+          <td style="padding:6px 10px;">
+            ${isLast
+              ? `<span style="font-weight:600; color:var(--text);">Còn lại (từ Top ${fromRank} trở đi)</span>`
+              : `<div style="display:flex; align-items:center; gap:6px;">
+                  <span class="att-cp-badge-top">Top ${fromRank} đến</span>
+                  <input type="number" class="att-cp-tier-input att-tier-rank-input" value="${tier.upToRank || 5}" min="${fromRank}" step="1" style="width:55px;">
+                </div>`
+            }
+          </td>
+          <td style="padding:6px 10px; text-align:center;">
+            <div style="display:inline-flex; align-items:center; gap:4px;">
+              <span style="font-weight:700; color:var(--amber);">x</span>
+              <input type="number" class="att-cp-tier-input att-tier-mult-input" value="${tier.multiplier ?? 1}" min="0.1" max="10" step="any" style="width:60px;">
+            </div>
+          </td>
+          <td style="padding:6px 10px; text-align:right;">
+            ${!isLast
+              ? `<button type="button" class="btn-ghost icon-button att-del-cp-tier-btn" data-tier-idx="${idx}" title="Xóa mốc này" style="color:var(--red); padding:2px 5px; font-size:12px;">🗑️</button>`
+              : `—`
+            }
+          </td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+
+      tbody.querySelectorAll(".att-del-cp-tier-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.tierIdx, 10);
+          const currentTiers = collectCpTiersFromModal();
+          currentTiers.splice(idx, 1);
+          renderCpTiersBody(currentTiers);
+        });
+      });
+    }
+
+    function collectCpTiersFromModal() {
+      const rows = document.querySelectorAll("#attCpTiersBody tr");
+      const tiers = [];
+      rows.forEach((row, idx) => {
+        const rankInput = row.querySelector(".att-tier-rank-input");
+        const multInput = row.querySelector(".att-tier-mult-input");
+        const mult = parseFloat(multInput?.value) || 1.0;
+        if (rankInput) {
+          const rank = parseInt(rankInput.value, 10) || (idx + 1) * 5;
+          tiers.push({ upToRank: rank, multiplier: mult, label: `Top ${rank}` });
+        } else {
+          tiers.push({ upToRank: null, multiplier: mult, label: "Còn lại" });
+        }
+      });
+      if (tiers.length === 0) {
+        return JSON.parse(JSON.stringify(DEFAULT_CP_TIERS));
+      }
+      return tiers;
+    }
+
+    function renderCpMembersTableBody(serverFilter = "all") {
+      const tbody = document.getElementById("attCpMembersTableBody");
+      if (!tbody) return;
+      const currWeek = getActiveWeek();
+      let members = (currWeek?.members || []).slice();
+      if (serverFilter && serverFilter !== "all") {
+        members = members.filter(m => getMemberServerId(m) === serverFilter);
+      }
+      if (members.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">Không có thành viên nào phù hợp.</td></tr>`;
+        return;
+      }
+      let html = "";
+      members.forEach((m, idx) => {
+        const cpFormatted = formatCombatPowerInput(m.combatPower);
+        html += `<tr data-member-id="${escapeHtml(m.id)}">
+          <td style="padding:6px 8px; color:var(--muted);">${idx + 1}</td>
+          <td style="padding:6px 8px; font-weight:600; color:var(--text);">${escapeHtml(m.name)}</td>
+          <td style="padding:6px 8px;"><span class="att-server-tag">${escapeHtml(getMemberServerName(m))}</span></td>
+          <td style="padding:6px 8px;">
+            <input type="text" class="att-cp-member-input" data-member-id="${escapeHtml(m.id)}" value="${escapeHtml(cpFormatted)}" placeholder="VD: 18.5M">
+          </td>
+          <td style="padding:6px 8px; text-align:center; font-weight:700; color:var(--amber);">x${m.multiplier}</td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    }
+
+    function saveCombatPowerModalData(applyTiers = false) {
+      if (!isAdmin()) return;
+      const currWeek = getActiveWeek();
+      if (!currWeek) return;
+
+      const cpInputs = document.querySelectorAll("#attCpMembersTableBody .att-cp-member-input");
+      cpInputs.forEach(input => {
+        const mId = input.dataset.memberId;
+        const member = currWeek.members.find(m => m.id === mId);
+        if (member) {
+          member.combatPower = parseCombatPowerInput(input.value);
+        }
+      });
+
+      const tiers = collectCpTiersFromModal();
+      const scope = document.getElementById("attCpScopeGuild")?.checked ? "guild" : "server";
+
+      if (applyTiers) {
+        applyCombatPowerTiersToWeek(currWeek, scope, tiers);
+        showToast("⚡ Đã xếp hạng và tự động gán hệ số theo Lực Chiến thành công!");
+      } else {
+        currWeek.cpTiers = tiers;
+        currWeek.cpScope = scope;
+        showToast("💾 Đã lưu Lực Chiến thành công!");
+      }
+
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceCombatPowerModal();
+      renderAttendanceTable();
+    }
+
+    function applyCombatPowerPaste() {
+      const textarea = document.getElementById("attCpPasteInput");
+      const text = textarea?.value?.trim() || "";
+      if (!text) {
+        showToast("Vui lòng nhập hoặc dán danh sách Lực Chiến.");
+        return;
+      }
+      const lines = text.split(/\r?\n/);
+      let matchCount = 0;
+      const currWeek = getActiveWeek();
+      if (!currWeek) return;
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        const sepMatch = trimmed.match(/^([^:\t|,]+)[:\t|,]\s*(.+)$/);
+        if (!sepMatch) return;
+        const rawName = sepMatch[1].trim().toLowerCase();
+        const cpStr = sepMatch[2].trim();
+        const cpVal = parseCombatPowerInput(cpStr);
+
+        const member = currWeek.members.find(m => (m.name || "").trim().toLowerCase() === rawName);
+        if (member) {
+          member.combatPower = cpVal;
+          matchCount++;
+          const input = document.querySelector(`#attCpMembersTableBody .att-cp-member-input[data-member-id="${member.id}"]`);
+          if (input) input.value = formatCombatPowerInput(cpVal);
+        }
+      });
+
+      if (matchCount > 0) {
+        showToast(`✅ Đã cập nhật Lực Chiến cho ${matchCount} thành viên từ nội dung dán!`);
+        textarea.value = "";
+        const wrap = document.getElementById("attCpPasteWrap");
+        if (wrap) wrap.style.display = "none";
+      } else {
+        showToast("⚠️ Không tìm thấy thành viên nào khớp tên trong danh sách.");
+      }
     }
 
     // Modal Activity Functions
@@ -7318,24 +7914,29 @@
       md += `👥 **Tổng thành viên:** ${calc.membersCount} | **Hoạt động:** ${calc.activitiesCount} mục\n`;
       md += `─────────────────────────────────────────\n`;
       md += `\`\`\`\n`;
-      md += `STT | Tên Thành Viên | Server | Hệ Số | % Tham Gia | P.Point thực tế | Reward P.Point | Điều kiện | DIAS | USDT\n`;
-      md += `----+----------------+--------+-------+------------+----------------+----------------+-----------+------+------\n`;
+      md += `STT | Tên Thành Viên | Server | Lực Chiến | Hệ Số | Thưởng VT | % Tham Gia | P.Point thực tế | Reward P.Point | Điều kiện | DIAS | USDT\n`;
+      md += `----+----------------+--------+-----------+-------+-----------+------------+----------------+----------------+-----------+------+------\n`;
 
       calc.membersCalc.forEach((m, idx) => {
         const stt = String(idx + 1).padEnd(3, " ");
         const name = String(m.name).padEnd(14, " ");
         const server = String(m.serverName || m.serverId || "").padEnd(6, " ");
+        const cp = (formatCombatPowerInput(m.combatPower) || "—").padEnd(9, " ");
         const mult = (`x${m.multiplier}`).padEnd(5, " ");
+        const bonus = ((m.bonusPercent || 0) > 0 ? `+${m.bonusPercent}%` : "—").padEnd(9, " ");
         const pct = (`${formatParticipationPercent(m.percent)}%`).padEnd(10, " ");
         const pPts = formatPoints(m.pPoints).padEnd(7, " ");
         const rewardPts = formatPoints(m.eligiblePPoints).padEnd(7, " ");
         const eligibility = m.eligible ? "✅ Đủ điều kiện" : "❌ Không đạt";
         const dias = String(m.dias).padEnd(5, " ");
         const usdt = m.usdt.toFixed(2).padEnd(5, " ");
-        md += `${stt} | ${name} | ${server} | ${mult} | ${pct} | ${pPts} | ${rewardPts} | ${eligibility} | ${dias} | ${usdt}\n`;
+        md += `${stt} | ${name} | ${server} | ${cp} | ${mult} | ${bonus} | ${pct} | ${pPts} | ${rewardPts} | ${eligibility} | ${dias} | ${usdt}\n`;
       });
       md += `\`\`\`\n`;
       md += `*Thành viên tham gia dưới ${calc.minimumParticipationPercent}% không nhận DIAS/USDT; P.Point thực tế vẫn được giữ nguyên.*`;
+      if (md.length > 1900) {
+        md += `\n\n⚠️ *Lưu ý: Bảng hiện có độ dài ${md.length} ký tự (vượt ngưỡng 2000 ký tự Discord). Nếu không gửi được, hãy chia nhỏ thành 2 tin nhắn khi dán.*`;
+      }
 
       const textarea = document.getElementById("attExportTextarea");
       if (textarea) textarea.value = md;
@@ -7358,6 +7959,12 @@
 
       const addActBtn = document.getElementById("attAddActivityBtn");
       if (addActBtn) addActBtn.style.display = adminMode ? "inline-flex" : "none";
+
+      const cpBtn = document.getElementById("attCombatPowerBtn");
+      if (cpBtn) cpBtn.style.display = adminMode ? "inline-flex" : "none";
+
+      const roleBonusBtn = document.getElementById("attRoleBonusBtn");
+      if (roleBonusBtn) roleBonusBtn.style.display = adminMode ? "inline-flex" : "none";
 
       const backupBtn = document.getElementById("attBackupDataBtn");
       if (backupBtn) backupBtn.style.display = adminMode ? "inline-flex" : "none";
@@ -7605,8 +8212,7 @@
       const serverFilter = document.getElementById("attFilterServer");
       if (serverFilter) {
         serverFilter.addEventListener("change", (e) => {
-          attendanceServerFilter = e.target.value || "all";
-          renderAttendanceTable();
+          setAttendanceServerFilter(e.target.value || "all");
         });
       }
       const serverSummary = document.getElementById("attServerSummary");
@@ -7614,8 +8220,7 @@
         serverSummary.addEventListener("click", (event) => {
           const button = event.target.closest("button[data-server-scope]");
           if (!button) return;
-          attendanceServerFilter = button.dataset.serverScope || "all";
-          renderAttendanceTable();
+          setAttendanceServerFilter(button.dataset.serverScope || "all");
         });
       }
 
@@ -7625,6 +8230,12 @@
 
       const addActBtn = document.getElementById("attAddActivityBtn");
       if (addActBtn) addActBtn.addEventListener("click", () => openAttendanceActivityModal());
+
+      const cpBtn = document.getElementById("attCombatPowerBtn");
+      if (cpBtn) cpBtn.addEventListener("click", () => openAttendanceCombatPowerModal());
+
+      const roleBonusBtn = document.getElementById("attRoleBonusBtn");
+      if (roleBonusBtn) roleBonusBtn.addEventListener("click", () => openAttendanceRoleBonusModal());
 
       const backupDataBtn = document.getElementById("attBackupDataBtn");
       if (backupDataBtn) backupDataBtn.addEventListener("click", downloadFullDataBackup);
@@ -7645,9 +8256,20 @@
         });
       });
 
+      // Role Bonus Modal Events
+      document.getElementById("closeAttRoleBonusModal")?.addEventListener("click", closeAttendanceRoleBonusModal);
+      document.getElementById("attCancelRoleBonusBtn")?.addEventListener("click", closeAttendanceRoleBonusModal);
+      document.getElementById("attSaveRoleBonusBtn")?.addEventListener("click", saveAttendanceRoleBonuses);
+      document.getElementById("attAddRoleBonusRowBtn")?.addEventListener("click", () => addRoleBonusRow());
+      document.getElementById("attResetRoleBonusBtn")?.addEventListener("click", () => {
+        renderRoleBonusRows(DEFAULT_ROLE_BONUSES);
+        showToast("Đã khôi phục danh sách vai trò mặc định.");
+      });
+
       // Member Live Preview & Color Picker events
       document.getElementById("attMemberNameInput")?.addEventListener("input", updateMemberModalPreview);
       document.getElementById("attMemberRoleInput")?.addEventListener("input", updateMemberModalPreview);
+      document.getElementById("attMemberRoleBonusInput")?.addEventListener("input", updateMemberModalPreview);
 
       document.querySelectorAll("#attMemberColorRow .att-color-chip").forEach(chip => {
         chip.addEventListener("click", () => {
@@ -7735,8 +8357,33 @@
         }
       });
 
+      // Combat Power Modal Events
+      document.getElementById("closeAttCombatPowerModal")?.addEventListener("click", closeAttendanceCombatPowerModal);
+      document.getElementById("attCancelCombatPowerBtn")?.addEventListener("click", closeAttendanceCombatPowerModal);
+      document.getElementById("attCpSaveOnlyBtn")?.addEventListener("click", () => saveCombatPowerModalData(false));
+      document.getElementById("attCpApplyTiersBtn")?.addEventListener("click", () => saveCombatPowerModalData(true));
+      document.getElementById("attAddCpTierBtn")?.addEventListener("click", () => {
+        const currentTiers = collectCpTiersFromModal();
+        const prevRank = currentTiers.length > 1 ? (currentTiers[currentTiers.length - 2]?.upToRank || 5) : 5;
+        const newRank = prevRank + 5;
+        currentTiers.splice(currentTiers.length - 1, 0, { upToRank: newRank, multiplier: 1.5, label: `Top ${newRank}` });
+        renderCpTiersBody(currentTiers);
+      });
+      document.getElementById("attResetCpTiersBtn")?.addEventListener("click", () => {
+        renderCpTiersBody(JSON.parse(JSON.stringify(DEFAULT_CP_TIERS)));
+        showToast("Đã khôi phục mốc mẫu Lực Chiến.");
+      });
+      document.getElementById("attCpModalServerSelect")?.addEventListener("change", (e) => {
+        renderCpMembersTableBody(e.target.value);
+      });
+      document.getElementById("attCpTogglePasteBtn")?.addEventListener("click", () => {
+        const wrap = document.getElementById("attCpPasteWrap");
+        if (wrap) wrap.style.display = wrap.style.display === "none" ? "block" : "none";
+      });
+      document.getElementById("attCpApplyPasteBtn")?.addEventListener("click", applyCombatPowerPaste);
+
       // Backdrop dismiss
-      ["attMemberModal", "attActivityModal", "attWeekModal", "attExportModal"].forEach(modalId => {
+      ["attMemberModal", "attActivityModal", "attWeekModal", "attExportModal", "attRoleBonusModal", "attCombatPowerModal"].forEach(modalId => {
         const modalEl = document.getElementById(modalId);
         if (modalEl) {
           modalEl.addEventListener("click", (e) => {
@@ -7779,7 +8426,8 @@
     const CURRENT_APP_VERSION = "2026.10.09.v19-reviewed-sync-and-schedule";
     window.setInterval(async () => {
       try {
-        const res = await fetch("/?v=" + Date.now(), { cache: "no-store", method: "HEAD" });
+        const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
+        const res = await fetch(updateUrl, { cache: "no-store", method: "HEAD" });
         const etag = res.headers.get("etag") || res.headers.get("last-modified");
         const storedEtag = sessionStorage.getItem("boss_app_etag");
         if (etag) {

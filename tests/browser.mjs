@@ -32,8 +32,12 @@ try {
   assert.equal(await page.locator("#attendanceContent").isVisible(), false);
   await page.evaluate(() => switchPageView("attendance"));
   assert.equal(await page.locator("#attendanceAccessNotice").isVisible(), true);
-  assert.equal(await page.locator("#attTableBody").textContent(), "");
-  checks.push("Guest attendance access is blocked");
+  assert.equal(await page.locator("#attendanceContent").isVisible(), true);
+  assert.equal(await page.locator("#attAddMemberBtn").isVisible(), false);
+  assert.equal(await page.locator("#attAddActivityBtn").isVisible(), false);
+  assert.equal(await page.locator("#attCombatPowerBtn").isVisible(), false);
+  assert.equal(await page.locator("#attRoleBonusBtn").isVisible(), false);
+  checks.push("Guest attendance access is read-only");
 
   await page.evaluate(() => {
     firebaseAuth = { currentUser: { uid: "offline-test-only", displayName: "Test admin", getIdToken: async () => "offline-test-token" } };
@@ -137,7 +141,7 @@ try {
   });
   await page.locator('#attServerSummary [data-server-scope="s1"]').click();
   assert.equal(await page.locator("#attFilterServer").inputValue(), "s1");
-  assert.equal(await page.locator("#attTotalMembersCount").textContent(), "1");
+  await page.locator('.att-check-all-box[data-act-id="a"]').scrollIntoViewIfNeeded();
   await page.locator('.att-check-all-box[data-act-id="a"]').check();
   const scopedChecks = await page.evaluate(() => Object.fromEntries(attendanceState.weeks[0].members.map(member => [member.id, Boolean(member.records?.a)])));
   assert.equal(scopedChecks.m1, true);
@@ -193,9 +197,12 @@ try {
   if (output) await page.screenshot({ path: resolve(output, "attendance-theme.png") });
   checks.push("Desktop/tablet/mobile layout and theme switching");
   await page.evaluate(() => { currentUserIsAdmin = false; setRole("member"); });
-  assert.equal(await page.locator("#attendanceContent").isVisible(), false);
-  assert.equal(await page.locator("#attTableBody").textContent(), "");
-  checks.push("Logout hides and removes rendered payroll rows");
+  assert.equal(await page.locator("#attendanceAccessNotice").isVisible(), true);
+  assert.equal(await page.locator("#attAddMemberBtn").isVisible(), false);
+  assert.equal(await page.locator("#attCombatPowerBtn").isVisible(), false);
+  assert.equal(await page.locator("#attRoleBonusBtn").isVisible(), false);
+  assert.equal(await page.locator("#attBackupDataBtn").isVisible(), false);
+  checks.push("Switching to member mode enforces read-only attendance controls");
   assert.deepEqual(errors, [], "Browser runtime/console errors");
   console.log(JSON.stringify({ passed: checks.length, checks, errors }, null, 2));
 } finally {

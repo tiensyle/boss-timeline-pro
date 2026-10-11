@@ -3586,13 +3586,55 @@
     .col-sticky { position: sticky; z-index: 5; background: var(--surface); }
     .col-stt { width: 38px; min-width: 38px; max-width: 38px; left: 0; font-weight: 700; }
     .col-name { width: 140px; min-width: 140px; max-width: 170px; left: 38px; text-align: left !important; font-weight: 600; }
-    .col-server { width: 105px; min-width: 105px; left: 178px; font-weight: 700; color: var(--amber); }
-    .col-mult { width: 68px; min-width: 68px; left: 283px; }
-    .col-usdt { width: 72px; min-width: 72px; left: 351px; color: var(--green); font-weight: 700; }
-    .col-dias { width: 85px; min-width: 85px; left: 423px; color: var(--cyan); font-weight: 700; }
-    .col-ppoints { width: 75px; min-width: 75px; left: 508px; font-weight: 700; }
-    .col-raw { width: 65px; min-width: 65px; left: 583px; }
-    .col-percent { width: 75px; min-width: 75px; left: 648px; box-shadow: 2px 0 5px rgba(0,0,0,0.08); font-weight: 700; }
+    .col-server { width: 120px; min-width: 120px; left: 178px; font-weight: 700; color: var(--amber); }
+    .col-cp { width: 100px; min-width: 100px; left: 298px; font-weight: 700; color: #f59e0b; white-space: nowrap; }
+    .col-mult { width: 68px; min-width: 68px; left: 398px; }
+    .col-bonus { width: 74px; min-width: 74px; left: 466px; color: var(--amber); font-weight: 700; }
+    .col-usdt { width: 72px; min-width: 72px; left: 540px; color: var(--green); font-weight: 700; }
+    .col-dias { width: 85px; min-width: 85px; left: 612px; color: var(--cyan); font-weight: 700; }
+    .col-ppoints { width: 75px; min-width: 75px; left: 697px; font-weight: 700; }
+    .col-raw { width: 65px; min-width: 65px; left: 772px; }
+    .col-percent { width: 75px; min-width: 75px; left: 837px; box-shadow: 2px 0 5px rgba(0,0,0,0.08); font-weight: 700; }
+    .att-bonus-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(245, 158, 11, 0.12);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      line-height: 1.2;
+    }
+    .att-bonus-badge.zero {
+      opacity: 0.55;
+      background: transparent;
+      border-color: transparent;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .att-role-bonus-row {
+      display: grid;
+      grid-template-columns: 1fr 100px 40px;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .att-role-bonus-row input {
+      padding: 6px 10px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      color: var(--text);
+      font-size: 12.5px;
+    }
     .att-table thead th.col-sticky {
       z-index: 25 !important;
       background: var(--surface-2) !important;
@@ -4124,3 +4166,112 @@
       background: var(--surface-hover);
       border-color: var(--cyan);
     }
+
+    /* Header Server Filter Dropdown */
+    .att-header-server-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    .att-header-server-select {
+      width: 100%;
+      max-width: 112px;
+      background: var(--surface);
+      color: var(--amber);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 4px;
+      cursor: pointer;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+      height: 24px;
+      line-height: 1.2;
+      box-sizing: border-box;
+    }
+    .att-header-server-select:hover {
+      border-color: var(--amber);
+    }
+    .att-header-server-select option {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    /* Combat Power Display */
+    .val-cp {
+      font-weight: 700;
+      color: #f59e0b;
+      font-size: 12px;
+      font-family: monospace, sans-serif;
+    }
+    .val-cp-empty {
+      color: var(--muted);
+      font-weight: 400;
+      font-size: 12px;
+    }
+
+    /* Combat Power Modal & Tiers */
+    .att-cp-section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .att-cp-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .att-cp-tiers-table th {
+      border-bottom: 1px solid var(--line);
+    }
+    .att-cp-tiers-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--line-soft);
+      vertical-align: middle;
+    }
+    .att-cp-tier-input {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 3px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      width: 65px;
+      text-align: center;
+    }
+    .att-cp-badge-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .att-cp-member-input {
+      width: 100%;
+      max-width: 120px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 3px 7px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: monospace, sans-serif;
+    }
+    .att-cp-member-input:focus {
+      border-color: var(--amber);
+      outline: none;
+    }
+
