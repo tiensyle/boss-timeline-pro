@@ -1193,12 +1193,14 @@
 
     function checkDailyScheduleAlert(now) {
       if (!discordConfig.enabled || discordConfig.notifyDailySchedule === false) return;
+      if (!isAdmin()) return;
       const d = new Date(now);
-      // Kích hoạt trong khung 00:00:00 - 00:05:00 hàng ngày
-      if (d.getHours() === 0 && d.getMinutes() < 5) {
-        sendDiscordDailySchedule(false);
-      }
+      // Chỉ gửi đúng 12h đêm (khung 00:00:00 - 00:05:00)
+      if (d.getHours() !== 0 || d.getMinutes() >= 5) return;
+      sendDiscordDailySchedule(false);
     }
+
+
 
     async function sendDiscordKillAlert(boss, diedAt, nextRespawn) {
       // Đã tắt hoàn toàn: chỉ gửi 2 loại thông báo (báo cáo 00h và đếm ngược giờ boss sắp ra)
@@ -1234,11 +1236,11 @@
         let eventKey = "";
 
         if (boss.spawnMode === "fixed") {
-          if (!boss.diedAt) return; // Chưa chết thì đang sống, không có đếm ngược
-          eventTime = getNextFixedSpawnTime(boss, boss.diedAt);
+          eventTime = getNextFixedSpawnTime(boss, now);
           if (!eventTime) return;
           eventKey = boss.id + "_" + eventTime;
         } else {
+
           if (!boss.diedAt || !boss.respawnsAt) return;
           eventTime = boss.respawnsAt;
           eventKey = boss.id + "_" + boss.respawnsAt;

@@ -4,6 +4,13 @@
   "buildCommand": null,
   "outputDirectory": ".",
   "functions": {
-    "api/discord.js": { "maxDuration": 60 }
-  }
+    "api/discord.js": { "maxDuration": 60 },
+    "api/cron-daily.js": { "maxDuration": 60 }
+  },
+  "crons": [
+    {
+      "path": "/api/cron-daily",
+      "schedule": "0 17 * * *"
+    }
+  ]
 }
