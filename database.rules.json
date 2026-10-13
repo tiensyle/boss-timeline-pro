@@ -94,6 +94,13 @@
       ".read": true,
       ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
     },
+    "boss_timeline_webhook_urls": {
+      "$serverId": {
+        ".read": true,
+        ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+        ".validate": "newData.hasChildren(['url']) && newData.child('url').isString()"
+      }
+    },
     "admin_access": {
       ".read": "auth != null && auth.token.admin === true",
       "$uid": {

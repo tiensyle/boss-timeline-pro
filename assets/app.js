@@ -749,6 +749,9 @@
 
     let discordConfig = loadDiscordConfig();
     let activeDiscordNotified = {};
+    // Cache webhook URL theo server (không lưu localStorage, chỉ Firebase)
+    const webhookUrlCache = {}; // { [serverId]: url }
+
 
     function saveDiscordConfigLocal(cfg) {
       const safeConfig = { ...cfg };
@@ -769,6 +772,41 @@
       }
       updateDiscordButtonUI();
     }
+
+    /**
+     * Lưu webhook URL lên Firebase (path công khai-đọc, admin-write)
+     * Không lưu vào localStorage để tránh lộ qua devtools
+     */
+    async function saveWebhookUrl(svId, url) {
+      if (!firebaseDb || !isAdmin()) return false;
+      try {
+        await firebaseDb.ref(`boss_timeline_webhook_urls/${svId}`).set({ url: url || "" });
+        webhookUrlCache[svId] = url || "";
+        return true;
+      } catch (e) {
+        console.warn("Firebase save webhook URL error:", e);
+        return false;
+      }
+    }
+
+    /**
+     * Đọc webhook URL từ Firebase về cache
+     */
+    async function loadWebhookUrl(svId) {
+      if (webhookUrlCache[svId] !== undefined) return webhookUrlCache[svId];
+      if (!firebaseDb) return "";
+      try {
+        const snap = await firebaseDb.ref(`boss_timeline_webhook_urls/${svId}`).once("value");
+        const val = snap.val();
+        const url = (val && typeof val.url === "string") ? val.url : "";
+        webhookUrlCache[svId] = url;
+        return url;
+      } catch (e) {
+        return "";
+      }
+    }
+
+
 
     function updateDiscordButtonUI() {
       const btn = document.getElementById("discordSettingsBtn");
@@ -4886,6 +4924,8 @@
       const tagEv = document.getElementById("discordTagEveryone");
       const nDaily = document.getElementById("discordNotifyDailySchedule");
       const resEl = document.getElementById("discordTestResult");
+      const webhookInput = document.getElementById("discordWebhookInput");
+      const webhookStatus = document.getElementById("discordWebhookStatus");
 
       if (logoInput) logoInput.value = discordConfig.logoUrl || "";
       if (enableMaster) enableMaster.checked = Boolean(discordConfig.enabled);
@@ -4898,10 +4938,39 @@
       if (nDaily) nDaily.checked = discordConfig.notifyDailySchedule !== false;
       if (resEl) resEl.style.display = "none";
 
+      // Load webhook URL hiện tại từ cache/Firebase
+      if (webhookInput) {
+        webhookInput.value = "";
+        if (webhookStatus) { webhookStatus.style.display = "none"; }
+        loadWebhookUrl(currentServerId).then(url => {
+          if (url) {
+            webhookInput.value = url;
+            if (webhookStatus) {
+              webhookStatus.style.display = "block";
+              webhookStatus.innerHTML = `<span style="color:var(--green);">✅ Đã có Webhook — Bot sẽ gửi vào kênh Discord đã cấu hình.</span>`;
+            }
+          } else {
+            if (webhookStatus) {
+              webhookStatus.style.display = "block";
+              webhookStatus.innerHTML = `<span style="color:var(--amber);">⚠️ Chưa có Webhook URL — Dán URL vào ô trên để kích hoạt.</span>`;
+            }
+          }
+        });
+      }
+
+      // Toggle hiện/ẩn webhook URL
+      const toggleBtn = document.getElementById("discordWebhookToggleBtn");
+      if (toggleBtn && webhookInput) {
+        toggleBtn.onclick = () => {
+          webhookInput.type = webhookInput.type === "password" ? "text" : "password";
+          toggleBtn.textContent = webhookInput.type === "password" ? "👁️" : "🙈";
+        };
+      }
+
       const modal = document.getElementById("discordSettingsModal");
       if (modal) modal.classList.add("open");
       syncModalScrollLock();
-      logoInput?.focus();
+      webhookInput?.focus();
     }
 
     function closeDiscordModal() {
@@ -4914,7 +4983,7 @@
     document.getElementById("closeDiscordModal")?.addEventListener("click", closeDiscordModal);
     document.getElementById("discordCancelBtn")?.addEventListener("click", closeDiscordModal);
 
-    document.getElementById("discordSaveBtn")?.addEventListener("click", () => {
+    document.getElementById("discordSaveBtn")?.addEventListener("click", async () => {
       const isEn = currentLang === "en";
       if (!isAdmin()) {
         showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
@@ -4930,6 +4999,25 @@
       const nKill = document.getElementById("discordNotifyKill");
       const tagEv = document.getElementById("discordTagEveryone");
       const nDaily = document.getElementById("discordNotifyDailySchedule");
+      const webhookInput = document.getElementById("discordWebhookInput");
+
+      // Validate và lưu webhook URL nếu có nhập
+      const webhookUrl = webhookInput ? webhookInput.value.trim() : "";
+      const webhookPattern = /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/;
+      if (webhookUrl && !webhookPattern.test(webhookUrl)) {
+        showToast("❌ Webhook URL không hợp lệ. Phải có dạng https://discord.com/api/webhooks/...");
+        webhookInput?.focus();
+        return;
+      }
+
+      // Lưu webhook URL lên Firebase (kể cả khi rỗng = xóa webhook)
+      if (webhookUrl !== (webhookUrlCache[currentServerId] || "")) {
+        const saved = await saveWebhookUrl(currentServerId, webhookUrl);
+        if (!saved) {
+          showToast("❌ Không thể lưu Webhook URL lên Firebase. Kiểm tra quyền Admin.");
+          return;
+        }
+      }
 
       const newConfig = {
         enabled: enableMaster ? enableMaster.checked : false,
@@ -4947,6 +5035,7 @@
       closeDiscordModal();
       showToast(newConfig.enabled ? "🤖 Đã lưu & kích hoạt Discord Bot thành công!" : "🤖 Đã lưu cấu hình Discord.");
     });
+
 
     document.getElementById("discordTestScheduleBtn")?.addEventListener("click", async () => {
       const isEn = currentLang === "en";

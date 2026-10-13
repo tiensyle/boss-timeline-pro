@@ -154,9 +154,24 @@ export default async function handler(req, res) {
     const serverName = server.name || serverId;
     const serverIcon = server.icon || "";
 
-    // Chọn đúng webhook cho server này
+    // Chọn đúng webhook cho server này: ưu tiên env var, fallback Firebase
     const suffix = serverId.toUpperCase().replace(/-/g, "_");
-    const webhookUrl = (process.env[`DISCORD_WEBHOOK_${suffix}`] || "").trim();
+    let webhookUrl = (process.env[`DISCORD_WEBHOOK_${suffix}`] || "").trim();
+
+    // Fallback: đọc từ Firebase boss_timeline_webhook_urls/{serverId}/url
+    if (!webhookUrl) {
+      try {
+        const fbWebhookRes = await fetch(`${databaseUrl}/boss_timeline_webhook_urls/${serverId}.json`, {
+          signal: AbortSignal.timeout(8000)
+        });
+        if (fbWebhookRes.ok) {
+          const fbWebhookData = await fbWebhookRes.json();
+          if (fbWebhookData && typeof fbWebhookData.url === "string") {
+            webhookUrl = fbWebhookData.url.trim();
+          }
+        }
+      } catch (_) {}
+    }
 
     if (!webhookUrl || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
       results.push({ serverId, serverName, status: "skipped", reason: `No valid webhook: DISCORD_WEBHOOK_${suffix}` });
