@@ -1,7 +1,6 @@
 const DEFAULT_DATABASE_URL = "https://time-boss-chill-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 function getVnNow() {
-  // Trả về thời gian hiện tại theo UTC
   return Date.now();
 }
 
@@ -20,7 +19,6 @@ function getVnDateParts(timestamp) {
 
 function calculateBossEventTimesForToday(boss, history, nowTimestamp) {
   const vnNow = getVnDateParts(nowTimestamp);
-  // Xác định khoảng thời gian đầu ngày và cuối ngày theo UTC+7
   const startOfDayUtc = Date.UTC(vnNow.year, vnNow.month, vnNow.date) - 7 * 3600 * 1000;
   const endOfDayUtc = startOfDayUtc + 24 * 3600 * 1000;
 
@@ -65,37 +63,129 @@ function calculateBossEventTimesForToday(boss, history, nowTimestamp) {
   return [...times].sort((a, b) => a - b);
 }
 
+/**
+ * Xây dựng Discord payload cho 1 server
+ */
+function buildDiscordPayload(serverName, serverIcon, items, dateDisplay) {
+  const iconStr = serverIcon ? `${serverIcon} ` : "";
+  let description = `📅 **BÁO CÁO LỊCH BOSS HÔM NAY — ${dateDisplay}**\n`;
+  description += `🖥️ Server: **${iconStr}${serverName}**\n`;
+  description += `Tổng số: **${items.length} lượt boss** xuất hiện trong ngày hôm nay (00:00 - 24:00).\n\n`;
+
+  if (items.length === 0) {
+    description += `*Hôm nay không có boss cố định hoặc đếm ngược nào được lên lịch.*`;
+  } else {
+    description += `**Chi tiết các mốc boss trong ngày:**\n`;
+    const lines = items.map(it => {
+      const timeStr = new Date(it.eventTime + 7 * 3600 * 1000).toISOString().slice(11, 16);
+      const lvStr = it.boss.level ? ` (Lv.${it.boss.level})` : "";
+      const mapStr = it.boss.map ? ` · *${it.boss.map}*` : "";
+      return `\`${timeStr}\` **${it.boss.name}**${lvStr}${mapStr}`;
+    });
+
+    const maxLines = 35;
+    if (lines.length > maxLines) {
+      description += lines.slice(0, maxLines).join("\n") + `\n*...và ${lines.length - maxLines} lượt boss khác.*`;
+    } else {
+      description += lines.join("\n");
+    }
+  }
+
+  return {
+    username: "Boss Tracker Alert",
+    avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
+    content: `@everyone 📢 **[${iconStr}${serverName}] BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**`,
+    embeds: [
+      {
+        title: `📅 [${iconStr}${serverName}] LỊCH BOSS HÔM NAY — ${dateDisplay}`,
+        description: description,
+        color: 3447003,
+        footer: { text: "Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày (Vercel Cron)" },
+        timestamp: new Date().toISOString()
+      }
+    ],
+    allowed_mentions: { parse: ["everyone"] }
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
-  const databaseUrl = process.env.FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL;
-  const webhookUrl = (process.env.DISCORD_WEBHOOK_S1 || process.env.DISCORD_WEBHOOK_URL || "").trim();
+  const databaseUrl = (process.env.FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL).trim();
+  const now = getVnNow();
+  const vnNow = getVnDateParts(now);
 
-  if (!webhookUrl || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
-    return res.status(500).json({ error: "Missing or invalid DISCORD_WEBHOOK_URL on server." });
+  const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+  const dayStr = dayNames[vnNow.day];
+  const dd = String(vnNow.date).padStart(2, "0");
+  const mm = String(vnNow.month + 1).padStart(2, "0");
+  const yyyy = vnNow.year;
+  const dateDisplay = `${dayStr}, ${dd}/${mm}/${yyyy}`;
+
+  // ─── Bước 1: Lấy danh sách servers từ Firebase ───────────────────────────
+  let serversList = [];
+  try {
+    const svListRes = await fetch(`${databaseUrl}/boss_timeline_servers_list.json`, {
+      signal: AbortSignal.timeout(10000)
+    });
+    if (svListRes.ok) {
+      const raw = await svListRes.json();
+      // raw có thể là array hoặc object {0: {...}, 1: {...}}
+      if (Array.isArray(raw)) {
+        serversList = raw.filter(Boolean);
+      } else if (raw && typeof raw === "object") {
+        serversList = Object.values(raw).filter(Boolean);
+      }
+    }
+  } catch (_) {
+    // ignore — fallback về s1 mặc định bên dưới
   }
 
-  try {
-    // 1. Đọc dữ liệu state từ Firebase
-    const stateRes = await fetch(`${databaseUrl}/boss_timeline_state/data.json`, { signal: AbortSignal.timeout(15000) });
-    if (!stateRes.ok) {
-      return res.status(502).json({ error: "Failed to fetch boss state from Firebase." });
+  // Nếu Firebase không có danh sách → chỉ xử lý s1 mặc định
+  if (serversList.length === 0) {
+    serversList = [{ id: "s1", name: "Server 10", icon: "🌐" }];
+  }
+
+  // ─── Bước 2: Với mỗi server, đọc boss state → gửi Discord ────────────────
+  const results = [];
+
+  for (const server of serversList) {
+    const serverId = server.id || "s1";
+    const serverName = server.name || serverId;
+    const serverIcon = server.icon || "";
+
+    // Chọn đúng webhook cho server này
+    const suffix = serverId.toUpperCase().replace(/-/g, "_");
+    const webhookUrl = (process.env[`DISCORD_WEBHOOK_${suffix}`] || "").trim();
+
+    if (!webhookUrl || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
+      results.push({ serverId, serverName, status: "skipped", reason: `No valid webhook: DISCORD_WEBHOOK_${suffix}` });
+      continue;
     }
-    const stateData = await stateRes.json();
-    const bosses = Array.isArray(stateData?.bosses) ? stateData.bosses : [];
-    const history = Array.isArray(stateData?.history) ? stateData.history : [];
 
-    const now = getVnNow();
-    const vnNow = getVnDateParts(now);
+    // Path Firebase: s1 dùng root path, các server khác dùng path riêng
+    const statePath = serverId === "s1"
+      ? `${databaseUrl}/boss_timeline_state/data.json`
+      : `${databaseUrl}/boss_timeline_servers/${serverId}/state/data.json`;
 
-    const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
-    const dayStr = dayNames[vnNow.day];
-    const dd = String(vnNow.date).padStart(2, "0");
-    const mm = String(vnNow.month + 1).padStart(2, "0");
-    const yyyy = vnNow.year;
-    const dateDisplay = `${dayStr}, ${dd}/${mm}/${yyyy}`;
+    let bosses = [];
+    let history = [];
+    try {
+      const stateRes = await fetch(statePath, { signal: AbortSignal.timeout(15000) });
+      if (stateRes.ok) {
+        const stateData = await stateRes.json();
+        bosses = Array.isArray(stateData?.bosses) ? stateData.bosses : [];
+        history = Array.isArray(stateData?.history) ? stateData.history : [];
+      } else {
+        results.push({ serverId, serverName, status: "error", reason: `Firebase fetch failed: HTTP ${stateRes.status}` });
+        continue;
+      }
+    } catch (err) {
+      results.push({ serverId, serverName, status: "error", reason: `Firebase fetch error: ${err.message}` });
+      continue;
+    }
 
-    // 2. Tính toán danh sách boss xuất hiện trong ngày
+    // Tính toán các mốc boss trong ngày
     const items = [];
     bosses.forEach((boss, idx) => {
       const times = calculateBossEventTimesForToday(boss, history, now);
@@ -103,71 +193,34 @@ export default async function handler(req, res) {
         items.push({ boss, eventTime, order: idx });
       });
     });
-
     items.sort((a, b) => (a.eventTime - b.eventTime) || (a.order - b.order));
 
-    // 3. Xây dựng nội dung gửi Discord
-    let description = `📅 **BÁO CÁO LỊCH BOSS HÔM NAY — ${dateDisplay}**\n`;
-    description += `Tổng số: **${items.length} lượt boss** xuất hiện trong ngày hôm nay (00:00 - 24:00).\n\n`;
-
-    if (items.length === 0) {
-      description += `*Hôm nay không có boss cố định hoặc đếm ngược nào được lên lịch.*`;
-    } else {
-      description += `**Chi tiết các mốc boss trong ngày:**\n`;
-      // Chia danh sách các mốc boss ngắn gọn
-      const lines = items.map((it, i) => {
-        const timeStr = new Date(it.eventTime + 7 * 3600 * 1000).toISOString().slice(11, 16);
-        const lvStr = it.boss.level ? ` (Lv.${it.boss.level})` : "";
-        const mapStr = it.boss.map ? ` · *${it.boss.map}*` : "";
-        return `\`${timeStr}\` **${it.boss.name}**${lvStr}${mapStr}`;
+    // Build payload và gửi Discord
+    const payload = buildDiscordPayload(serverName, serverIcon, items, dateDisplay);
+    try {
+      const discordRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000)
       });
 
-      // Nếu danh sách quá dài, cắt bớt để không vượt quá giới hạn 4096 ký tự của Discord embed description
-      const maxLines = 35;
-      if (lines.length > maxLines) {
-        description += lines.slice(0, maxLines).join("\n") + `\n*...và ${lines.length - maxLines} lượt boss khác.*`;
+      if (discordRes.ok) {
+        results.push({ serverId, serverName, status: "sent", bossCount: items.length });
       } else {
-        description += lines.join("\n");
+        const errText = await discordRes.text().catch(() => "");
+        results.push({ serverId, serverName, status: "discord_error", httpStatus: discordRes.status, details: errText });
       }
+    } catch (err) {
+      results.push({ serverId, serverName, status: "error", reason: `Discord send error: ${err.message}` });
     }
-
-    const payload = {
-      username: "Boss Tracker Alert",
-      avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
-      content: "@everyone 📢 **BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**",
-      embeds: [
-        {
-          title: `📅 BÁO CÁO LỊCH BOSS HÔM NAY — ${dateDisplay}`,
-          description: description,
-          color: 3447003, // Blue
-          footer: { text: "Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày (Vercel Cron)" },
-          timestamp: new Date().toISOString()
-        }
-      ],
-      allowed_mentions: { parse: ["everyone"] }
-    };
-
-    // 4. Gửi lên Discord
-    const discordRes = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000)
-    });
-
-    if (!discordRes.ok) {
-      const errText = await discordRes.text().catch(() => "");
-      return res.status(502).json({ error: "Discord webhook rejected payload", status: discordRes.status, details: errText });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: `Sent daily schedule for ${dateDisplay} with ${items.length} boss events.`,
-      date: dateDisplay,
-      bossCount: items.length
-    });
-  } catch (error) {
-    console.error("Cron daily schedule error:", error);
-    return res.status(500).json({ error: error.message });
   }
+
+  const sentCount = results.filter(r => r.status === "sent").length;
+  return res.status(200).json({
+    success: true,
+    date: dateDisplay,
+    summary: `Sent to ${sentCount}/${serversList.length} servers`,
+    results
+  });
 }
