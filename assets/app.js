@@ -1192,12 +1192,9 @@
     }
 
     function checkDailyScheduleAlert(now) {
-      if (!discordConfig.enabled || discordConfig.notifyDailySchedule === false) return;
-      if (!isAdmin()) return;
-      const d = new Date(now);
-      // Chỉ gửi đúng 12h đêm (khung 00:00:00 - 00:05:00)
-      if (d.getHours() !== 0 || d.getMinutes() >= 5) return;
-      sendDiscordDailySchedule(false);
+      // Đã tắt: lịch boss 00:00 hàng ngày được gửi tự động bởi Vercel Cron (api/cron-daily.js)
+      // Không gửi từ browser nữa để tránh sai giờ theo múi giờ máy client và phụ thuộc người mở web.
+      return;
     }
 
 
@@ -5113,29 +5110,33 @@
           const isActive = sv.id === currentServerId;
           const isDefault = sv.id === "s1";
           return `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border:1px solid ${isActive ? "var(--cyan)" : "var(--line-soft)"}; border-radius:10px; margin-bottom:8px; background:${isActive ? "rgba(34, 211, 238, 0.05)" : "var(--surface-2)"}; gap:8px;">
-              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
-                <span style="font-size:20px;">${sv.icon || "⚔️"}</span>
+            <div style="border:1px solid ${isActive ? "var(--cyan)" : "var(--line-soft)"}; border-radius:10px; margin-bottom:8px; background:${isActive ? "rgba(34, 211, 238, 0.05)" : "var(--surface-2)"}; overflow:hidden;">
+              <div style="display:flex; align-items:center; gap:10px; padding:12px 14px 8px;">
+                <span style="font-size:20px; flex-shrink:0;">${sv.icon || "⚔️"}</span>
                 <div style="flex:1; min-width:0;">
-                  <div style="font-weight:700; color:var(--text); font-size:14px; display:flex; align-items:center; gap:6px;">
+                  <div style="font-weight:700; color:var(--text); font-size:14px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(sv.name)}</span>
                     ${isDefault ? '<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:rgba(245, 158, 11, 0.15); color:var(--amber); font-weight:700; flex-shrink:0;">Mặc định</span>' : ""}
+                    ${isActive ? '<span style="font-size:10px; padding:1px 6px; border-radius:3px; background:rgba(34, 211, 238, 0.15); color:var(--cyan); font-weight:700; flex-shrink:0;">● Đang chọn</span>' : ""}
                   </div>
-                  <div style="font-size:11px; color:var(--muted); font-family:monospace; margin-top:2px;">URL: ?sv=${escapeHtml(sv.id)}</div>
+                  <div style="font-size:11px; color:var(--muted); font-family:monospace; margin-top:2px;">?sv=${escapeHtml(sv.id)}</div>
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+              <div style="display:flex; align-items:center; gap:6px; padding:0 14px 12px; flex-wrap:wrap;">
                 ${isAdmin() ? `
                   <button type="button" class="btn btn-secondary rename-sv-modal-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" style="padding:5px 10px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Đổi tên máy chủ này">
                     ✏️ Đổi tên
                   </button>
+                  <button type="button" class="btn discord-sv-btn" data-sv-id="${escapeHtml(sv.id)}" style="padding:5px 10px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.35); color:#7289da; border-radius:6px;" title="Cài đặt Discord Webhook cho ${escapeHtml(sv.name)}">
+                    🔔 Discord
+                  </button>
                 ` : ""}
-                ${isActive
-                  ? '<span style="font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px; background:rgba(34, 211, 238, 0.15); color:var(--cyan);">Đang chọn</span>'
-                  : `<button type="button" class="btn btn-secondary switch-to-sv-btn" data-sv-id="${escapeHtml(sv.id)}" style="padding:5px 12px; font-size:12px; cursor:pointer;">Chuyển tới</button>`
+                ${!isActive
+                  ? `<button type="button" class="btn btn-secondary switch-to-sv-btn" data-sv-id="${escapeHtml(sv.id)}" style="padding:5px 12px; font-size:12px; cursor:pointer;">Chuyển tới</button>`
+                  : ""
                 }
                 ${!isDefault && isAdmin() ? `
-                  <button type="button" class="btn delete-sv-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" style="padding:5px 8px; font-size:12px; color:var(--red); background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); border-radius:6px; cursor:pointer;" title="Xóa máy chủ này">
+                  <button type="button" class="btn delete-sv-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" style="padding:5px 8px; font-size:12px; color:var(--red); background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); border-radius:6px; cursor:pointer; margin-left:auto;" title="Xóa máy chủ này">
                     🗑️
                   </button>
                 ` : ""}
@@ -5149,6 +5150,20 @@
             const svId = btn.dataset.svId;
             const svName = btn.dataset.svName;
             promptRenameServer(svId, svName);
+          });
+        });
+
+        // Nút 🔔 Discord: switch sang server đó rồi mở cài đặt Discord
+        elements.modalServerList.querySelectorAll(".discord-sv-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const svId = btn.dataset.svId;
+            if (!svId) return;
+            closeServerModal();
+            if (svId !== currentServerId) {
+              await switchServer(svId);
+              await new Promise(r => setTimeout(r, 350));
+            }
+            openDiscordModal();
           });
         });
 
