@@ -198,13 +198,28 @@ try {
   });
   await page.waitForFunction(() => document.getElementById("attOcrProgressText").textContent.includes("Đã xử lý 1 ảnh"));
   await page.evaluate(() => {
-    attendanceOcrReview = { activityId: "a", matched: [], faded: [{ member: getActiveWeek().members[0] }], unmatched: [] };
+    const evidenceImage = attendanceOcrReview.evidenceImage;
+    attendanceOcrReview = { activityId: "a", matched: [], faded: [{ member: getActiveWeek().members[0] }], unmatched: [], evidenceImage };
     renderAttendanceOcrReview();
   });
   await page.locator('[data-ocr-source="faded"]').check();
   await page.locator("#attOcrApplyBtn").click();
   assert.equal(await page.evaluate(() => Boolean(getActiveWeek().members[0].records.a)), true);
-  checks.push("Attendance OCR accepts Ctrl+V images and manual faded-name attendance");
+  assert.equal(await page.locator('.att-evidence-thumb[data-act-id="a"]').count(), 1);
+  await page.locator('.att-evidence-thumb[data-act-id="a"]').click();
+  assert.equal(await page.locator("#attEvidenceModal").isVisible(), true);
+  await page.locator("#attEvidenceCloseBtn").click();
+  checks.push("Attendance OCR accepts Ctrl+V, manual faded names and member-visible evidence");
+
+  await page.evaluate(() => {
+    getActiveWeek().members[0].name = "CURRENT-SOURCE";
+    renderAttendanceTable();
+  });
+  await page.locator("#attAddWeekTabBtn").click();
+  await page.locator("#attWeekNameInput").fill("Race-safe copy");
+  await page.evaluate(() => { attendanceState.activeWeekId = "w1"; saveAttendanceWeek(); });
+  assert.equal(await page.evaluate(() => getActiveWeek().members[0].name), "CURRENT-SOURCE");
+  checks.push("New week clones the week captured when its dialog opened");
 
   for (const width of [1440, 768, 390, 360]) {
     await page.setViewportSize({ width, height: width > 1000 ? 1000 : 844 });

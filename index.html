@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261027-9">
+  <link rel="stylesheet" href="assets/app.css?v=20261027-10">
 </head>
 <body>
   <div class="app-shell">
@@ -1375,6 +1375,27 @@
     </div>
   </div>
 
+  <!-- MODAL: ẢNH ĐỐI CHIẾU CHẤM CÔNG -->
+  <div class="modal-backdrop" id="attEvidenceModal" role="dialog" aria-modal="true" aria-labelledby="attEvidenceTitle" style="z-index: 10007;">
+    <div class="modal att-evidence-modal">
+      <div class="modal-head">
+        <div>
+          <h2 id="attEvidenceTitle">Ảnh đối chiếu chấm công</h2>
+          <p id="attEvidenceSub">Thành viên có thể xem ảnh để kiểm tra công</p>
+        </div>
+        <button type="button" class="icon-button" id="closeAttEvidenceModal" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="att-evidence-body">
+        <img id="attEvidenceImage" alt="Ảnh đội hình dùng để chấm công">
+      </div>
+      <div class="modal-actions att-evidence-actions">
+        <button type="button" class="button-secondary" id="attEvidenceCloseBtn">Đóng</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: THÊM / SỬA TUẦN CHẤM CÔNG -->
   <div class="modal-backdrop" id="attWeekModal" role="dialog" aria-modal="true" aria-labelledby="attWeekModalTitle" style="z-index: 10005;">
     <div class="modal" style="max-width: 480px;">
@@ -1389,6 +1410,7 @@
       </div>
       <div style="padding: 18px 20px;">
         <input type="hidden" id="attWeekEditId" value="">
+        <input type="hidden" id="attWeekCloneSourceId" value="">
         
         <div class="form-field" style="margin-bottom: 14px;">
           <label for="attWeekNameInput">Tên / Tiêu Đề Tuần <span style="color: var(--red);">*</span></label>
@@ -1425,6 +1447,7 @@
 
         <div class="form-field" id="attWeekCloneWrap" style="margin-bottom: 16px;">
           <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px;">Thiết lập dữ liệu tuần mới</div>
+          <div id="attWeekCloneSourceLabel" style="margin-bottom:9px;padding:8px 10px;border-radius:7px;background:var(--surface-2);color:var(--cyan);font-size:12px;font-weight:700;"></div>
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text);">
             <input type="checkbox" id="attWeekClearBossesOption" checked style="width: 16px; height: 16px; cursor: pointer;">
             <span>Giữ các cột thông tin & tên thành viên, xóa toàn bộ cột Boss</span>
@@ -1642,7 +1665,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="assets/app.js?v=20261027-9"></script>
+  <script src="assets/app.js?v=20261027-10"></script>
 
 </body>
 </html>

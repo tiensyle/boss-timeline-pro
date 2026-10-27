@@ -6305,6 +6305,8 @@
       const titleEl = document.getElementById("attWeekModalTitle");
       const subEl = document.getElementById("attWeekModalSub");
       const editIdInput = document.getElementById("attWeekEditId");
+      const cloneSourceInput = document.getElementById("attWeekCloneSourceId");
+      const cloneSourceLabel = document.getElementById("attWeekCloneSourceLabel");
       const nameInput = document.getElementById("attWeekNameInput");
       const dateInput = document.getElementById("attWeekDateRangeInput");
       const diasInput = document.getElementById("attWeekDiasPoolInput");
@@ -6323,6 +6325,7 @@
         if (titleEl) titleEl.textContent = "Chỉnh Sửa Tuần Chấm Công";
         if (subEl) subEl.textContent = "Thay đổi tiêu đề, ghi chú ngày tháng và quỹ thưởng";
         if (editIdInput) editIdInput.value = target.id;
+        if (cloneSourceInput) cloneSourceInput.value = "";
         if (nameInput) nameInput.value = target.name || "";
         if (dateInput) dateInput.value = target.dateRange || "";
         if (diasInput) diasInput.value = target.diasPool || 0;
@@ -6336,6 +6339,8 @@
         if (titleEl) titleEl.textContent = "Thêm Tuần Chấm Công Mới";
         if (subEl) subEl.textContent = "Thiết lập tiêu đề tuần, khoảng ngày diễn ra và sao chép dữ liệu";
         if (editIdInput) editIdInput.value = "";
+        if (cloneSourceInput) cloneSourceInput.value = currWeek?.id || "";
+        if (cloneSourceLabel) cloneSourceLabel.textContent = `Nguồn sao chép: ${currWeek?.name || "Tuần đang mở"}${currWeek?.dateRange ? ` (${currWeek.dateRange})` : ""}`;
         if (nameInput) nameInput.value = "Tuần " + nextNum;
         if (dateInput) dateInput.value = getSuggestedWeekRange(0);
         if (diasInput) diasInput.value = currWeek?.diasPool ?? 52500;
@@ -6360,6 +6365,7 @@
     function saveAttendanceWeek() {
       if (!isAdmin()) return;
       const editIdInput = document.getElementById("attWeekEditId");
+      const cloneSourceInput = document.getElementById("attWeekCloneSourceId");
       const nameInput = document.getElementById("attWeekNameInput");
       const dateInput = document.getElementById("attWeekDateRangeInput");
       const diasInput = document.getElementById("attWeekDiasPoolInput");
@@ -6394,7 +6400,8 @@
           showToast(`✅ Đã cập nhật "${name}"!`);
         }
       } else {
-        const currWeek = getActiveWeek();
+        const cloneSourceId = (cloneSourceInput?.value || "").trim();
+        const currWeek = (attendanceState.weeks || []).find(week => week.id === cloneSourceId) || getActiveWeek();
         const newWeekId = "week_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 
         let copiedActivities = [];
@@ -6402,7 +6409,11 @@
 
         const shouldClearBosses = clearBossesOpt ? clearBossesOpt.checked : true;
         if (currWeek && !shouldClearBosses) {
-          copiedActivities = JSON.parse(JSON.stringify(currWeek.activities || []));
+          copiedActivities = cloneRealtimeValue(currWeek.activities || []).map(activity => {
+            const copy = { ...activity };
+            delete copy.attendanceImage;
+            return copy;
+          });
         }
         if (currWeek) {
           copiedMembers = (currWeek.members || []).map(m => ({
@@ -7216,11 +7227,13 @@
 
       activities.forEach((act) => {
         const allChecked = filteredMembers.length > 0 && filteredMembers.every(m => m.records && m.records[act.id]);
+        const evidenceImage = getAttendanceEvidenceImage(act);
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
           <div class="act-card-header">
             <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
             <div class="act-header-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</div>
             <div class="act-header-points">⭐ ${act.points} Điểm</div>
+            ${evidenceImage ? `<button type="button" class="att-evidence-thumb" data-act-id="${escapeHtml(act.id)}" title="Mở ảnh đối chiếu chấm công"><img src="${escapeHtml(evidenceImage)}" alt="Ảnh chấm công ${escapeHtml(act.name)}"><span>🔍 Xem ảnh chấm công</span></button>` : ""}
             ${adminMode ? `
               <div class="act-header-bottom">
                 <label class="act-check-all-label" title="Tích chọn tất cả thành viên đang hiển thị">
@@ -7483,6 +7496,10 @@
         });
       });
 
+      document.querySelectorAll(".att-evidence-thumb").forEach(btn => {
+        btn.addEventListener("click", () => openAttendanceEvidenceModal(btn.dataset.actId));
+      });
+
       // Delete Activity buttons
       document.querySelectorAll(".att-del-act-btn").forEach(btn => {
         btn.addEventListener("click", async () => {
@@ -7659,6 +7676,37 @@
       return { canvas, context };
     }
 
+    async function createAttendanceEvidenceImage(files) {
+      const images = await Promise.all([...(files || [])].slice(0, 4).map(loadAttendanceOcrImage));
+      if (!images.length) return "";
+      let width = Math.min(900, Math.max(...images.map(image => image.naturalWidth || 1)));
+      let heights = images.map(image => Math.round((image.naturalHeight || 1) * width / Math.max(1, image.naturalWidth)));
+      const totalHeight = heights.reduce((sum, height) => sum + height, 0);
+      if (totalHeight > 2800) {
+        const scale = 2800 / totalHeight;
+        width = Math.max(360, Math.round(width * scale));
+        heights = images.map(image => Math.round((image.naturalHeight || 1) * width / Math.max(1, image.naturalWidth)));
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = heights.reduce((sum, height) => sum + height, 0);
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#090b0f";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      let y = 0;
+      images.forEach((image, index) => {
+        context.drawImage(image, 0, y, width, heights[index]);
+        y += heights[index];
+      });
+      const webp = canvas.toDataURL("image/webp", 0.62);
+      return webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.62);
+    }
+
+    function getAttendanceEvidenceImage(activity) {
+      const value = String(activity?.attendanceImage || activity?.evidenceImage || "");
+      return /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value) ? value : "";
+    }
+
     function setAttendanceOcrProgress(percent, text) {
       const wrap = document.getElementById("attOcrProgress");
       const bar = document.getElementById("attOcrProgressBar");
@@ -7693,7 +7741,8 @@
     function refreshAttendanceOcrApplyButton() {
       const selectedCount = document.querySelectorAll("[data-ocr-member-id]:checked").length;
       const button = document.getElementById("attOcrApplyBtn");
-      if (button) button.disabled = selectedCount === 0;
+      const hasEvidenceImage = Boolean(getAttendanceEvidenceImage(attendanceOcrReview));
+      if (button) button.disabled = selectedCount === 0 && !hasEvidenceImage;
     }
 
     function queueAttendanceOcrFiles(files) {
@@ -7733,6 +7782,25 @@
 
     function closeAttendanceOcrModal() {
       document.getElementById("attOcrModal")?.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    function openAttendanceEvidenceModal(activityId) {
+      const activity = getActiveWeek()?.activities?.find(item => item.id === activityId);
+      const image = getAttendanceEvidenceImage(activity);
+      if (!activity || !image) return;
+      document.getElementById("attEvidenceTitle").textContent = `Ảnh chấm công: ${activity.name}`;
+      document.getElementById("attEvidenceSub").textContent = `${activity.date || ""} · Ảnh đội hình do Admin dùng để chấm công`;
+      document.getElementById("attEvidenceImage").src = image;
+      document.getElementById("attEvidenceModal").classList.add("open");
+      syncModalScrollLock();
+    }
+
+    function closeAttendanceEvidenceModal() {
+      const modal = document.getElementById("attEvidenceModal");
+      if (modal) modal.classList.remove("open");
+      const image = document.getElementById("attEvidenceImage");
+      if (image) image.removeAttribute("src");
       syncModalScrollLock();
     }
 
@@ -7778,11 +7846,13 @@
             }
           });
         }
+        const evidenceImage = await createAttendanceEvidenceImage(files);
         attendanceOcrReview = {
           activityId: document.getElementById("attOcrActivityId").value,
           matched: [...detected.values()].filter(item => item.bright).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
           faded: [...detected.values()].filter(item => !item.bright).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
-          unmatched: [...unmatched].sort((a, b) => a.localeCompare(b, "vi")).slice(0, 80).map(text => ({ text }))
+          unmatched: [...unmatched].sort((a, b) => a.localeCompare(b, "vi")).slice(0, 80).map(text => ({ text })),
+          evidenceImage
         };
         setAttendanceOcrProgress(100, `Đã xử lý ${files.length} ảnh. Hãy kiểm tra danh sách trước khi áp dụng.`);
         renderAttendanceOcrReview();
@@ -7803,6 +7873,11 @@
       const selectedIds = new Set([...document.querySelectorAll("[data-ocr-member-id]:checked")].map(input => input.dataset.ocrMemberId));
       const manuallySelectedFaded = document.querySelectorAll('[data-ocr-source="faded"]:checked').length;
       const keepExisting = document.getElementById("attOcrKeepExisting")?.checked !== false;
+      const activity = currWeek.activities.find(item => item.id === activityId);
+      if (activity && getAttendanceEvidenceImage(attendanceOcrReview)) {
+        activity.attendanceImage = attendanceOcrReview.evidenceImage;
+        activity.attendanceImageUpdatedAt = Date.now();
+      }
       if (!keepExisting) {
         currWeek.members.forEach(member => {
           if (member.records) delete member.records[activityId];
@@ -8971,6 +9046,8 @@
       document.getElementById("closeAttOcrModal")?.addEventListener("click", closeAttendanceOcrModal);
       document.getElementById("attOcrCancelBtn")?.addEventListener("click", closeAttendanceOcrModal);
       document.getElementById("attOcrApplyBtn")?.addEventListener("click", applyAttendanceOcrReview);
+      document.getElementById("closeAttEvidenceModal")?.addEventListener("click", closeAttendanceEvidenceModal);
+      document.getElementById("attEvidenceCloseBtn")?.addEventListener("click", closeAttendanceEvidenceModal);
       document.getElementById("attOcrFileInput")?.addEventListener("change", event => {
         const files = [...(event.target.files || [])];
         if (files.length) queueAttendanceOcrFiles(files);
@@ -9048,13 +9125,16 @@
       document.getElementById("attCpApplyPasteBtn")?.addEventListener("click", applyCombatPowerPaste);
 
       // Backdrop dismiss
-      ["attMemberModal", "attActivityModal", "attOcrModal", "attWeekModal", "attExportModal", "attRoleBonusModal", "attCombatPowerModal"].forEach(modalId => {
+      ["attMemberModal", "attActivityModal", "attOcrModal", "attEvidenceModal", "attWeekModal", "attExportModal", "attRoleBonusModal", "attCombatPowerModal"].forEach(modalId => {
         const modalEl = document.getElementById(modalId);
         if (modalEl) {
           modalEl.addEventListener("click", (e) => {
             if (e.target === modalEl) {
-              modalEl.classList.remove("open");
-              syncModalScrollLock();
+              if (modalId === "attEvidenceModal") closeAttendanceEvidenceModal();
+              else {
+                modalEl.classList.remove("open");
+                syncModalScrollLock();
+              }
             }
           });
         }
