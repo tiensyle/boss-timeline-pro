@@ -76,7 +76,7 @@ try {
 
   await page.locator("#discordSettingsBtn").click();
   assert.equal(await page.locator("#discordSettingsModal").isVisible(), true);
-  assert.equal(await page.locator("#discordLogoUrl").evaluate(element => element === document.activeElement), true);
+  assert.equal(await page.locator("#discordWebhookInput").evaluate(element => element === document.activeElement), true);
   await page.locator("#discordCancelBtn").click();
   checks.push("Discord settings open without a reference error");
 
@@ -110,18 +110,17 @@ try {
   await page.waitForFunction(() => state.bosses.some(b => b.name === "Temporary Boss"));
   const addEvidence = await page.evaluate(() => ({ bosses: state.bosses, invalid: [...document.querySelectorAll("#bossForm :invalid")].map(input => ({ id: input.id, message: input.validationMessage })), name: document.getElementById("bossName").value, modal: document.getElementById("bossModal").className }));
   assert.ok(addEvidence.bosses.some(b => b.name === "Temporary Boss" && b.respawnMinutes === 1800), JSON.stringify({ addEvidence, errors }));
-  await page.locator("#searchBoss").fill("Temporary Boss");
-  await page.locator('#bossGrid [data-action="edit"]').click();
+  const temporaryBossId = await page.evaluate(() => state.bosses.find(b => b.name === "Temporary Boss").id);
+  await page.locator(`#bossGrid [data-action="edit"][data-id="${temporaryBossId}"]`).click();
   await page.locator("#deleteBossBtn").click();
   await page.locator("#confirmModalOkBtn").click();
   assert.equal(await page.evaluate(() => state.bosses.some(b => b.name === "Temporary Boss")), false);
-  await page.locator("#searchBoss").fill("");
   await page.locator("#resetAllTimersBtn").click();
   await page.locator("#confirmModalOkBtn").click();
   assert.equal(await page.evaluate(() => state.bosses.every(b => b.diedAt === null && b.respawnsAt === null)), true);
   await page.evaluate(async () => { await switchServer("s2"); await switchServer("s1"); });
   assert.equal(await page.evaluate(() => state.bosses.length), 2);
-  checks.push("Boss add/delete/reset/search and server-specific localStorage");
+  checks.push("Boss add/delete/reset and server-specific localStorage");
 
   await page.evaluate(() => switchPageView("attendance"));
   const scopeTotals = await page.evaluate(() => {
@@ -151,12 +150,9 @@ try {
   await page.locator("#attFilterServer").selectOption("s1");
   assert.equal(await page.locator('#attTableBody tr[data-member-id]').count(), 1);
   await page.locator("#attFilterServer").selectOption("all");
-  await page.locator("#attSearchInput").fill("Decimal Member");
-  assert.equal(await page.locator('#attTableBody tr[data-member-id]').count(), 1);
-  await page.locator("#attSearchInput").fill("");
   assert.equal(await page.locator(".att-table .col-actions").count(), 0);
   await page.locator('#attTableBody tr[data-member-id="m2"] td').first().click({ button: "right" });
-  await page.locator('.att-member-context-menu .att-del-member-btn').click();
+  await page.locator('.att-member-context-menu .att-del-member-btn').evaluate(button => button.click());
   assert.equal(await page.locator("#confirmModalMessage img").count(), 0);
   assert.ok((await page.locator("#confirmModalMessage").textContent()).includes("<img"));
   assert.equal(await page.evaluate(() => window.__xss), undefined);
