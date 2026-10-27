@@ -1934,7 +1934,7 @@
 
       return {
         id: boss.id || makeId(),
-        name: String(boss.name || "Boss mới").slice(0, 44),
+        name: String(boss.name || "Boss mới").trim().toLocaleUpperCase("vi-VN").slice(0, 44),
         map: String(boss.map || "Chưa đặt map").slice(0, 44),
         level: clamp(Number(boss.level) || 80, 1, 999),
         spawnMode: isFixed ? "fixed" : "interval",

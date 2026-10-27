@@ -79,6 +79,14 @@ test("Firebase reads preserve the ordered boss array instead of map key order", 
   assert.deepEqual(copy(ctx.getBossRemoteData({ data: { bosses: [], history: [] }, bosses_map: map }).bosses), []);
 });
 
+test("boss names are normalized to uppercase Vietnamese text", () => {
+  const ctx = load(["clamp", "makeId", "normalizeBoss"], {
+    crypto: { randomUUID: () => "generated-id" }
+  });
+  const boss = ctx.normalizeBoss({ id: "dalia", name: "  Quý bà Dalia  ", map: "Bóng Ma Huyết Sắc", level: 85 });
+  assert.equal(boss.name, "QUÝ BÀ DALIA");
+});
+
 test("maintenance reset uses the requested boss order and keeps unknown bosses stable", async () => {
   const requestedOrder = [
     "Quý bà Dalia", "Tướng Aquileus", "Amentis", "Wannitas", "Duplican", "Metus",

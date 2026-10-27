@@ -85,7 +85,7 @@ try {
   await page.locator("#exportCsvBtn").click();
   const csv = await csvDownload;
   const text = await readFile(await csv.path(), "utf8");
-  assert.ok(text.includes('"\'=SUM(A1), ""Boss"""'));
+  assert.ok(text.includes('"\'=SUM(A1), ""BOSS"""'));
   assert.ok(text.includes('"Map,""Quoted"""'));
   assert.ok(text.includes('"\'=HYPERLINK()'));
   assert.equal(await page.locator("#boss-schedule").evaluate(element => element.classList.contains("open")), true);
@@ -107,14 +107,14 @@ try {
   await page.locator("#bossLevel").fill("90");
   await page.locator("#bossRespawn").fill("1800");
   await page.locator('#bossForm button[type="submit"]').click();
-  await page.waitForFunction(() => state.bosses.some(b => b.name === "Temporary Boss"));
+  await page.waitForFunction(() => state.bosses.some(b => b.name === "TEMPORARY BOSS"));
   const addEvidence = await page.evaluate(() => ({ bosses: state.bosses, invalid: [...document.querySelectorAll("#bossForm :invalid")].map(input => ({ id: input.id, message: input.validationMessage })), name: document.getElementById("bossName").value, modal: document.getElementById("bossModal").className }));
-  assert.ok(addEvidence.bosses.some(b => b.name === "Temporary Boss" && b.respawnMinutes === 1800), JSON.stringify({ addEvidence, errors }));
-  const temporaryBossId = await page.evaluate(() => state.bosses.find(b => b.name === "Temporary Boss").id);
+  assert.ok(addEvidence.bosses.some(b => b.name === "TEMPORARY BOSS" && b.respawnMinutes === 1800), JSON.stringify({ addEvidence, errors }));
+  const temporaryBossId = await page.evaluate(() => state.bosses.find(b => b.name === "TEMPORARY BOSS").id);
   await page.locator(`#bossGrid [data-action="edit"][data-id="${temporaryBossId}"]`).click();
   await page.locator("#deleteBossBtn").click();
   await page.locator("#confirmModalOkBtn").click();
-  assert.equal(await page.evaluate(() => state.bosses.some(b => b.name === "Temporary Boss")), false);
+  assert.equal(await page.evaluate(() => state.bosses.some(b => b.name === "TEMPORARY BOSS")), false);
   await page.locator("#resetAllTimersBtn").click();
   await page.locator("#confirmModalOkBtn").click();
   assert.equal(await page.evaluate(() => state.bosses.every(b => b.diedAt === null && b.respawnsAt === null)), true);
