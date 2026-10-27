@@ -5113,7 +5113,9 @@
       };
 
       try {
-        const ok = await sendDiscordWebhook(testPayload);
+        // Đây là thao tác gửi thủ công để kiểm tra kết nối, nên vẫn phải hoạt
+        // động khi công tắc thông báo tự động đang tắt.
+        const ok = await sendDiscordWebhook(testPayload, null, "image.png", currentServerId, true);
         if (ok) {
           if (resEl) {
             resEl.style.display = "block";
