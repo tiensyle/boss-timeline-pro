@@ -101,7 +101,11 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
         const details = await response.json().catch(() => ({}));
         return res.status(429).json({ error: "Discord Rate Limit", retryAfterMs: Math.ceil((Number(details.retry_after) || 1.2) * 1000) });
       }
-      if (!response.ok) return res.status(502).json({ error: "Discord API rejected the message." });
+      if (!response.ok) {
+        if (response.status === 404) return res.status(502).json({ error: "Discord webhook no longer exists." });
+        if (response.status === 401 || response.status === 403) return res.status(502).json({ error: "Discord rejected this webhook." });
+        return res.status(502).json({ error: "Discord API rejected the message." });
+      }
       return res.status(200).json({ success: true, message: "Webhook delivered successfully." });
     } catch {
       return res.status(502).json({ error: "Discord relay failed." });

@@ -819,6 +819,7 @@
     }
 
     let discordSendQueue = Promise.resolve();
+    let lastDiscordError = "";
 
     function sendDiscordWebhook(payload, fileBlob = null, fileName = "image.png", serverId = currentServerId, allowWhenDisabled = false) {
       const task = discordSendQueue.then(() => deliverDiscordWebhook(payload, fileBlob, fileName, serverId, allowWhenDisabled));
@@ -827,14 +828,21 @@
     }
 
     async function deliverDiscordWebhook(payload, fileBlob, fileName, serverId, allowWhenDisabled = false) {
+      lastDiscordError = "";
       if (!discordConfig.enabled && !allowWhenDisabled) {
+        lastDiscordError = "Thông báo tự động Discord đang tắt.";
         console.warn("[Discord Bot] Bỏ qua gửi: bot chưa bật trong cài đặt", discordConfig);
         return false;
       }
       try {
         const user = firebaseAuth?.currentUser;
-        if (!user || !isAdmin()) return false;
-        const idToken = await user.getIdToken();
+        if (!user || !isAdmin()) {
+          lastDiscordError = "Phiên Admin không hợp lệ. Vui lòng đăng nhập Admin lại.";
+          return false;
+        }
+        // Làm mới token trước thao tác gửi thủ công để Vercel nhận đúng quyền
+        // vừa được cấp và tránh dùng phiên xác thực đã cũ.
+        const idToken = await user.getIdToken(true);
         let file = null;
         if (fileBlob) {
           const bytes = new Uint8Array(await fileBlob.arrayBuffer());
@@ -865,11 +873,26 @@
             await new Promise(resolve => window.setTimeout(resolve, Math.max(100, retryMs)));
             continue;
           }
+          const apiMessage = typeof errorData.error === "string" ? errorData.error : "";
+          const errorMessages = {
+            "Authentication required.": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập Admin lại.",
+            "Admin permission required.": "API không xác nhận được quyền Admin của tài khoản này.",
+            "Invalid or missing Discord Webhook URL.": "Webhook của server này đang thiếu hoặc không hợp lệ.",
+            "Discord webhook no longer exists.": "Webhook Discord đã bị xóa hoặc không còn tồn tại.",
+            "Discord rejected this webhook.": "Discord từ chối webhook. Hãy kiểm tra quyền gửi tin của webhook trong kênh.",
+            "Discord API rejected the message.": "Discord từ chối tin nhắn hoặc webhook không còn hoạt động.",
+            "Origin is not allowed.": "Tên miền website chưa được API Discord cho phép.",
+            "Discord Rate Limit": "Discord đang giới hạn gửi quá nhanh. Vui lòng đợi rồi thử lại."
+          };
+          lastDiscordError = errorMessages[apiMessage] || apiMessage || `API Discord trả lỗi ${proxyRes.status}.`;
           console.warn("[Discord Bot] API từ chối yêu cầu:", proxyRes.status, errorData.error || "");
           return false;
         }
         return false;
       } catch (e) {
+        lastDiscordError = e?.name === "TimeoutError"
+          ? "API Discord phản hồi quá lâu. Vui lòng thử lại."
+          : "Không kết nối được API Discord. Vui lòng kiểm tra Vercel hoặc kết nối mạng.";
         console.warn("[Discord Bot] Discord API relay error:", e);
         return false;
       }
@@ -5061,7 +5084,7 @@
           }
           showToast("✅ Đã gửi Lịch Boss hôm nay sang Discord!");
         } else {
-          throw new Error("Không thể gửi lịch Discord. Vui lòng kiểm tra quyền Admin, API hoặc webhook.");
+          throw new Error(lastDiscordError || "Không thể gửi lịch Discord. Vui lòng kiểm tra quyền Admin, API hoặc webhook.");
         }
       } catch (err) {
         if (resEl) {
@@ -5126,7 +5149,7 @@
           }
           showToast("✅ Gửi tin nhắn Test Discord thành công!");
         } else {
-          throw new Error("API Discord chưa được cấu hình hoặc tài khoản không có quyền.");
+          throw new Error(lastDiscordError || "API Discord chưa được cấu hình hoặc tài khoản không có quyền.");
         }
       } catch (err) {
         if (resEl) {
