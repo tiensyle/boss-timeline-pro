@@ -739,6 +739,22 @@ test("large daily schedules use a complete CSV attachment instead of an oversize
   assert.ok(!attachment.payload.content.includes("@everyone"));
 });
 
+test("daily schedule falls back to CSV when browser canvas image generation fails", async () => {
+  let attachment;
+  const items = [{ boss: { name: "Boss Dalia" }, eventTime: Date.now() }];
+  const ctx = load(["deliverDiscordDailySchedule"], {
+    Blob, getBossScheduleItems: () => items, discordConfig: { tagEveryone: true },
+    buildScheduleCsv: () => "Boss Dalia,18:00",
+    generateScheduleImageBlob: async () => { throw new Error("Canvas unavailable"); },
+    sendDiscordWebhook: async (payload, blob, name) => { attachment = { payload, blob, name }; return true; }
+  });
+  assert.equal(await ctx.deliverDiscordDailySchedule(Date.now(), true, "s1"), true);
+  assert.ok(attachment.name.endsWith(".csv"));
+  assert.equal(attachment.blob.type, "text/csv;charset=utf-8");
+  assert.ok((await attachment.blob.text()).includes("Boss Dalia"));
+  assert.equal(attachment.payload.embeds[0].image, undefined);
+});
+
 
 test("new attendance week preserves full member profiles and bonus/ranking settings without checks", () => {
   const previous = { id: "old", members: [

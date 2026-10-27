@@ -1230,8 +1230,16 @@
         return await sendDiscordWebhook(emptyPayload, null, "image.png", serverId, forced);
       }
 
-      // Tạo file ảnh bảng lịch boss trực tiếp từ Canvas
-      const imgBlob = items.length <= 150 ? await generateScheduleImageBlob(items, dateDisplay, now) : null;
+      // Tạo ảnh bằng Canvas khi trình duyệt hỗ trợ. Một số trình duyệt di động
+      // có thể từ chối Canvas lớn; khi đó tự động gửi CSV thay vì hủy cả lần gửi.
+      let imgBlob = null;
+      if (items.length <= 150) {
+        try {
+          imgBlob = await generateScheduleImageBlob(items, dateDisplay, now);
+        } catch (error) {
+          console.warn("[Discord Bot] Không tạo được ảnh lịch, chuyển sang CSV:", error);
+        }
+      }
       const reportBlob = imgBlob || new Blob([buildScheduleCsv(items, now, false)], { type: "text/csv;charset=utf-8" });
 
       const fileName = `lich_boss_${dateKey}.${imgBlob ? "png" : "csv"}`;
