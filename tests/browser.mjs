@@ -181,6 +181,13 @@ try {
   assert.deepEqual(newWeek.current.members[0].records, {});
   checks.push("New week preserves the prior week, members, decimal multipliers and assignments");
 
+  await page.locator('.att-ocr-btn[data-act-id="a"]').click();
+  assert.equal(await page.locator("#attOcrModal").isVisible(), true);
+  assert.ok((await page.locator("#attOcrModalSub").textContent()).includes("Chỉ nhận tên sáng/trắng"));
+  assert.equal(await page.locator("#attOcrFileInput").getAttribute("multiple"), "");
+  await page.locator("#attOcrCancelBtn").click();
+  checks.push("Attendance activity opens multi-image OCR review with faded-name rule");
+
   for (const width of [1440, 768, 390, 360]) {
     await page.setViewportSize({ width, height: width > 1000 ? 1000 : 844 });
     await page.evaluate(() => switchPageView("boss"));

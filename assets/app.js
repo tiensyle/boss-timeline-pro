@@ -5771,6 +5771,8 @@
     let attendanceSearchTerm = "";
     let attendanceColumnFilters = {};
     let attendanceColumnSort = null;
+    let attendanceOcrReview = null;
+    let attendanceOcrLoaderPromise = null;
     let closeAttendanceColumnFilter = () => {};
     const attendanceFilterColumns = [
       ["name", "Thành viên", "text"], ["combatPower", "Lực chiến", "number"],
@@ -7224,6 +7226,7 @@
                   <span>Tất cả</span>
                 </label>
                 <div class="act-btn-row">
+                  <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="Tự động chấm công từ ảnh đội hình">📷</button>
                   <button type="button" class="att-btn-micro att-edit-act-btn" data-act-id="${escapeHtml(act.id)}" title="Sửa tên / điểm">✏️</button>
                   <button type="button" class="att-btn-micro att-del-act-btn" data-act-id="${escapeHtml(act.id)}" title="Xóa cột này">🗑️</button>
                 </div>
@@ -7471,6 +7474,13 @@
         });
       });
 
+      document.querySelectorAll(".att-ocr-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (!adminMode) return;
+          openAttendanceOcrModal(btn.dataset.actId);
+        });
+      });
+
       // Delete Activity buttons
       document.querySelectorAll(".att-del-act-btn").forEach(btn => {
         btn.addEventListener("click", async () => {
@@ -7523,6 +7533,262 @@
       saveAttendanceState(attendanceState, true);
       renderAttendanceTable();
       showToast(isChecked ? "✅ Đã tích chọn tất cả cho hoạt động này" : "Đã bỏ chọn tất cả");
+    }
+
+    function normalizeAttendanceOcrName(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/gi, "d")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+    }
+
+    function attendanceOcrSimilarity(left, right) {
+      const a = normalizeAttendanceOcrName(left);
+      const b = normalizeAttendanceOcrName(right);
+      if (!a || !b) return 0;
+      if (a === b) return 1;
+      const row = Array.from({ length: b.length + 1 }, (_, index) => index);
+      for (let i = 1; i <= a.length; i++) {
+        let previous = row[0];
+        row[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+          const saved = row[j];
+          row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1));
+          previous = saved;
+        }
+      }
+      return 1 - row[b.length] / Math.max(a.length, b.length);
+    }
+
+    function collectAttendanceOcrWords(data) {
+      const found = [];
+      const seen = new Set();
+      const visit = value => {
+        if (!value || typeof value !== "object") return;
+        const childKeys = ["blocks", "paragraphs", "lines", "words"];
+        const hasTextChildren = childKeys.some(key => Array.isArray(value[key]) && value[key].length);
+        if (!hasTextChildren && typeof value.text === "string" && value.bbox && Number.isFinite(value.bbox.x0) && Number.isFinite(value.bbox.y0)) {
+          const key = `${value.text}|${value.bbox.x0}|${value.bbox.y0}|${value.bbox.x1}|${value.bbox.y1}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            found.push({ text: value.text, bbox: value.bbox, confidence: Number(value.confidence ?? value.conf ?? 0) });
+          }
+        }
+        childKeys.forEach(key => {
+          if (Array.isArray(value[key])) value[key].forEach(visit);
+        });
+      };
+      if (Array.isArray(data?.words)) data.words.forEach(visit);
+      if (Array.isArray(data?.blocks)) data.blocks.forEach(visit);
+      return found;
+    }
+
+    function getAttendanceOcrWordBrightness(context, bbox, canvasWidth, canvasHeight) {
+      const x0 = Math.max(0, Math.floor(bbox.x0));
+      const y0 = Math.max(0, Math.floor(bbox.y0));
+      const x1 = Math.min(canvasWidth, Math.ceil(bbox.x1));
+      const y1 = Math.min(canvasHeight, Math.ceil(bbox.y1));
+      if (x1 <= x0 || y1 <= y0) return 0;
+      const pixels = context.getImageData(x0, y0, x1 - x0, y1 - y0).data;
+      const neutralLuminance = [];
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+        if (chroma <= 58) neutralLuminance.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
+      }
+      if (!neutralLuminance.length) return 0;
+      neutralLuminance.sort((a, b) => a - b);
+      const start = Math.floor(neutralLuminance.length * 0.82);
+      const highlights = neutralLuminance.slice(start);
+      return highlights.reduce((sum, value) => sum + value, 0) / Math.max(1, highlights.length);
+    }
+
+    function matchAttendanceOcrWord(rawText, members) {
+      const token = normalizeAttendanceOcrName(rawText);
+      if (token.length < 2) return null;
+      const ranked = members.map(member => ({ member, score: attendanceOcrSimilarity(token, member.name) }))
+        .sort((a, b) => b.score - a.score);
+      const best = ranked[0];
+      const secondScore = ranked[1]?.score || 0;
+      const threshold = token.length <= 4 ? 0.86 : token.length <= 6 ? 0.78 : 0.72;
+      if (!best || best.score < threshold || (best.score < 1 && best.score - secondScore < 0.08)) return null;
+      return best;
+    }
+
+    function loadAttendanceOcrLibrary() {
+      if (window.Tesseract) return Promise.resolve(window.Tesseract);
+      if (attendanceOcrLoaderPromise) return attendanceOcrLoaderPromise;
+      attendanceOcrLoaderPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+        script.async = true;
+        script.onload = () => window.Tesseract ? resolve(window.Tesseract) : reject(new Error("Không khởi tạo được bộ nhận diện chữ."));
+        script.onerror = () => reject(new Error("Không tải được bộ nhận diện chữ. Hãy kiểm tra mạng và thử lại."));
+        document.head.appendChild(script);
+      }).catch(error => {
+        attendanceOcrLoaderPromise = null;
+        throw error;
+      });
+      return attendanceOcrLoaderPromise;
+    }
+
+    function loadAttendanceOcrImage(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+        image.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Không đọc được ảnh ${file.name}.`)); };
+        image.src = url;
+      });
+    }
+
+    async function prepareAttendanceOcrCanvas(file) {
+      const image = await loadAttendanceOcrImage(file);
+      const scale = Math.min(1, 1800 / Math.max(1, image.naturalWidth));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return { canvas, context };
+    }
+
+    function setAttendanceOcrProgress(percent, text) {
+      const wrap = document.getElementById("attOcrProgress");
+      const bar = document.getElementById("attOcrProgressBar");
+      const label = document.getElementById("attOcrProgressText");
+      if (wrap) wrap.hidden = false;
+      if (bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+      if (label) label.textContent = text;
+    }
+
+    function renderAttendanceOcrReview() {
+      const results = document.getElementById("attOcrResults");
+      if (!results || !attendanceOcrReview) return;
+      results.hidden = false;
+      const renderChips = (targetId, items, className, selectable = false) => {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        target.innerHTML = items.length ? items.map(item => selectable
+          ? `<label class="att-ocr-chip"><input type="checkbox" data-ocr-member-id="${escapeHtml(item.member.id)}" checked><span>${escapeHtml(item.member.name)}</span></label>`
+          : `<span class="att-ocr-chip ${className}">${escapeHtml(item.member?.name || item.text)}</span>`).join("")
+          : '<span class="att-ocr-empty">Không có</span>';
+      };
+      renderChips("attOcrMatchedList", attendanceOcrReview.matched, "", true);
+      renderChips("attOcrFadedList", attendanceOcrReview.faded, "is-faded");
+      renderChips("attOcrUnmatchedList", attendanceOcrReview.unmatched, "is-unmatched");
+      document.getElementById("attOcrMatchedCount").textContent = attendanceOcrReview.matched.length;
+      document.getElementById("attOcrFadedCount").textContent = attendanceOcrReview.faded.length;
+      document.getElementById("attOcrUnmatchedCount").textContent = attendanceOcrReview.unmatched.length;
+      document.getElementById("attOcrApplyBtn").disabled = attendanceOcrReview.matched.length === 0;
+    }
+
+    function openAttendanceOcrModal(actId) {
+      const currWeek = getActiveWeek();
+      const activity = currWeek?.activities?.find(item => item.id === actId);
+      if (!activity) return;
+      attendanceOcrReview = { activityId: actId, matched: [], faded: [], unmatched: [] };
+      document.getElementById("attOcrActivityId").value = actId;
+      document.getElementById("attOcrModalTitle").textContent = `Chấm công: ${activity.name}`;
+      document.getElementById("attOcrModalSub").textContent = `${activity.date || ""} · Chỉ nhận tên sáng/trắng`;
+      document.getElementById("attOcrFileInput").value = "";
+      document.getElementById("attOcrProgress").hidden = true;
+      document.getElementById("attOcrResults").hidden = true;
+      document.getElementById("attOcrError").hidden = true;
+      document.getElementById("attOcrApplyBtn").disabled = true;
+      document.getElementById("attOcrModal").classList.add("open");
+      syncModalScrollLock();
+    }
+
+    function closeAttendanceOcrModal() {
+      document.getElementById("attOcrModal")?.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    async function analyzeAttendanceOcrFiles(files) {
+      const errorEl = document.getElementById("attOcrError");
+      const applyBtn = document.getElementById("attOcrApplyBtn");
+      if (errorEl) errorEl.hidden = true;
+      if (applyBtn) applyBtn.disabled = true;
+      document.getElementById("attOcrResults").hidden = true;
+      const currWeek = getActiveWeek();
+      const members = currWeek?.members || [];
+      const detected = new Map();
+      const unmatched = new Set();
+      try {
+        const Tesseract = await loadAttendanceOcrLibrary();
+        for (let index = 0; index < files.length; index++) {
+          const file = files[index];
+          setAttendanceOcrProgress(index / files.length * 100, `Đang đọc ảnh ${index + 1}/${files.length}: ${file.name}`);
+          const { canvas, context } = await prepareAttendanceOcrCanvas(file);
+          const result = await Tesseract.recognize(canvas, "eng", {
+            logger: message => {
+              if (message.status === "recognizing text") {
+                const total = ((index + (message.progress || 0)) / files.length) * 100;
+                setAttendanceOcrProgress(total, `Đang nhận diện ảnh ${index + 1}/${files.length}… ${Math.round((message.progress || 0) * 100)}%`);
+              }
+            }
+          });
+          const words = collectAttendanceOcrWords(result?.data);
+          words.forEach(word => {
+            const cleaned = String(word.text || "").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+            if (normalizeAttendanceOcrName(cleaned).length < 2 || word.confidence < 22) return;
+            if ((word.bbox.y0 + word.bbox.y1) / 2 < canvas.height * 0.16) return;
+            const match = matchAttendanceOcrWord(cleaned, members);
+            if (!match) {
+              if (normalizeAttendanceOcrName(cleaned).length >= 3) unmatched.add(cleaned);
+              return;
+            }
+            const brightness = getAttendanceOcrWordBrightness(context, word.bbox, canvas.width, canvas.height);
+            const bright = brightness >= 142;
+            const previous = detected.get(match.member.id);
+            if (!previous || bright || (!previous.bright && brightness > previous.brightness)) {
+              detected.set(match.member.id, { member: match.member, bright, brightness, score: match.score });
+            }
+          });
+        }
+        attendanceOcrReview = {
+          activityId: document.getElementById("attOcrActivityId").value,
+          matched: [...detected.values()].filter(item => item.bright).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
+          faded: [...detected.values()].filter(item => !item.bright).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
+          unmatched: [...unmatched].sort((a, b) => a.localeCompare(b, "vi")).slice(0, 80).map(text => ({ text }))
+        };
+        setAttendanceOcrProgress(100, `Đã xử lý ${files.length} ảnh. Hãy kiểm tra danh sách trước khi áp dụng.`);
+        renderAttendanceOcrReview();
+      } catch (error) {
+        console.error("Attendance OCR failed", error);
+        if (errorEl) {
+          errorEl.textContent = error?.message || "Không thể nhận diện ảnh. Vui lòng thử lại với ảnh rõ hơn.";
+          errorEl.hidden = false;
+        }
+        setAttendanceOcrProgress(0, "Nhận diện chưa hoàn tất.");
+      }
+    }
+
+    function applyAttendanceOcrReview() {
+      if (!isAdmin() || !attendanceOcrReview) return;
+      const currWeek = getActiveWeek();
+      const activityId = attendanceOcrReview.activityId;
+      const selectedIds = new Set([...document.querySelectorAll("[data-ocr-member-id]:checked")].map(input => input.dataset.ocrMemberId));
+      const keepExisting = document.getElementById("attOcrKeepExisting")?.checked !== false;
+      if (!keepExisting) {
+        currWeek.members.forEach(member => {
+          if (member.records) delete member.records[activityId];
+        });
+      }
+      currWeek.members.forEach(member => {
+        if (!selectedIds.has(member.id)) return;
+        if (!member.records) member.records = {};
+        member.records[activityId] = true;
+      });
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceOcrModal();
+      renderAttendanceTable();
+      showToast(`✅ Đã tự động chấm công ${selectedIds.size} thành viên. Tên mờ không được tích.`);
     }
 
     function updateMemberModalPreview() {
@@ -8673,6 +8939,15 @@
         });
       });
 
+      // Image OCR attendance modal
+      document.getElementById("closeAttOcrModal")?.addEventListener("click", closeAttendanceOcrModal);
+      document.getElementById("attOcrCancelBtn")?.addEventListener("click", closeAttendanceOcrModal);
+      document.getElementById("attOcrApplyBtn")?.addEventListener("click", applyAttendanceOcrReview);
+      document.getElementById("attOcrFileInput")?.addEventListener("change", event => {
+        const files = [...(event.target.files || [])];
+        if (files.length) analyzeAttendanceOcrFiles(files);
+      });
+
       // Export Modal Events
       document.getElementById("closeAttExportModal")?.addEventListener("click", () => {
         document.getElementById("attExportModal")?.classList.remove("open");
@@ -8722,7 +8997,7 @@
       document.getElementById("attCpApplyPasteBtn")?.addEventListener("click", applyCombatPowerPaste);
 
       // Backdrop dismiss
-      ["attMemberModal", "attActivityModal", "attWeekModal", "attExportModal", "attRoleBonusModal", "attCombatPowerModal"].forEach(modalId => {
+      ["attMemberModal", "attActivityModal", "attOcrModal", "attWeekModal", "attExportModal", "attRoleBonusModal", "attCombatPowerModal"].forEach(modalId => {
         const modalEl = document.getElementById(modalId);
         if (modalEl) {
           modalEl.addEventListener("click", (e) => {

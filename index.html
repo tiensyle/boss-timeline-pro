@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css">
+  <link rel="stylesheet" href="assets/app.css?v=20261027-8">
 </head>
 <body>
   <div class="app-shell">
@@ -1322,6 +1322,58 @@
     </div>
   </div>
 
+  <!-- MODAL: TỰ ĐỘNG CHẤM CÔNG TỪ ẢNH ĐỘI HÌNH -->
+  <div class="modal-backdrop" id="attOcrModal" role="dialog" aria-modal="true" aria-labelledby="attOcrModalTitle" style="z-index: 10006;">
+    <div class="modal att-ocr-modal">
+      <div class="modal-head">
+        <div>
+          <h2 id="attOcrModalTitle">Chấm công từ ảnh</h2>
+          <p id="attOcrModalSub">Nhận diện tên sáng; tên xám/mờ sẽ không được tích</p>
+        </div>
+        <button type="button" class="icon-button" id="closeAttOcrModal" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="att-ocr-body">
+        <input type="hidden" id="attOcrActivityId" value="">
+        <label class="att-ocr-drop" for="attOcrFileInput">
+          <span class="att-ocr-drop-icon">📷</span>
+          <strong>Chọn ảnh đội hình / party</strong>
+          <span>Có thể chọn nhiều ảnh PNG, JPG cùng lúc</span>
+          <input type="file" id="attOcrFileInput" accept="image/png,image/jpeg,image/webp" multiple>
+        </label>
+        <div class="att-ocr-rule">✅ Chỉ tên sáng/trắng được tính tham gia &nbsp;·&nbsp; ⛔ Tên xám/mờ sẽ bị bỏ qua</div>
+        <div id="attOcrProgress" class="att-ocr-progress" hidden>
+          <div class="att-ocr-progress-track"><span id="attOcrProgressBar"></span></div>
+          <p id="attOcrProgressText">Đang chuẩn bị nhận diện…</p>
+        </div>
+        <div id="attOcrError" class="att-ocr-error" hidden></div>
+        <div id="attOcrResults" class="att-ocr-results" hidden>
+          <section>
+            <h3>✅ Sẽ chấm công <span id="attOcrMatchedCount">0</span></h3>
+            <div id="attOcrMatchedList" class="att-ocr-chip-list"></div>
+          </section>
+          <section>
+            <h3>⛔ Tên mờ đã bỏ qua <span id="attOcrFadedCount">0</span></h3>
+            <div id="attOcrFadedList" class="att-ocr-chip-list"></div>
+          </section>
+          <details id="attOcrUnmatchedWrap">
+            <summary>Chữ nhận diện nhưng không khớp thành viên (<span id="attOcrUnmatchedCount">0</span>)</summary>
+            <div id="attOcrUnmatchedList" class="att-ocr-chip-list"></div>
+          </details>
+          <label class="att-ocr-safe-option">
+            <input type="checkbox" id="attOcrKeepExisting" checked>
+            <span>Giữ nguyên các ô đã chấm trước đó (khuyên dùng)</span>
+          </label>
+        </div>
+        <div class="modal-actions att-ocr-actions">
+          <button type="button" class="button-secondary" id="attOcrCancelBtn">Đóng</button>
+          <button type="button" class="button-primary" id="attOcrApplyBtn" disabled>Áp dụng chấm công</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: THÊM / SỬA TUẦN CHẤM CÔNG -->
   <div class="modal-backdrop" id="attWeekModal" role="dialog" aria-modal="true" aria-labelledby="attWeekModalTitle" style="z-index: 10005;">
     <div class="modal" style="max-width: 480px;">
@@ -1589,7 +1641,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="assets/app.js?v=20261027-7"></script>
+  <script src="assets/app.js?v=20261027-8"></script>
 
 </body>
 </html>

@@ -79,6 +79,15 @@ test("Firebase reads preserve the ordered boss array instead of map key order", 
   assert.deepEqual(copy(ctx.getBossRemoteData({ data: { bosses: [], history: [] }, bosses_map: map }).bosses), []);
 });
 
+test("attendance screenshot OCR matches exact and slightly misread character names", () => {
+  const ctx = load(["normalizeAttendanceOcrName", "attendanceOcrSimilarity", "matchAttendanceOcrWord"]);
+  const members = [{ id: "m1", name: "UmbraKnight" }, { id: "m2", name: "LuckyMimi" }, { id: "m3", name: "NiErIKa" }];
+  assert.equal(ctx.normalizeAttendanceOcrName(" Ni-ErÍKa "), "nierika");
+  assert.equal(ctx.matchAttendanceOcrWord("UmbraKnight", members).member.id, "m1");
+  assert.equal(ctx.matchAttendanceOcrWord("LuckyMim1", members).member.id, "m2");
+  assert.equal(ctx.matchAttendanceOcrWord("Manage", members), null);
+});
+
 test("boss names are normalized to uppercase Vietnamese text", () => {
   const ctx = load(["clamp", "makeId", "normalizeBoss"], {
     crypto: { randomUUID: () => "generated-id" }
