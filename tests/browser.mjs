@@ -184,9 +184,27 @@ try {
   await page.locator('.att-ocr-btn[data-act-id="a"]').click();
   assert.equal(await page.locator("#attOcrModal").isVisible(), true);
   assert.ok((await page.locator("#attOcrModalSub").textContent()).includes("Chỉ nhận tên sáng/trắng"));
+  assert.ok((await page.locator(".att-ocr-drop").textContent()).includes("Ctrl+V"));
   assert.equal(await page.locator("#attOcrFileInput").getAttribute("multiple"), "");
-  await page.locator("#attOcrCancelBtn").click();
-  checks.push("Attendance activity opens multi-image OCR review with faded-name rule");
+  await page.evaluate(async () => {
+    window.Tesseract = { recognize: async () => ({ data: { words: [] } }) };
+    const canvas = document.createElement("canvas");
+    canvas.width = 2; canvas.height = 2;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    const file = new File([blob], "clipboard.png", { type: "image/png" });
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: { items: [{ kind: "file", type: "image/png", getAsFile: () => file }] } });
+    document.dispatchEvent(event);
+  });
+  await page.waitForFunction(() => document.getElementById("attOcrProgressText").textContent.includes("Đã xử lý 1 ảnh"));
+  await page.evaluate(() => {
+    attendanceOcrReview = { activityId: "a", matched: [], faded: [{ member: getActiveWeek().members[0] }], unmatched: [] };
+    renderAttendanceOcrReview();
+  });
+  await page.locator('[data-ocr-source="faded"]').check();
+  await page.locator("#attOcrApplyBtn").click();
+  assert.equal(await page.evaluate(() => Boolean(getActiveWeek().members[0].records.a)), true);
+  checks.push("Attendance OCR accepts Ctrl+V images and manual faded-name attendance");
 
   for (const width of [1440, 768, 390, 360]) {
     await page.setViewportSize({ width, height: width > 1000 ? 1000 : 844 });

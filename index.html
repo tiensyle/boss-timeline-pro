@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261027-8">
+  <link rel="stylesheet" href="assets/app.css?v=20261027-9">
 </head>
 <body>
   <div class="app-shell">
@@ -1339,7 +1339,8 @@
         <label class="att-ocr-drop" for="attOcrFileInput">
           <span class="att-ocr-drop-icon">📷</span>
           <strong>Chọn ảnh đội hình / party</strong>
-          <span>Có thể chọn nhiều ảnh PNG, JPG cùng lúc</span>
+          <span>Chọn file, kéo thả hoặc nhấn Ctrl+V để dán ảnh vừa sao chép</span>
+          <kbd>Ctrl+V</kbd>
           <input type="file" id="attOcrFileInput" accept="image/png,image/jpeg,image/webp" multiple>
         </label>
         <div class="att-ocr-rule">✅ Chỉ tên sáng/trắng được tính tham gia &nbsp;·&nbsp; ⛔ Tên xám/mờ sẽ bị bỏ qua</div>
@@ -1354,7 +1355,7 @@
             <div id="attOcrMatchedList" class="att-ocr-chip-list"></div>
           </section>
           <section>
-            <h3>⛔ Tên mờ đã bỏ qua <span id="attOcrFadedCount">0</span></h3>
+            <h3>⚠️ Tên mờ — tích tay nếu vẫn tham gia <span id="attOcrFadedCount">0</span></h3>
             <div id="attOcrFadedList" class="att-ocr-chip-list"></div>
           </section>
           <details id="attOcrUnmatchedWrap">
@@ -1641,7 +1642,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="assets/app.js?v=20261027-8"></script>
+  <script src="assets/app.js?v=20261027-9"></script>
 
 </body>
 </html>

@@ -5773,6 +5773,8 @@
     let attendanceColumnSort = null;
     let attendanceOcrReview = null;
     let attendanceOcrLoaderPromise = null;
+    let attendanceOcrFiles = [];
+    let attendanceOcrAnalysisQueue = Promise.resolve();
     let closeAttendanceColumnFilter = () => {};
     const attendanceFilterColumns = [
       ["name", "Thành viên", "text"], ["combatPower", "Lực chiến", "number"],
@@ -7670,21 +7672,44 @@
       const results = document.getElementById("attOcrResults");
       if (!results || !attendanceOcrReview) return;
       results.hidden = false;
-      const renderChips = (targetId, items, className, selectable = false) => {
+      const renderChips = (targetId, items, className, selectable = false, checkedByDefault = false) => {
         const target = document.getElementById(targetId);
         if (!target) return;
         target.innerHTML = items.length ? items.map(item => selectable
-          ? `<label class="att-ocr-chip"><input type="checkbox" data-ocr-member-id="${escapeHtml(item.member.id)}" checked><span>${escapeHtml(item.member.name)}</span></label>`
+          ? `<label class="att-ocr-chip ${className}"><input type="checkbox" data-ocr-member-id="${escapeHtml(item.member.id)}" data-ocr-source="${checkedByDefault ? "bright" : "faded"}"${checkedByDefault ? " checked" : ""}><span>${escapeHtml(item.member.name)}</span></label>`
           : `<span class="att-ocr-chip ${className}">${escapeHtml(item.member?.name || item.text)}</span>`).join("")
           : '<span class="att-ocr-empty">Không có</span>';
       };
-      renderChips("attOcrMatchedList", attendanceOcrReview.matched, "", true);
-      renderChips("attOcrFadedList", attendanceOcrReview.faded, "is-faded");
+      renderChips("attOcrMatchedList", attendanceOcrReview.matched, "", true, true);
+      renderChips("attOcrFadedList", attendanceOcrReview.faded, "is-faded", true, false);
       renderChips("attOcrUnmatchedList", attendanceOcrReview.unmatched, "is-unmatched");
       document.getElementById("attOcrMatchedCount").textContent = attendanceOcrReview.matched.length;
       document.getElementById("attOcrFadedCount").textContent = attendanceOcrReview.faded.length;
       document.getElementById("attOcrUnmatchedCount").textContent = attendanceOcrReview.unmatched.length;
-      document.getElementById("attOcrApplyBtn").disabled = attendanceOcrReview.matched.length === 0;
+      document.querySelectorAll("[data-ocr-member-id]").forEach(input => input.addEventListener("change", refreshAttendanceOcrApplyButton));
+      refreshAttendanceOcrApplyButton();
+    }
+
+    function refreshAttendanceOcrApplyButton() {
+      const selectedCount = document.querySelectorAll("[data-ocr-member-id]:checked").length;
+      const button = document.getElementById("attOcrApplyBtn");
+      if (button) button.disabled = selectedCount === 0;
+    }
+
+    function queueAttendanceOcrFiles(files) {
+      const imageFiles = [...(files || [])].filter(file => file && String(file.type || "").startsWith("image/"));
+      if (!imageFiles.length) {
+        showToast("Clipboard không có ảnh. Hãy sao chép ảnh rồi nhấn Ctrl+V.");
+        return;
+      }
+      imageFiles.forEach(file => {
+        const signature = `${file.name}|${file.size}|${file.lastModified}`;
+        if (!attendanceOcrFiles.some(item => `${item.name}|${item.size}|${item.lastModified}` === signature)) attendanceOcrFiles.push(file);
+      });
+      const snapshot = attendanceOcrFiles.slice();
+      attendanceOcrAnalysisQueue = attendanceOcrAnalysisQueue
+        .catch(() => {})
+        .then(() => analyzeAttendanceOcrFiles(snapshot));
     }
 
     function openAttendanceOcrModal(actId) {
@@ -7692,6 +7717,8 @@
       const activity = currWeek?.activities?.find(item => item.id === actId);
       if (!activity) return;
       attendanceOcrReview = { activityId: actId, matched: [], faded: [], unmatched: [] };
+      attendanceOcrFiles = [];
+      attendanceOcrAnalysisQueue = Promise.resolve();
       document.getElementById("attOcrActivityId").value = actId;
       document.getElementById("attOcrModalTitle").textContent = `Chấm công: ${activity.name}`;
       document.getElementById("attOcrModalSub").textContent = `${activity.date || ""} · Chỉ nhận tên sáng/trắng`;
@@ -7774,6 +7801,7 @@
       const currWeek = getActiveWeek();
       const activityId = attendanceOcrReview.activityId;
       const selectedIds = new Set([...document.querySelectorAll("[data-ocr-member-id]:checked")].map(input => input.dataset.ocrMemberId));
+      const manuallySelectedFaded = document.querySelectorAll('[data-ocr-source="faded"]:checked').length;
       const keepExisting = document.getElementById("attOcrKeepExisting")?.checked !== false;
       if (!keepExisting) {
         currWeek.members.forEach(member => {
@@ -7788,7 +7816,7 @@
       saveAttendanceState(attendanceState, true);
       closeAttendanceOcrModal();
       renderAttendanceTable();
-      showToast(`✅ Đã tự động chấm công ${selectedIds.size} thành viên. Tên mờ không được tích.`);
+      showToast(`✅ Đã chấm công ${selectedIds.size} thành viên${manuallySelectedFaded ? `, gồm ${manuallySelectedFaded} tên mờ chọn tay` : ""}.`);
     }
 
     function updateMemberModalPreview() {
@@ -8945,8 +8973,31 @@
       document.getElementById("attOcrApplyBtn")?.addEventListener("click", applyAttendanceOcrReview);
       document.getElementById("attOcrFileInput")?.addEventListener("change", event => {
         const files = [...(event.target.files || [])];
-        if (files.length) analyzeAttendanceOcrFiles(files);
+        if (files.length) queueAttendanceOcrFiles(files);
       });
+      document.addEventListener("paste", event => {
+        if (!document.getElementById("attOcrModal")?.classList.contains("open")) return;
+        const files = [...(event.clipboardData?.items || [])]
+          .filter(item => item.kind === "file" && String(item.type || "").startsWith("image/"))
+          .map(item => item.getAsFile())
+          .filter(Boolean);
+        if (!files.length) return;
+        event.preventDefault();
+        queueAttendanceOcrFiles(files);
+        showToast(`📋 Đã dán ${files.length} ảnh từ Clipboard.`);
+      });
+      const ocrDrop = document.querySelector(".att-ocr-drop");
+      if (ocrDrop) {
+        ["dragenter", "dragover"].forEach(type => ocrDrop.addEventListener(type, event => {
+          event.preventDefault();
+          ocrDrop.classList.add("is-dragging");
+        }));
+        ["dragleave", "drop"].forEach(type => ocrDrop.addEventListener(type, event => {
+          event.preventDefault();
+          ocrDrop.classList.remove("is-dragging");
+          if (type === "drop") queueAttendanceOcrFiles(event.dataTransfer?.files || []);
+        }));
+      }
 
       // Export Modal Events
       document.getElementById("closeAttExportModal")?.addEventListener("click", () => {
