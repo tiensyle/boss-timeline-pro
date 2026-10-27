@@ -2889,6 +2889,7 @@
 
       document.querySelectorAll(".schedule-day-tab").forEach(tab => {
         const filter = tab.dataset.dayFilter;
+        tab.classList.toggle("active", filter === String(scheduleDayFilter));
         if (filter === "all") {
           tab.textContent = dayNames["all"];
         } else if (filter === "today") {
@@ -4250,6 +4251,22 @@
       }
     }
 
+    function openTodayScheduleFromNavigation(updateHash = true) {
+      scheduleDayFilter = "today";
+      toggleTodaySchedule(true);
+      renderTodayScheduleTable(getNow());
+      if (updateHash && window.location.hash !== "#boss-schedule") {
+        try {
+          history.pushState(null, "", "#boss-schedule");
+        } catch (error) {
+          window.location.hash = "boss-schedule";
+        }
+      }
+      window.requestAnimationFrame(() => {
+        elements.todaySchedulePanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
     const realtimeStatusEl = document.getElementById("realtimeStatus");
     if (realtimeStatusEl) {
       realtimeStatusEl.style.cursor = "pointer";
@@ -4834,7 +4851,9 @@
         document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
         link.classList.add("active");
         if (href === "#boss-schedule") {
-          toggleTodaySchedule(true);
+          e.preventDefault();
+          openTodayScheduleFromNavigation(true);
+          return;
         }
         if (href === "#weekly-boss-schedule") {
           toggleWeeklySchedule(true);
@@ -8441,6 +8460,7 @@
           switchPageView("attendance");
         } else {
           switchPageView(hash || "boss");
+          if (hash === "boss-schedule") openTodayScheduleFromNavigation(false);
         }
       });
 
@@ -8733,6 +8753,7 @@
       switchPageView("attendance");
     } else {
       switchPageView("boss");
+      if (initialHash === "boss-schedule") openTodayScheduleFromNavigation(false);
     }
 
     if (!localStorage.getItem(STORAGE_ROLE_KEY)) {

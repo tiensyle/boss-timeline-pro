@@ -74,6 +74,12 @@ try {
   assert.equal(await page.evaluate(() => state.bosses[0].respawnsAt), null);
   checks.push("Kill/revive confirmation, cancellation and state transitions");
 
+  await page.locator('.nav-item[href="#boss-schedule"]').click();
+  assert.equal(await page.evaluate(() => scheduleDayFilter), "today");
+  assert.equal(await page.locator("#boss-schedule").evaluate(element => element.classList.contains("open")), true);
+  assert.equal(await page.locator('.schedule-day-tab[data-day-filter="today"]').evaluate(element => element.classList.contains("active")), true);
+  checks.push("Today schedule navigation opens and selects today's boss list");
+
   await page.locator("#discordSettingsBtn").click();
   assert.equal(await page.locator("#discordSettingsModal").isVisible(), true);
   assert.equal(await page.locator("#discordWebhookInput").evaluate(element => element === document.activeElement), true);
