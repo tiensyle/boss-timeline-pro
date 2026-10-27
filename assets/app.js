@@ -2325,6 +2325,15 @@
         const aRespawning = Number.isFinite(aTime) && aTime > now;
         const bRespawning = Number.isFinite(bTime) && bTime > now;
 
+        // Ở chế độ mặc định, ưu tiên nhóm boss phổ biến Level 60–80 lên đầu.
+        // Các chế độ sắp xếp Level thủ công vẫn tuân theo lựa chọn của người dùng.
+        if (levelMode !== "level-asc" && levelMode !== "level-desc") {
+          const priorityLevels = new Set([60, 65, 70, 75, 80]);
+          const aPriority = priorityLevels.has(Number(a.level));
+          const bPriority = priorityLevels.has(Number(b.level));
+          if (aPriority !== bPriority) return aPriority ? -1 : 1;
+        }
+
         if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
         if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
         if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);

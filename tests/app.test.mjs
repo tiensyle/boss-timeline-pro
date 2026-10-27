@@ -142,6 +142,25 @@ test("ready bosses stay above bosses recorded dead while respawns remain time-or
   ]);
 });
 
+test("default boss order prioritizes levels 60, 65, 70, 75 and 80", () => {
+  const now = 1000;
+  const ctx = load(["sortBossesForDisplay"], {
+    activeLevelFilter: "all",
+    getNextBossEventTime: boss => boss.nextAt
+  });
+  const bosses = [
+    { id: "level-85-ready", level: 85, nextAt: null },
+    { id: "level-75-respawning", level: 75, nextAt: 5000 },
+    { id: "level-90-ready", level: 90, nextAt: null },
+    { id: "level-60-ready", level: 60, nextAt: null },
+    { id: "level-80-respawning", level: 80, nextAt: 3000 }
+  ];
+
+  assert.deepEqual(ctx.sortBossesForDisplay(bosses, now).map(boss => boss.id), [
+    "level-60-ready", "level-80-respawning", "level-75-respawning", "level-85-ready", "level-90-ready"
+  ]);
+});
+
 test("level sorting applies within ready and respawning groups", () => {
   const now = 1000;
   const ctx = load(["sortBossesForDisplay"], {
