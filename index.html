@@ -7,6 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
+  <link rel="icon" type="image/png" href="assets/boss-logo.png">
   <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
@@ -15,10 +16,7 @@
       <div class="brand">
         <div class="brand-left">
           <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 3l7 4v7c0 3.2-2.1 6.2-7 7-4.9-.8-7-3.8-7-7V7l7-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M8.5 12h7M12 8.5v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
+            <img src="assets/boss-logo.png" alt="Boss Timeline" class="app-brand-logo">
           </div>
           <div class="brand-title">
             <strong>Boss Timeline</strong>
@@ -585,7 +583,7 @@
       <div id="authStepChoose">
         <div class="auth-modal-header">
           <div class="auth-logo-badge">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 4v7c0 3.2-2.1 6.2-7 7-4.9-.8-7-3.8-7-7V7l7-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 12h7M12 8.5v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <img src="assets/boss-logo.png" alt="Boss Timeline" class="app-brand-logo">
           </div>
           <h2 id="authTitle" class="auth-title">Chào mừng đến Boss Timeline Pro</h2>
           <p class="auth-sub">Vui lòng chọn vai trò truy cập của bạn vào hệ thống:</p>
@@ -622,7 +620,7 @@
       <div id="authStepAdminLogin" style="display:none;">
         <div class="auth-modal-header">
           <div class="auth-logo-badge admin-badge-glow">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <img src="assets/boss-logo.png" alt="Boss Timeline" class="app-brand-logo">
           </div>
           <h2 class="auth-title">Đăng nhập Quản trị viên</h2>
           <p class="auth-sub">Đăng nhập bằng tài khoản Firebase Authentication để quản trị hệ thống.</p>
@@ -674,7 +672,7 @@
       <div id="authStepRegister" style="display:none;">
         <div class="auth-modal-header">
           <div class="auth-logo-badge" style="background:rgba(74,163,255,0.15);color:var(--cyan);border:1px solid rgba(74,163,255,0.3);">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <img src="assets/boss-logo.png" alt="Boss Timeline" class="app-brand-logo">
           </div>
           <h2 class="auth-title">Đăng ký Tài khoản Admin</h2>
           <p class="auth-sub">Tạo tài khoản Firebase và gửi yêu cầu. Admin chính phải phê duyệt trước khi tài khoản có quyền quản trị.</p>
@@ -1305,7 +1303,12 @@
         </div>
         <div class="form-field" style="margin-bottom: 14px;">
           <label for="attActivityNameInput">Tên Boss / Hoạt Động <span style="color: var(--red);">*</span></label>
-          <input type="text" id="attActivityNameInput" required maxlength="50" placeholder="Ví dụ: Amentis, Kataphron, Công Thành Chiến...">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select id="attActivityNameSelect" aria-label="Chọn Boss đã thêm" style="flex:1; min-width:0;"></select>
+            <button type="button" class="button-secondary" id="attNewActivityNameBtn" title="Thêm tên Boss mới" aria-label="Thêm tên Boss mới" style="padding:8px 14px; font-size:20px;">+</button>
+          </div>
+          <input type="text" id="attActivityNameInput" required maxlength="50" placeholder="Nhập tên Boss / hoạt động mới" style="margin-top:8px;" hidden>
+          <small style="color:var(--muted);">Chọn tên đã có hoặc bấm + để nhập tên mới. Tên mới sẽ có trong danh sách sau khi lưu.</small>
         </div>
         <div class="form-field" style="margin-bottom: 16px;">
           <label for="attActivityPointsInput">Điểm Số Tham Gia</label>
@@ -1385,7 +1388,7 @@
             <input type="checkbox" id="attWeekClearBossesOption" checked style="width: 16px; height: 16px; cursor: pointer;">
             <span>Giữ các cột thông tin & tên thành viên, xóa toàn bộ cột Boss</span>
           </label>
-          <div style="margin:8px 0 0 24px;font-size:11.5px;line-height:1.45;color:var(--muted);">Tên, Server, hệ số và vai trò thành viên được giữ nguyên; tích điểm được đặt lại. Các cột Boss sẽ trống để thêm mới theo lịch tuần này.</div>
+          <div style="margin:8px 0 0 24px;font-size:11.5px;line-height:1.45;color:var(--muted);">Sao chép toàn bộ thành viên từ tuần đang chọn, gồm tên, Server, màu, vai trò, lực chiến, hệ số và thưởng vị trí (kể cả mức thưởng riêng). Giữ cấu hình thưởng vị trí và xếp hạng lực chiến; chấm công được đặt lại. Bỏ tích nếu muốn sao chép cả các cột Boss.</div>
         </div>
 
         <div id="attWeekModalError" style="display: none; margin-bottom: 12px; font-size: 12.5px; color: var(--red); font-weight: 600; padding: 8px 12px; background: var(--red-soft); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px;"></div>

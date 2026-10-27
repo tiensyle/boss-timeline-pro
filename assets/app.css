@@ -4275,3 +4275,58 @@
       outline: none;
     }
 
+
+/* Member actions opened from any attendance row cell. */
+.att-member-context-menu {
+  position: fixed; z-index: 10000; min-width: 225px; max-width: calc(100vw - 16px);
+  padding: 6px; border: 1px solid var(--line, #dce3ef); border-radius: 10px;
+  background: var(--surface, #fff); color: var(--text, #10254b);
+  box-shadow: 0 8px 28px #0003;
+}
+.att-context-name { padding: 8px 10px; font-weight: 700; overflow-wrap: anywhere; }
+.att-member-context-menu button {
+  display: block; width: 100%; padding: 10px; border: 0; border-radius: 6px;
+  background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit;
+}
+.att-member-context-menu button:hover, .att-member-context-menu button:focus-visible { background: #168cff20; outline: none; }
+.att-member-context-menu .att-del-member-btn { color: #e53935; }
+
+.att-column-filter-btn { display:inline-block; margin:5px 0 0 5px; padding:0 5px; border:1px solid var(--line); border-radius:4px; background:var(--surface); color:var(--muted); cursor:pointer; }
+.att-column-filter-btn.is-active { color:var(--cyan); background:var(--cyan-soft); border-color:var(--cyan); }
+.att-column-filter-popup { position:fixed; z-index:10001; width:240px; max-width:calc(100vw - 16px); box-sizing:border-box; padding:14px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--text); box-shadow:var(--shadow); max-height:calc(100vh - 16px); overflow:auto; }
+.att-column-filter-popup label { display:block; margin-top:10px; font-size:12px; }
+.att-column-filter-popup input, .att-column-filter-popup select { display:block; box-sizing:border-box; width:100%; margin-top:4px; padding:8px; background:var(--surface-2); color:var(--text); border:1px solid var(--line); border-radius:5px; }
+.att-filter-buttons { display:flex; gap:8px; margin-top:14px; }
+.att-filter-buttons button { flex:1; padding:8px; border:1px solid var(--line); border-radius:5px; background:var(--surface-2); color:var(--text); cursor:pointer; }
+.att-filter-buttons button[type=submit] { background:var(--btn-primary-bg); color:var(--btn-primary-text); }
+
+/* Keep every filter control on the same baseline, including two-line labels. */
+.att-filter-heading { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:76px; }
+.att-filter-heading-label { display:flex; flex-direction:column; align-items:center; justify-content:center; height:38px; line-height:19px; white-space:normal; text-align:center; }
+.att-filter-heading .att-column-filter-btn { display:flex; align-items:center; justify-content:center; flex:none; width:30px; height:24px; margin:0; padding:0; border-radius:5px; line-height:1; font-size:13px; transition:background .15s, border-color .15s; }
+.att-filter-heading .att-column-filter-btn:hover { background:var(--cyan-soft); border-color:var(--cyan); color:var(--cyan); }
+.att-filter-heading .att-header-server-wrap { display:flex; align-items:center; height:24px; margin:0; }
+.att-filter-heading .att-header-server-select { height:24px; box-sizing:border-box; margin:0; padding-top:0; padding-bottom:0; }
+
+/* Uniform typography for the attendance information headers. */
+.att-table thead .att-filter-heading-label {
+  font-family:inherit; font-size:12px; font-weight:600; line-height:17px;
+  letter-spacing:0; color:var(--text); text-transform:none;
+  width:100%; height:38px; overflow-wrap:normal; word-break:normal;
+  text-wrap:balance;
+}
+.att-table thead .col-bonus .att-filter-heading-label,
+.att-table thead .col-percent .att-filter-heading-label,
+.att-table thead .col-raw .att-filter-heading-label { white-space:nowrap; }
+
+/* Branding and theme-aware access dialog contrast. */
+.brand-mark .app-brand-logo, .auth-logo-badge .app-brand-logo { display:block; width:100%; height:100%; object-fit:contain; border-radius:inherit; }
+.brand-mark, .auth-logo-badge, .auth-logo-badge.admin-badge-glow { padding:0; overflow:hidden; background:transparent; border:0; box-shadow:none; }
+.auth-logo-badge { width:64px; height:58px; border-radius:12px; }
+.auth-title, .auth-role-name { color:var(--text); }
+.auth-title { line-height:1.35; }
+.auth-role-name { font-weight:700; }
+.auth-role-desc { line-height:1.5; }
+.role-card-admin .auth-role-icon, .auth-role-badge { color:var(--amber); background:var(--amber-soft); }
+.auth-role-badge.free { color:var(--cyan); background:var(--cyan-soft); }
+.auth-role-card:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }

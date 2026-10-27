@@ -154,7 +154,9 @@ try {
   await page.locator("#attSearchInput").fill("Decimal Member");
   assert.equal(await page.locator('#attTableBody tr[data-member-id]').count(), 1);
   await page.locator("#attSearchInput").fill("");
-  await page.locator('.att-del-member-btn[data-member-id="m2"]').click();
+  assert.equal(await page.locator(".att-table .col-actions").count(), 0);
+  await page.locator('#attTableBody tr[data-member-id="m2"] td').first().click({ button: "right" });
+  await page.locator('.att-member-context-menu .att-del-member-btn').click();
   assert.equal(await page.locator("#confirmModalMessage img").count(), 0);
   assert.ok((await page.locator("#confirmModalMessage").textContent()).includes("<img"));
   assert.equal(await page.evaluate(() => window.__xss), undefined);

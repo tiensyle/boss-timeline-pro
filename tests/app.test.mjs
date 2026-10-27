@@ -198,7 +198,8 @@ test("checking attendance in a historical week keeps that week selected after sy
 });
 
 test("attendance bulk selection follows the active server and visible filters", () => {
-  const ctx = load(["filterAttendanceMembers"], {
+  const ctx = load(["applyAttendanceColumnFilters", "filterAttendanceMembers"], {
+    attendanceColumnFilters: {}, attendanceColumnSort: null,
     attendanceSearchTerm: "",
     attendanceServerFilter: "s1",
     attendanceMultiplierFilter: "all",
@@ -734,4 +735,42 @@ test("large daily schedules use a complete CSV attachment instead of an oversize
   assert.equal(attachment.serverId, "s2");
   assert.equal(attachment.allowWhenDisabled, true);
   assert.ok(!attachment.payload.content.includes("@everyone"));
+});
+
+
+test("new attendance week preserves full member profiles and bonus/ranking settings without checks", () => {
+  const previous = { id: "old", members: [
+    { id: "m1", name: "Leader", serverId: "s8", combatPower: 165000, multiplier: 2.5, role: "Leader", color: "#ff0", roleColor: "#f80", roleBonusPercent: 0, records: { boss: true } },
+    { id: "m2", name: "Core", serverId: "s10", combatPower: 135000, multiplier: 1.5, role: "Core", roleBonusPercent: 4, records: { boss: true } }
+  ], activities: [{ id: "boss", name: "Boss", points: 2 }], roleBonuses: [{ role: "Leader", percent: 4 }], cpTiers: [{ upToRank: null, multiplier: 2.5 }], cpScope: "guild" };
+  const elements = Object.fromEntries(Object.entries({
+    attWeekEditId: "", attWeekNameInput: "Next", attWeekDateRangeInput: "01/11 - 07/11", attWeekDiasPoolInput: "0", attWeekUsdtPoolInput: "0", attWeekMinimumParticipationInput: "50"
+  }).map(([id, value]) => [id, { value }]));
+  elements.attWeekClearBossesOption = { checked: true };
+  const state = { activeWeekId: "old", weeks: [previous] };
+  const ctx = load(["cloneRealtimeValue", "normalizeMinimumParticipationPercent", "saveAttendanceWeek"], {
+    document: { getElementById: id => elements[id] }, attendanceState: state,
+    isAdmin: () => true, getActiveWeek: () => previous, getDefaultAttendanceServerId: () => "fallback",
+    showToast: () => {}, saveAttendanceState: () => {}, closeAttendanceWeekModal: () => {}, renderAttendanceTable: () => {}
+  });
+  ctx.saveAttendanceWeek();
+  const next = state.weeks[1];
+  assert.deepEqual(copy(next.members), previous.members.map(m => ({ ...m, records: {} })));
+  assert.deepEqual(copy(next.roleBonuses), previous.roleBonuses);
+  assert.deepEqual(copy(next.cpTiers), previous.cpTiers);
+  assert.equal(next.cpScope, "guild");
+  assert.equal(next.activities.length, 0);
+  next.roleBonuses[0].percent = 9;
+  next.members[0].combatPower = 1;
+  assert.equal(previous.roleBonuses[0].percent, 4);
+  assert.equal(previous.members[0].combatPower, 165000);
+  assert.equal(previous.members[0].records.boss, true);
+});
+
+
+test("column filters combine name search, numeric range, eligibility and sorting without changing source", () => {
+  const ctx = load(["applyAttendanceColumnFilters"], { attendanceColumnFilters: { name: { query: "tien" }, combatPower: { min: "100", max: "200" }, eligible: { value: "true" } }, attendanceColumnSort: { key: "combatPower", direction: -1 } });
+  const rows = [{ name: "Tiến A", combatPower: 120, eligible: true }, { name: "Tiến B", combatPower: 180, eligible: true }, { name: "Tiến C", combatPower: 150, eligible: false }, { name: "Other", combatPower: 160, eligible: true }];
+  assert.deepEqual(copy(ctx.applyAttendanceColumnFilters(rows)).map(m => m.name), ["Tiến B", "Tiến A"]);
+  assert.equal(rows[0].name, "Tiến A");
 });

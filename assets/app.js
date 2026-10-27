@@ -5710,6 +5710,18 @@
 
     let attendanceState = null;
     let attendanceSearchTerm = "";
+    let attendanceColumnFilters = {};
+    let attendanceColumnSort = null;
+    let closeAttendanceColumnFilter = () => {};
+    const attendanceFilterColumns = [
+      ["name", "Thành viên", "text"], ["combatPower", "Lực chiến", "number"],
+      ["multiplier", "Hệ số", "number"], ["bonusPercent", "Thưởng vị trí (%)", "number"],
+      ["usdt", "USDT", "number"], ["dias", "DIAS", "number"],
+      ["pPoints", "P.Point thực tế", "number"], ["rawPoints", "Điểm thô", "number"],
+      ["percent", "% tham gia", "number"], ["eligiblePPoints", "Reward P.Point", "number"],
+      ["eligible", "Điều kiện thưởng", "boolean"]
+    ];
+
     let attendanceServerFilter = "all";
     let attendanceMultiplierFilter = "all";
     let attendanceRoleUIMode = null;
@@ -6263,8 +6275,8 @@
         if (editIdInput) editIdInput.value = "";
         if (nameInput) nameInput.value = "Tuần " + nextNum;
         if (dateInput) dateInput.value = getSuggestedWeekRange(0);
-        if (diasInput) diasInput.value = currWeek?.diasPool || 52500;
-        if (usdtInput) usdtInput.value = currWeek?.usdtPool || 867;
+        if (diasInput) diasInput.value = currWeek?.diasPool ?? 52500;
+        if (usdtInput) usdtInput.value = currWeek?.usdtPool ?? 867;
         if (thresholdInput) thresholdInput.value = normalizeMinimumParticipationPercent(currWeek?.minimumParticipationPercent);
         if (cloneWrap) cloneWrap.style.display = "block";
         if (clearBossesOpt) clearBossesOpt.checked = true;
@@ -6331,14 +6343,9 @@
         }
         if (currWeek) {
           copiedMembers = (currWeek.members || []).map(m => ({
-            id: m.id,
-            name: m.name,
+            ...cloneRealtimeValue(m),
             serverId: m.serverId || getDefaultAttendanceServerId(),
-            color: m.color || "",
-            roleColor: m.roleColor || "",
-            multiplier: m.multiplier,
-            role: m.role || "Member",
-            records: {} // Reset to unchecked
+            records: {} // New week starts with no attendance checks.
           }));
         }
 
@@ -6351,6 +6358,9 @@
           minimumParticipationPercent,
           activities: copiedActivities,
           members: copiedMembers,
+          roleBonuses: cloneRealtimeValue(currWeek?.roleBonuses ?? attendanceState.roleBonuses ?? DEFAULT_ROLE_BONUSES),
+          cpTiers: cloneRealtimeValue(currWeek?.cpTiers ?? DEFAULT_CP_TIERS),
+          cpScope: currWeek?.cpScope || "server",
           createdAt: Date.now()
         };
 
@@ -6915,6 +6925,68 @@
       };
     }
 
+    function applyAttendanceColumnFilters(members) {
+      const folded = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+      const filtered = members.filter(member => Object.entries(attendanceColumnFilters).every(([key, filter]) => {
+        if (filter.query && !folded(`${member.name} ${member.role || ""}`).includes(folded(filter.query))) return false;
+        if (filter.value !== "" && filter.value !== undefined && String(member[key]) !== filter.value) return false;
+        if (filter.min !== "" && filter.min !== undefined && Number(member[key] || 0) < Number(filter.min)) return false;
+        if (filter.max !== "" && filter.max !== undefined && Number(member[key] || 0) > Number(filter.max)) return false;
+        return true;
+      }));
+      if (attendanceColumnSort) {
+        const { key, direction } = attendanceColumnSort;
+        filtered.sort((a, b) => direction * (typeof a[key] === "string"
+          ? String(a[key]).localeCompare(String(b[key]), "vi", { numeric: true })
+          : Number(a[key] || 0) - Number(b[key] || 0)));
+      }
+      return filtered;
+    }
+
+    function openAttendanceColumnFilter(button, column) {
+      closeAttendanceColumnFilter();
+      const [key, label, type] = column;
+      const current = attendanceColumnFilters[key] || {};
+      const popup = document.createElement("form");
+      popup.className = "att-column-filter-popup";
+      popup.setAttribute("aria-label", `Lọc ${label}`);
+      popup.innerHTML = `<strong>${escapeHtml(label)}</strong>
+        ${type === "text" ? `<label>Tìm tên / vai trò<input name="query" placeholder="Nhập để tìm…" value="${escapeHtml(current.query || "")}"></label>` : type === "boolean" ? `<label>Điều kiện<select name="value"><option value="">Tất cả</option><option value="true">Đủ điều kiện</option><option value="false">Không đạt</option></select></label>` : `<label>Từ<input name="min" type="number" step="any" value="${escapeHtml(current.min ?? "")}"></label><label>Đến<input name="max" type="number" step="any" value="${escapeHtml(current.max ?? "")}"></label>`}
+        <label>Sắp xếp<select name="sort"><option value="">Mặc định</option><option value="1">${type === "text" ? "Tên A → Z" : "Tăng dần"}</option><option value="-1">${type === "text" ? "Tên Z → A" : "Giảm dần"}</option></select></label>
+        <div class="att-filter-buttons"><button type="button" data-clear>Bỏ lọc</button><button type="submit">Áp dụng</button></div>`;
+      document.body.appendChild(popup);
+      if (type === "boolean") popup.elements.value.value = current.value || "";
+      popup.elements.sort.value = attendanceColumnSort?.key === key ? String(attendanceColumnSort.direction) : "";
+      const rect = button.getBoundingClientRect();
+      popup.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - popup.offsetWidth - 8))}px`;
+      popup.style.top = `${Math.max(8, Math.min(rect.bottom + 6, innerHeight - popup.offsetHeight - 8))}px`;
+      const controller = new AbortController();
+      closeAttendanceColumnFilter = () => { controller.abort(); popup.remove(); };
+      document.addEventListener("pointerdown", e => { if (!popup.contains(e.target) && e.target !== button) closeAttendanceColumnFilter(); }, { signal: controller.signal });
+      window.addEventListener("resize", closeAttendanceColumnFilter, { signal: controller.signal });
+      document.addEventListener("scroll", e => { if (!popup.contains(e.target)) closeAttendanceColumnFilter(); }, { signal: controller.signal, capture: true });
+      popup.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); closeAttendanceColumnFilter(); button.focus(); } });
+      popup.onsubmit = e => {
+        e.preventDefault();
+        const values = Object.fromEntries(new FormData(popup));
+        if (values.min !== "" && values.max !== "" && values.min !== undefined && Number(values.min) > Number(values.max)) {
+          popup.elements.max.setCustomValidity("Giá trị đến phải lớn hơn hoặc bằng giá trị từ."); popup.elements.max.reportValidity(); return;
+        }
+        const sort = values.sort; delete values.sort;
+        attendanceColumnFilters[key] = values;
+        if (sort) attendanceColumnSort = { key, direction: Number(sort) };
+        else if (attendanceColumnSort?.key === key) attendanceColumnSort = null;
+        renderAttendanceTable();
+      };
+      popup.oninput = () => popup.elements.max?.setCustomValidity("");
+      popup.querySelector("[data-clear]").onclick = () => {
+        delete attendanceColumnFilters[key];
+        if (attendanceColumnSort?.key === key) attendanceColumnSort = null;
+        renderAttendanceTable();
+      };
+      popup.querySelector("input, select").focus();
+    }
+
     function filterAttendanceMembers(members) {
       let filtered = members;
       if (attendanceSearchTerm.trim()) {
@@ -6933,10 +7005,12 @@
         const targetMultiplier = Number(attendanceMultiplierFilter);
         filtered = filtered.filter(member => Math.abs((Number(member.multiplier) || 1) - targetMultiplier) < 0.05);
       }
-      return filtered;
+      return applyAttendanceColumnFilters(filtered);
     }
 
     function renderAttendanceTable() {
+      closeAttendanceMemberMenu();
+      closeAttendanceColumnFilter();
       const content = document.getElementById("attendanceContent");
       const notice = document.getElementById("attendanceAccessNotice");
       if (content) content.hidden = false;
@@ -7057,7 +7131,7 @@
 
       let headHtml = `<tr>
         <th class="col-sticky col-stt">#</th>
-        <th class="col-sticky col-name">Thành Viên</th>
+        <th class="col-sticky col-name">Thành viên</th>
         <th class="col-sticky col-server" title="Lọc theo Server">
           <div class="att-header-server-wrap">
             <select class="att-header-server-select" id="attHeaderServerSelect" title="Chọn Server để lọc">
@@ -7066,15 +7140,15 @@
             </select>
           </div>
         </th>
-        <th class="col-sticky col-cp" title="Lực chiến thành viên (dùng để xếp hạng phân bổ hệ số lương)">⚔️ Lực Chiến</th>
-        <th class="col-sticky col-mult">Hệ Số</th>
-        <th class="col-sticky col-bonus" title="Tỷ lệ % trích thưởng chức danh / vị trí từ tổng quỹ">🎖️ Thưởng VT</th>
-        <th class="col-sticky col-usdt">💵 USDT</th>
-        <th class="col-sticky col-dias">💎 DIAS</th>
+        <th class="col-sticky col-cp" title="Lực chiến thành viên (dùng để xếp hạng phân bổ hệ số lương)">Lực chiến</th>
+        <th class="col-sticky col-mult">Hệ số</th>
+        <th class="col-sticky col-bonus" title="Tỷ lệ % trích thưởng chức danh / vị trí từ tổng quỹ">Thưởng vị trí</th>
+        <th class="col-sticky col-usdt">USDT</th>
+        <th class="col-sticky col-dias">DIAS</th>
         <th class="col-sticky col-ppoints">P.Point<br>thực tế</th>
-        <th class="col-sticky col-raw">📊 Điểm Thô</th>
-        <th class="col-sticky col-percent">🎯 % Tham Gia</th>
-        <th class="col-reward-points">Reward<br>P.Point</th>
+        <th class="col-sticky col-raw">Điểm thô</th>
+        <th class="col-sticky col-percent">% tham gia</th>
+        <th class="col-reward-points">P.Point<br>nhận thưởng</th>
         <th class="col-eligibility">Điều kiện thưởng</th>`;
 
       activities.forEach((act) => {
@@ -7100,18 +7174,45 @@
         </th>`;
       });
 
-      if (adminMode) {
-        headHtml += `<th class="col-actions">Thao tác</th>`;
-      }
       headHtml += `</tr>`;
       headEl.innerHTML = headHtml;
+      const filterHeaders = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      attendanceFilterColumns.forEach((column, index) => {
+        const th = headEl.querySelectorAll("th")[filterHeaders[index]];
+        const button = document.createElement("button");
+        const values = attendanceColumnFilters[column[0]] || {};
+        const active = Object.values(values).some(value => value !== "") || attendanceColumnSort?.key === column[0];
+        button.type = "button";
+        button.className = `att-column-filter-btn${active ? " is-active" : ""}`;
+        button.textContent = "▾";
+        button.title = `Lọc / sắp xếp ${column[1]}`;
+        button.setAttribute("aria-label", button.title);
+        button.setAttribute("aria-haspopup", "dialog");
+        button.onclick = () => openAttendanceColumnFilter(button, column);
+        const layout = document.createElement("div");
+        layout.className = "att-filter-heading";
+        const label = document.createElement("div");
+        label.className = "att-filter-heading-label";
+        while (th.firstChild) label.appendChild(th.firstChild);
+        layout.append(label, button);
+        th.appendChild(layout);
+      });
+      const serverHeader = headEl.querySelector(".col-server");
+      const serverControl = serverHeader.querySelector(".att-header-server-wrap");
+      const serverLayout = document.createElement("div");
+      serverLayout.className = "att-filter-heading";
+      const serverLabel = document.createElement("div");
+      serverLabel.className = "att-filter-heading-label";
+      serverLabel.textContent = "Server";
+      serverLayout.append(serverLabel, serverControl);
+      serverHeader.appendChild(serverLayout);
 
       // 4. Render Table Body
       const bodyEl = document.getElementById("attTableBody");
       if (!bodyEl) return;
 
       if (filteredMembers.length === 0) {
-        const colSpanTotal = 13 + activities.length + (adminMode ? 1 : 0);
+        const colSpanTotal = 13 + activities.length;
         bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
           Không tìm thấy thành viên nào phù hợp.
         </td></tr>`;
@@ -7180,20 +7281,70 @@
           </td>`;
         });
 
-        if (adminMode) {
-          bodyHtml += `<td class="col-actions">
-            <div class="row-actions-wrap">
-              <button type="button" class="att-btn-micro att-edit-member-btn" data-member-id="${escapeHtml(m.id)}" title="Sửa tên & hệ số">✏️</button>
-              <button type="button" class="att-btn-micro att-del-member-btn" data-member-id="${escapeHtml(m.id)}" title="Xóa thành viên này">🗑️</button>
-            </div>
-          </td>`;
-        }
 
         bodyHtml += `</tr>`;
       });
 
       bodyEl.innerHTML = bodyHtml;
       bindAttendanceTableEvents();
+    }
+
+    let closeAttendanceMemberMenu = () => {};
+
+    function openAttendanceMemberMenu(memberId, x, y, row) {
+      closeAttendanceMemberMenu();
+      if (!isAdmin()) return;
+      const week = getActiveWeek();
+      const member = week?.members.find(item => item.id === memberId);
+      if (!member) return;
+      const menu = document.createElement("div");
+      menu.className = "att-member-context-menu";
+      menu.setAttribute("role", "menu");
+      menu.setAttribute("aria-label", "Thao tác thành viên");
+      menu.innerHTML = `<div class="att-context-name">${escapeHtml(member.name)}</div>
+        <button type="button" role="menuitem" class="att-edit-member-btn">✏️ Chỉnh sửa thành viên</button>
+        <button type="button" role="menuitem" class="att-del-member-btn">🗑️ Xóa thành viên</button>`;
+      document.body.appendChild(menu);
+      const rect = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
+      menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
+      const controller = new AbortController();
+      const options = { signal: controller.signal };
+      closeAttendanceMemberMenu = () => {
+        controller.abort();
+        menu.remove();
+      };
+      document.addEventListener("pointerdown", event => {
+        if (!menu.contains(event.target)) closeAttendanceMemberMenu();
+      }, options);
+      window.addEventListener("resize", closeAttendanceMemberMenu, options);
+      document.addEventListener("scroll", closeAttendanceMemberMenu, { ...options, capture: true });
+      menu.addEventListener("keydown", event => {
+        const buttons = [...menu.querySelectorAll("button")];
+        if (event.key === "Escape" || event.key === "Tab") {
+          closeAttendanceMemberMenu();
+          if (event.key === "Escape") { event.preventDefault(); row.focus({ preventScroll: true }); }
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          buttons[(buttons.indexOf(document.activeElement) + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length].focus();
+        }
+      });
+      menu.querySelector(".att-edit-member-btn").addEventListener("click", () => {
+        closeAttendanceMemberMenu();
+        if (isAdmin()) openAttendanceMemberModal(memberId);
+      });
+      menu.querySelector(".att-del-member-btn").addEventListener("click", async () => {
+        closeAttendanceMemberMenu();
+        if (!isAdmin()) return;
+        const confirmed = await showConfirmModal({
+          title: "Xóa thành viên?",
+          subtitle: "Hành động này sẽ xóa thành viên khỏi bảng chấm công",
+          message: `Bạn có chắc muốn xóa thành viên "${member.name}"? Dữ liệu điểm của thành viên này trong tuần sẽ bị mất.`,
+          confirmText: "Xóa thành viên", cancelText: "Hủy bỏ", isDanger: true
+        });
+        if (confirmed && isAdmin()) deleteAttendanceMember(memberId, week.id);
+      });
+      menu.querySelector("button").focus({ preventScroll: true });
     }
 
     function bindAttendanceTableEvents() {
@@ -7234,33 +7385,20 @@
         });
       });
 
-      // Edit Member buttons
-      document.querySelectorAll(".att-edit-member-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          if (!adminMode) return;
-          const memberId = btn.dataset.memberId;
-          openAttendanceMemberModal(memberId);
+      // Every cell in a member row exposes the same member actions.
+      document.querySelectorAll("#attTableBody tr[data-member-id]").forEach(row => {
+        if (!adminMode) return;
+        row.tabIndex = 0;
+        row.title = "Bấm chuột phải để chỉnh sửa hoặc xóa thành viên";
+        row.addEventListener("contextmenu", event => {
+          event.preventDefault();
+          openAttendanceMemberMenu(row.dataset.memberId, event.clientX, event.clientY, row);
         });
-      });
-
-      // Delete Member buttons
-      document.querySelectorAll(".att-del-member-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          if (!adminMode) return;
-          const memberId = btn.dataset.memberId;
-          const currWeek = getActiveWeek();
-          const member = currWeek.members.find(m => m.id === memberId);
-          if (!member) return;
-          const confirmed = await showConfirmModal({
-            title: "Xóa thành viên?",
-            subtitle: "Hành động này sẽ xóa thành viên khỏi bảng chấm công",
-            message: `Bạn có chắc muốn xóa thành viên "${member.name}"? Dữ liệu điểm của thành viên này trong tuần sẽ bị mất.`,
-            confirmText: "Xóa thành viên",
-            cancelText: "Hủy bỏ",
-            isDanger: true
-          });
-          if (confirmed) {
-            deleteAttendanceMember(memberId, currWeek.id);
+        row.addEventListener("keydown", event => {
+          if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+            event.preventDefault();
+            const rect = row.getBoundingClientRect();
+            openAttendanceMemberMenu(row.dataset.memberId, Math.max(8, rect.left), Math.max(8, rect.top), row);
           }
         });
       });
@@ -7903,6 +8041,31 @@
     }
 
     // Modal Activity Functions
+    function refreshAttendanceBossNames() {
+      const select = document.getElementById("attActivityNameSelect");
+      const input = document.getElementById("attActivityNameInput");
+      if (!select || !input) return;
+      const names = new Map();
+      const addName = value => {
+        const name = String(value || "").trim();
+        if (name && !names.has(name.toLocaleLowerCase("vi"))) names.set(name.toLocaleLowerCase("vi"), name);
+      };
+      (state?.bosses || []).forEach(boss => addName(boss.name));
+      (attendanceState?.weeks || []).forEach(week => (week.activities || []).forEach(act => addName(act.name)));
+      addName(input.value);
+      select.innerHTML = '<option value="">Chọn Boss / hoạt động đã thêm…</option>' +
+        [...names.values()].sort((a, b) => a.localeCompare(b, "vi")).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+      select.value = names.get(input.value.trim().toLocaleLowerCase("vi")) || "";
+      input.hidden = true;
+      select.onchange = () => { input.value = select.value; input.hidden = true; };
+      document.getElementById("attNewActivityNameBtn").onclick = () => {
+        select.value = "";
+        input.hidden = false;
+        input.value = "";
+        input.focus();
+      };
+    }
+
     function openAttendanceActivityModal(actId = null) {
       const modal = document.getElementById("attActivityModal");
       if (!modal) return;
@@ -7939,9 +8102,10 @@
         if (delBtn) delBtn.style.display = "none";
       }
 
+      refreshAttendanceBossNames();
       modal.classList.add("open");
       syncModalScrollLock();
-      setTimeout(() => nameInput?.focus(), 50);
+      setTimeout(() => document.getElementById("attActivityNameSelect")?.focus(), 50);
     }
 
     function closeAttendanceActivityModal() {
