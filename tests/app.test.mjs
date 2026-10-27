@@ -637,12 +637,14 @@ test("manual webhook delivery bypasses the automatic master switch only when exp
     window: { location: { href: "https://site.example/", origin: "https://site.example" } },
     URL,
     AbortSignal,
+    loadWebhookUrl: async serverId => `https://discord.com/api/webhooks/123/${serverId}-token`,
     fetch: async (...args) => { requests.push(args); return { ok: true }; }
   });
 
   assert.equal(await ctx.deliverDiscordWebhook({}, null, "image.png", "s1"), false);
   assert.equal(await ctx.deliverDiscordWebhook({}, null, "image.png", "s1", true), true);
   assert.equal(requests.length, 1);
+  assert.equal(JSON.parse(requests[0][1].body).webhookUrl, "https://discord.com/api/webhooks/123/s1-token");
 });
 
 test("guest Discord alerts make no Firebase requests", async () => {

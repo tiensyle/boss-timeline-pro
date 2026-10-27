@@ -60,7 +60,10 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
     const serverId = String(req.body.serverId || "s1");
     if (!/^[a-zA-Z0-9_-]{1,64}$/.test(serverId)) return res.status(400).json({ error: "Invalid server ID." });
     const suffix = serverId.toUpperCase().replace(/-/g, "_");
-    const webhookUrl = (env[`DISCORD_WEBHOOK_${suffix}`] || env.DISCORD_WEBHOOK_URL || "").trim();
+    // Ưu tiên webhook mà admin đã lưu cho server hiện tại. Biến môi trường
+    // chỉ là phương án dự phòng để tương thích với cấu hình triển khai cũ.
+    const configuredWebhookUrl = typeof req.body.webhookUrl === "string" ? req.body.webhookUrl.trim() : "";
+    const webhookUrl = (configuredWebhookUrl || env[`DISCORD_WEBHOOK_${suffix}`] || env.DISCORD_WEBHOOK_URL || "").trim();
     if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
       return res.status(400).json({ error: "Invalid or missing Discord Webhook URL." });
     }

@@ -380,7 +380,6 @@
       nextPanel: null,
       bossGrid: document.getElementById("bossGrid"),
       historyList: document.getElementById("historyList"),
-      searchBoss: document.getElementById("searchBoss"),
       filterTabs: document.querySelector(".filter-tabs"),
       headerClock: document.getElementById("headerClock"),
       sidebarClock: document.getElementById("sidebarClock"),
@@ -774,8 +773,8 @@
     }
 
     /**
-     * Lưu webhook URL lên Firebase (path công khai-đọc, admin-write)
-     * Không lưu vào localStorage để tránh lộ qua devtools
+     * Lưu webhook URL lên Firebase (chỉ admin đọc/ghi).
+     * Không lưu vào localStorage để tránh lộ qua devtools.
      */
     async function saveWebhookUrl(svId, url) {
       if (!firebaseDb || !isAdmin()) return false;
@@ -849,11 +848,14 @@
         const relayUrl = new URL(window.BOSS_TIMELINE_DISCORD_API || "/api/discord", window.location.href);
         if (relayUrl.protocol !== "https:" && !(relayUrl.origin === window.location.origin && relayUrl.protocol === "http:")) return false;
         if (relayUrl.username || relayUrl.password) return false;
+        // Webhook được cấu hình trong giao diện phải được gửi cùng đúng server.
+        // API vẫn giữ webhook môi trường làm phương án dự phòng cho cấu hình cũ.
+        const webhookUrl = await loadWebhookUrl(serverId);
         for (let attempt = 0; attempt < 3; attempt++) {
           const proxyRes = await fetch(relayUrl.href, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
-            body: JSON.stringify({ payload, serverId, file }),
+            body: JSON.stringify({ payload, serverId, webhookUrl, file }),
             signal: AbortSignal.timeout(45000)
           });
           if (proxyRes.ok) return true;
@@ -2301,7 +2303,6 @@
     }
 
     function getVisibleBosses(now) {
-      const query = elements.searchBoss.value.trim().toLowerCase();
       const filtered = state.bosses.filter((boss) => {
         const status = getBossStatus(boss, now);
         const matchesFilter = activeFilter === "all" || status === activeFilter;
@@ -2311,8 +2312,7 @@
           matchesLevel = boss.spawnMode === "fixed";
         }
 
-        const text = `${boss.name} ${boss.map} ${boss.notes} lv${boss.level || ""}`.toLowerCase();
-        return matchesFilter && matchesLevel && (!query || text.includes(query));
+        return matchesFilter && matchesLevel;
       });
 
       return sortBossesForDisplay(filtered, now);
@@ -4659,8 +4659,6 @@
     }
 
     elements.clearHistoryBtn.addEventListener("click", clearHistory);
-    elements.searchBoss.addEventListener("input", render);
-
     document.getElementById("viewModeTabs")?.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-view]");
       if (!btn) return;

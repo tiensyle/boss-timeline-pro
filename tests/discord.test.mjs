@@ -50,6 +50,14 @@ test("approved secondary admins and super admins can send; server webhook overri
   assert.deepEqual(JSON.parse(override.requests.at(-1).options.body).allowed_mentions, { parse: [] });
 });
 
+test("webhook saved by an admin overrides the old deployment webhook for the selected server", async () => {
+  const savedWebhook = webhook.replace("test-token", "new-group-token");
+  const api = fixture({ env: { DISCORD_WEBHOOK_S2: webhook.replace("test-token", "old-group-token") } });
+  const result = await api.send({ body: { serverId: "s2", webhookUrl: savedWebhook, payload: { content: "New group" } } });
+  assert.equal(result.code, 200);
+  assert.equal(api.requests.at(-1).url, savedWebhook);
+});
+
 test("CORS preflight is supported only for explicitly allowed origins", async () => {
   const api = fixture({ env: { DISCORD_ALLOWED_ORIGINS: "https://site.example" } });
   const res = await api.send({ method: "OPTIONS", headers: { origin: "https://site.example", host: "relay.example" } });
