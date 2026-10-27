@@ -5774,6 +5774,7 @@
     let attendanceOcrReview = null;
     let attendanceOcrLoaderPromise = null;
     let attendanceOcrFiles = [];
+    let attendanceOcrPreviewUrls = [];
     let attendanceOcrAnalysisQueue = Promise.resolve();
     let closeAttendanceColumnFilter = () => {};
     const attendanceFilterColumns = [
@@ -7745,6 +7746,36 @@
       if (button) button.disabled = selectedCount === 0 && !hasEvidenceImage;
     }
 
+    function clearAttendanceOcrFilePreviews() {
+      attendanceOcrPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+      attendanceOcrPreviewUrls = [];
+      const preview = document.getElementById("attOcrPreview");
+      const list = document.getElementById("attOcrPreviewList");
+      const drop = document.querySelector(".att-ocr-drop");
+      if (preview) preview.hidden = true;
+      if (list) list.innerHTML = "";
+      if (drop) drop.classList.remove("has-preview");
+    }
+
+    function renderAttendanceOcrFilePreviews() {
+      clearAttendanceOcrFilePreviews();
+      if (!attendanceOcrFiles.length) return;
+      const preview = document.getElementById("attOcrPreview");
+      const list = document.getElementById("attOcrPreviewList");
+      const count = document.getElementById("attOcrPreviewCount");
+      const drop = document.querySelector(".att-ocr-drop");
+      if (!preview || !list) return;
+      attendanceOcrPreviewUrls = attendanceOcrFiles.map(file => URL.createObjectURL(file));
+      list.innerHTML = attendanceOcrFiles.map((file, index) => `
+        <div class="att-ocr-preview-item">
+          <img src="${escapeHtml(attendanceOcrPreviewUrls[index])}" alt="Ảnh đội hình ${index + 1}">
+          <span title="${escapeHtml(file.name || `Ảnh ${index + 1}`)}">${escapeHtml(file.name || `Ảnh ${index + 1}`)}</span>
+        </div>`).join("");
+      if (count) count.textContent = `Đã chọn ${attendanceOcrFiles.length} ảnh · Bấm vào khung để chọn thêm`;
+      preview.hidden = false;
+      if (drop) drop.classList.add("has-preview");
+    }
+
     function queueAttendanceOcrFiles(files) {
       const imageFiles = [...(files || [])].filter(file => file && String(file.type || "").startsWith("image/"));
       if (!imageFiles.length) {
@@ -7755,6 +7786,7 @@
         const signature = `${file.name}|${file.size}|${file.lastModified}`;
         if (!attendanceOcrFiles.some(item => `${item.name}|${item.size}|${item.lastModified}` === signature)) attendanceOcrFiles.push(file);
       });
+      renderAttendanceOcrFilePreviews();
       const snapshot = attendanceOcrFiles.slice();
       attendanceOcrAnalysisQueue = attendanceOcrAnalysisQueue
         .catch(() => {})
@@ -7767,6 +7799,7 @@
       if (!activity) return;
       attendanceOcrReview = { activityId: actId, matched: [], faded: [], unmatched: [] };
       attendanceOcrFiles = [];
+      clearAttendanceOcrFilePreviews();
       attendanceOcrAnalysisQueue = Promise.resolve();
       document.getElementById("attOcrActivityId").value = actId;
       document.getElementById("attOcrModalTitle").textContent = `Chấm công: ${activity.name}`;
@@ -7782,6 +7815,7 @@
 
     function closeAttendanceOcrModal() {
       document.getElementById("attOcrModal")?.classList.remove("open");
+      clearAttendanceOcrFilePreviews();
       syncModalScrollLock();
     }
 

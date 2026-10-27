@@ -196,6 +196,8 @@ try {
     Object.defineProperty(event, "clipboardData", { value: { items: [{ kind: "file", type: "image/png", getAsFile: () => file }] } });
     document.dispatchEvent(event);
   });
+  await page.waitForFunction(() => document.querySelectorAll("#attOcrPreviewList img").length === 1);
+  assert.equal(await page.locator("#attOcrPreview").isVisible(), true);
   await page.waitForFunction(() => document.getElementById("attOcrProgressText").textContent.includes("Đã xử lý 1 ảnh"));
   await page.evaluate(() => {
     const evidenceImage = attendanceOcrReview.evidenceImage;
