@@ -296,7 +296,7 @@ try {
     };
   });
   assert.deepEqual(attendanceHeaderLayout.toolbarHeights, [48]);
-  assert.deepEqual(attendanceHeaderLayout.cardHeights, [144]);
+  assert.deepEqual(attendanceHeaderLayout.cardHeights, [123]);
   assert.deepEqual(attendanceHeaderLayout.cardRowCounts, [4]);
   assert.ok(attendanceHeaderLayout.cardRowOrder[0].includes('act-card-meta-row'));
   assert.ok(attendanceHeaderLayout.cardRowOrder[1].includes('act-card-name-row'));
