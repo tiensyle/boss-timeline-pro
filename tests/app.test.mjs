@@ -523,12 +523,13 @@ test("role position bonus allocates deducted pool first and preserves 100% total
 });
 
 test("combat power rankings automatically assign multipliers by tier and sort members", () => {
-  const ctx = load(["parseCombatPowerInput", "formatCombatPowerInput", "formatCombatPowerDisplay", "applyCombatPowerTiersToWeek", "getMemberServerId"], {
+  const ctx = load(["parseCombatPowerInput", "formatCombatPowerInput", "formatCombatPowerDisplay", "normalizeRoleText", "getManagementRoleMultiplier", "applyCombatPowerTiersToWeek", "getMemberServerId"], {
     DEFAULT_CP_TIERS: [
       { upToRank: 2, multiplier: 3.0, label: "Top 1 - 2" },
       { upToRank: 5, multiplier: 2.5, label: "Top 3 - 5" },
       { upToRank: null, multiplier: 1.0, label: "Còn lại" }
     ],
+    DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS: [],
     getMemberServerId: m => m.serverId || "s1",
     getDefaultAttendanceServerId: () => "s1"
   });
@@ -575,6 +576,34 @@ test("combat power rankings automatically assign multipliers by tier and sort me
 
   assert.equal(week.members[5].name, "MemberNew");
   assert.equal(week.members[5].multiplier, 1.0);
+});
+
+test("management roles provide a configurable minimum salary multiplier", () => {
+  const ctx = load(["normalizeRoleText", "getManagementRoleMultiplier", "applyCombatPowerTiersToWeek", "getMemberServerId"], {
+    DEFAULT_CP_TIERS: [{ upToRank: null, multiplier: 1 }],
+    DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS: [
+      { role: "Chủ Guild, Bang Chủ, Chủ Bang", multiplier: 2.5 },
+      { role: "Thư Ký", multiplier: 2 },
+      { role: "Call Boss", multiplier: 1.5 },
+      { role: "Note Boss", multiplier: 1.5 }
+    ],
+    getMemberServerId: member => member.serverId || "s1"
+  });
+  const week = { members: [
+    { id: "owner", name: "Owner", role: "👑 Chủ Bang", combatPower: 1 },
+    { id: "secretary", name: "Secretary", role: "Thư Ký", combatPower: 4 },
+    { id: "caller", name: "Caller", role: "Call Boss", combatPower: 3 },
+    { id: "noter", name: "Noter", role: "Note Boss", combatPower: 2 },
+    { id: "member", name: "Member", role: "Thành viên", combatPower: 5 }
+  ] };
+  const tiers = [{ upToRank: 1, multiplier: 3 }, { upToRank: null, multiplier: 1 }];
+  ctx.applyCombatPowerTiersToWeek(week, "guild", tiers);
+  const byId = Object.fromEntries(week.members.map(member => [member.id, member]));
+  assert.equal(byId.member.multiplier, 3, "Top multiplier remains higher than role minimums");
+  assert.equal(byId.owner.multiplier, 2.5);
+  assert.equal(byId.secretary.multiplier, 2);
+  assert.equal(byId.caller.multiplier, 1.5);
+  assert.equal(byId.noter.multiplier, 1.5);
 });
 
 test("legacy global attendance migration preserves all weeks and server assignments", async () => {
@@ -796,14 +825,14 @@ test("new attendance week preserves full member profiles and bonus/ranking setti
   const previous = { id: "old", members: [
     { id: "m1", name: "Leader", serverId: "s8", combatPower: 165000, multiplier: 2.5, role: "Leader", color: "#ff0", roleColor: "#f80", roleBonusPercent: 0, records: { boss: true } },
     { id: "m2", name: "Core", serverId: "s10", combatPower: 135000, multiplier: 1.5, role: "Core", roleBonusPercent: 4, records: { boss: true } }
-  ], activities: [{ id: "boss", name: "Boss", points: 2 }], roleBonuses: [{ role: "Leader", percent: 4 }], cpTiers: [{ upToRank: null, multiplier: 2.5 }], cpScope: "guild" };
+  ], activities: [{ id: "boss", name: "Boss", points: 2 }], roleBonuses: [{ role: "Leader", percent: 4 }], cpTiers: [{ upToRank: null, multiplier: 2.5 }], managementRoleMultipliers: [{ role: "Leader", multiplier: 2 }], cpScope: "guild" };
   const elements = Object.fromEntries(Object.entries({
     attWeekEditId: "", attWeekNameInput: "Next", attWeekDateRangeInput: "01/11 - 07/11", attWeekDiasPoolInput: "0", attWeekUsdtPoolInput: "0", attWeekMinimumParticipationInput: "50"
   }).map(([id, value]) => [id, { value }]));
   elements.attWeekClearBossesOption = { checked: true };
   const state = { activeWeekId: "old", weeks: [previous] };
   const ctx = load(["cloneRealtimeValue", "normalizeMinimumParticipationPercent", "saveAttendanceWeek"], {
-    document: { getElementById: id => elements[id] }, attendanceState: state,
+    document: { getElementById: id => elements[id] }, attendanceState: state, DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS: [],
     isAdmin: () => true, getActiveWeek: () => previous, getDefaultAttendanceServerId: () => "fallback",
     showToast: () => {}, saveAttendanceState: () => {}, closeAttendanceWeekModal: () => {}, renderAttendanceTable: () => {}
   });
@@ -812,6 +841,7 @@ test("new attendance week preserves full member profiles and bonus/ranking setti
   assert.deepEqual(copy(next.members), previous.members.map(m => ({ ...m, records: {} })));
   assert.deepEqual(copy(next.roleBonuses), previous.roleBonuses);
   assert.deepEqual(copy(next.cpTiers), previous.cpTiers);
+  assert.deepEqual(copy(next.managementRoleMultipliers), previous.managementRoleMultipliers);
   assert.equal(next.cpScope, "guild");
   assert.equal(next.activities.length, 0);
   next.roleBonuses[0].percent = 9;

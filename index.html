@@ -1607,7 +1607,22 @@
           </div>
         </div>
 
-        <!-- Section 2: Cập nhật Lực Chiến thành viên -->
+        <!-- Section 2: Hệ số tối thiểu theo chức danh quản lý -->
+        <div class="att-cp-section">
+          <div class="att-cp-section-header">
+            <div>
+              <h4 style="margin:0; font-size:13.5px; font-weight:700; color:var(--text);">👑 Hệ Số Theo Chức Danh Quản Lý</h4>
+              <p style="margin:3px 0 0; font-size:10.5px; color:var(--muted);">Lấy mức cao hơn giữa hệ số Top lực chiến và hệ số chức danh.</p>
+            </div>
+            <button type="button" class="button-ghost" id="attAddManagementRoleBtn" style="font-size:11.5px; padding:3px 8px;">+ Thêm chức danh</button>
+          </div>
+          <div class="att-management-role-list" id="attManagementRoleList"></div>
+          <div style="display:flex; justify-content:flex-end; margin-top:7px;">
+            <button type="button" class="button-ghost" id="attResetManagementRolesBtn" style="font-size:11px; padding:3px 8px; color:var(--muted);">Khôi phục: Chủ Guild, Thư Ký, Call Boss, Note Boss</button>
+          </div>
+        </div>
+
+        <!-- Section 3: Cập nhật Lực Chiến thành viên -->
         <div class="att-cp-section" style="margin-bottom: 0;">
           <div class="att-cp-section-header">
             <h4 style="margin:0; font-size:13.5px; font-weight:700; color:var(--text);">
@@ -1630,6 +1645,7 @@
                 <tr style="text-align:left; color:var(--muted);">
                   <th style="padding:6px 8px; width:30px;">#</th>
                   <th style="padding:6px 8px;">Thành Viên</th>
+                  <th style="padding:6px 8px; width:100px;">Chức Danh</th>
                   <th style="padding:6px 8px; width:80px;">Server</th>
                   <th style="padding:6px 8px; width:130px;">Lực Chiến (CP)</th>
                   <th style="padding:6px 8px; width:70px; text-align:center;">Hệ Số</th>

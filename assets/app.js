@@ -5858,6 +5858,13 @@
       { upToRank: null, multiplier: 1.0, label: "Còn lại" }
     ];
 
+    const DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS = [
+      { role: "Chủ Guild, Bang Chủ, Chủ Bang", multiplier: 2.5 },
+      { role: "Thư Ký", multiplier: 2.0 },
+      { role: "Call Boss", multiplier: 1.5 },
+      { role: "Note Boss", multiplier: 1.5 }
+    ];
+
     function parseCombatPowerInput(input) {
       if (input === null || input === undefined) return 0;
       let str = String(input).trim().toUpperCase();
@@ -5898,9 +5905,40 @@
       return String(num);
     }
 
-    function applyCombatPowerTiersToWeek(week, scope, tiers) {
+    function getManagementRoleMultiplier(member, roleMultipliers) {
+      const memberRole = normalizeRoleText(member?.role);
+      if (!memberRole) return null;
+      let best = null;
+      (Array.isArray(roleMultipliers) ? roleMultipliers : []).forEach(item => {
+        const multiplier = Number(item?.multiplier);
+        if (!Number.isFinite(multiplier) || multiplier <= 0) return;
+        const aliases = String(item?.role || "").split(/[,/;|]+/).map(normalizeRoleText).filter(Boolean);
+        if (!aliases.some(alias => memberRole === alias || memberRole.includes(alias) || alias.includes(memberRole))) return;
+        if (!best || multiplier > best.multiplier) best = { role: String(item.role || "").trim(), multiplier };
+      });
+      return best;
+    }
+
+    function applyCombatPowerTiersToWeek(week, scope, tiers, roleMultipliers = week?.managementRoleMultipliers) {
       if (!week || !Array.isArray(week.members) || week.members.length === 0) return;
       const normalizedTiers = Array.isArray(tiers) && tiers.length > 0 ? tiers : DEFAULT_CP_TIERS;
+      const normalizedRoleMultipliers = Array.isArray(roleMultipliers) && roleMultipliers.length > 0
+        ? roleMultipliers
+        : DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS;
+
+      const applyMemberMultiplier = (member, tier) => {
+        const cpMultiplier = tier && typeof tier.multiplier === "number" ? tier.multiplier : 1;
+        const management = getManagementRoleMultiplier(member, normalizedRoleMultipliers);
+        member.cpRankMultiplier = cpMultiplier;
+        if (management) {
+          member.managementRoleMultiplier = management.multiplier;
+          member.managementRoleMatched = management.role;
+        } else {
+          delete member.managementRoleMultiplier;
+          delete member.managementRoleMatched;
+        }
+        member.multiplier = Math.max(cpMultiplier, management?.multiplier || 1);
+      };
 
       if (scope === "server") {
         const byServer = new Map();
@@ -5914,9 +5952,7 @@
           mList.forEach((m, idx) => {
             const rank = idx + 1;
             const tier = normalizedTiers.find(t => t.upToRank === null || rank <= t.upToRank);
-            if (tier && typeof tier.multiplier === "number") {
-              m.multiplier = tier.multiplier;
-            }
+            applyMemberMultiplier(m, tier);
           });
         });
         week.members.sort((a, b) => {
@@ -5929,13 +5965,12 @@
         week.members.forEach((m, idx) => {
           const rank = idx + 1;
           const tier = normalizedTiers.find(t => t.upToRank === null || rank <= t.upToRank);
-          if (tier && typeof tier.multiplier === "number") {
-            m.multiplier = tier.multiplier;
-          }
+          applyMemberMultiplier(m, tier);
         });
       }
       week.cpTiers = JSON.parse(JSON.stringify(normalizedTiers));
       week.cpScope = scope;
+      week.managementRoleMultipliers = JSON.parse(JSON.stringify(normalizedRoleMultipliers));
     }
 
     function normalizeRoleText(role) {
@@ -6056,6 +6091,9 @@
         } else {
           w.cpTiers = JSON.parse(JSON.stringify(DEFAULT_CP_TIERS));
         }
+        w.managementRoleMultipliers = Array.isArray(w.managementRoleMultipliers) && w.managementRoleMultipliers.length > 0
+          ? JSON.parse(JSON.stringify(w.managementRoleMultipliers))
+          : JSON.parse(JSON.stringify(DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS));
         w.cpScope = w.cpScope === "guild" ? "guild" : "server";
 
         const usedIds = new Set();
@@ -6438,6 +6476,7 @@
           members: copiedMembers,
           roleBonuses: cloneRealtimeValue(currWeek?.roleBonuses ?? attendanceState.roleBonuses ?? DEFAULT_ROLE_BONUSES),
           cpTiers: cloneRealtimeValue(currWeek?.cpTiers ?? DEFAULT_CP_TIERS),
+          managementRoleMultipliers: cloneRealtimeValue(currWeek?.managementRoleMultipliers ?? DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS),
           cpScope: currWeek?.cpScope || "server",
           createdAt: Date.now()
         };
@@ -7234,12 +7273,15 @@
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
           <div class="act-card-header">
             <div class="act-card-row act-card-meta-row">
-              <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="${adminMode ? 'Chấm công / xem ảnh đội hình' : 'Xem ảnh và danh sách chấm công'}" aria-label="Mở ảnh chấm công">📷</button>
+              <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="${adminMode ? 'Chấm công / xem ảnh đội hình' : 'Xem ảnh và danh sách chấm công'}" aria-label="Mở ảnh chấm công"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5 10 3.5h4l1.5 2H19a2 2 0 0 1 2 2v10A2 2 0 0 1 19 19H5a2 2 0 0 1-2-2v-9.5a2 2 0 0 1 2-2h3.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12.5" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
               <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
-              <div class="act-period-badge ${act.timePeriod === "night" ? "is-night" : "is-day"}">${act.timePeriod === "night" ? "🌙 00h–7h · X2" : "☀️ Ban ngày"}</div>
+              <div class="act-period-badge ${act.timePeriod === "night" ? "is-night" : "is-day"}" title="${act.timePeriod === "night" ? "Ban đêm 00h–7h · X2 điểm" : "Ban ngày · điểm cơ bản"}" aria-label="${act.timePeriod === "night" ? "Ban đêm 00h–7h · X2 điểm" : "Ban ngày · điểm cơ bản"}">${act.timePeriod === "night" ? "🌙" : "☀️"}</div>
             </div>
             <div class="act-card-row act-card-name-row">
               <div class="act-header-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</div>
+            </div>
+            <div class="act-card-row act-card-points-row">
+              <div class="act-header-points">⭐ ${act.points} Điểm</div>
             </div>
             <div class="act-card-row act-header-bottom">
               ${adminMode ? `
@@ -7252,9 +7294,6 @@
                   <button type="button" class="att-btn-micro att-del-act-btn" data-act-id="${escapeHtml(act.id)}" title="Xóa cột này">🗑️</button>
                 </div>
               ` : '<span class="act-readonly-label">Chỉ xem</span>'}
-            </div>
-            <div class="act-card-row act-card-points-row">
-              <div class="act-header-points">⭐ ${act.points} Điểm</div>
             </div>
           </div>
         </th>`;
@@ -8513,6 +8552,7 @@
       }
 
       renderCpTiersBody(tiers);
+      renderManagementRoleMultipliers(currWeek?.managementRoleMultipliers || DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS);
       renderCpMembersTableBody(serverSelect ? serverSelect.value : "all");
 
       const errEl = document.getElementById("attCpModalError");
@@ -8596,6 +8636,37 @@
       return tiers;
     }
 
+    function renderManagementRoleMultipliers(items) {
+      const container = document.getElementById("attManagementRoleList");
+      if (!container) return;
+      const list = Array.isArray(items) && items.length ? items : DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS;
+      container.innerHTML = list.map(item => `
+        <div class="att-management-role-row">
+          <input type="text" class="att-management-role-name" maxlength="80" value="${escapeHtml(item.role || "")}" placeholder="Ví dụ: Chủ Guild">
+          <span class="att-management-role-arrow">tối thiểu</span>
+          <span class="att-management-role-x">x</span>
+          <input type="number" class="att-management-role-multiplier" min="1" max="10" step="0.1" value="${Number(item.multiplier) || 1}">
+          <button type="button" class="att-btn-micro att-remove-management-role" title="Xóa chức danh">🗑️</button>
+        </div>`).join("");
+      container.querySelectorAll(".att-remove-management-role").forEach(button => {
+        button.addEventListener("click", () => button.closest(".att-management-role-row")?.remove());
+      });
+    }
+
+    function addManagementRoleMultiplier(role = "", multiplier = 1.5) {
+      const items = collectManagementRoleMultipliers();
+      items.push({ role, multiplier });
+      renderManagementRoleMultipliers(items);
+      document.querySelector("#attManagementRoleList .att-management-role-row:last-child .att-management-role-name")?.focus();
+    }
+
+    function collectManagementRoleMultipliers() {
+      return [...document.querySelectorAll("#attManagementRoleList .att-management-role-row")].map(row => ({
+        role: (row.querySelector(".att-management-role-name")?.value || "").trim(),
+        multiplier: Math.max(1, Math.min(10, Number(row.querySelector(".att-management-role-multiplier")?.value) || 1))
+      })).filter(item => item.role);
+    }
+
     function renderCpMembersTableBody(serverFilter = "all") {
       const tbody = document.getElementById("attCpMembersTableBody");
       if (!tbody) return;
@@ -8605,7 +8676,7 @@
         members = members.filter(m => getMemberServerId(m) === serverFilter);
       }
       if (members.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">Không có thành viên nào phù hợp.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">Không có thành viên nào phù hợp.</td></tr>`;
         return;
       }
       let html = "";
@@ -8614,11 +8685,12 @@
         html += `<tr data-member-id="${escapeHtml(m.id)}">
           <td style="padding:6px 8px; color:var(--muted);">${idx + 1}</td>
           <td style="padding:6px 8px; font-weight:600; color:var(--text);">${escapeHtml(m.name)}</td>
+          <td style="padding:6px 8px;"><span class="att-management-role-badge${m.role ? "" : " is-empty"}">${escapeHtml(m.role || "Thành viên")}</span></td>
           <td style="padding:6px 8px;"><span class="att-server-tag">${escapeHtml(getMemberServerName(m))}</span></td>
           <td style="padding:6px 8px;">
             <input type="text" class="att-cp-member-input" data-member-id="${escapeHtml(m.id)}" value="${escapeHtml(cpFormatted)}" placeholder="VD: 18.5M">
           </td>
-          <td style="padding:6px 8px; text-align:center; font-weight:700; color:var(--amber);">x${m.multiplier}</td>
+          <td style="padding:6px 8px; text-align:center; font-weight:700; color:var(--amber);"><span title="${m.managementRoleMultiplier ? `Top x${m.cpRankMultiplier || 1} · Chức danh x${m.managementRoleMultiplier}` : `Theo Top lực chiến`}">x${m.multiplier}${m.managementRoleMultiplier && m.managementRoleMultiplier >= (m.cpRankMultiplier || 1) ? " 👑" : ""}</span></td>
         </tr>`;
       });
       tbody.innerHTML = html;
@@ -8641,13 +8713,15 @@
 
 
       const tiers = collectCpTiersFromModal();
+      const roleMultipliers = collectManagementRoleMultipliers();
       const scope = document.getElementById("attCpScopeGuild")?.checked ? "guild" : "server";
 
       if (applyTiers) {
-        applyCombatPowerTiersToWeek(currWeek, scope, tiers);
-        showToast("⚡ Đã xếp hạng và tự động gán hệ số theo Lực Chiến thành công!");
+        applyCombatPowerTiersToWeek(currWeek, scope, tiers, roleMultipliers);
+        showToast("⚡ Đã áp hệ số theo Top Lực Chiến và Chức Danh quản lý!");
       } else {
         currWeek.cpTiers = tiers;
+        currWeek.managementRoleMultipliers = roleMultipliers;
         currWeek.cpScope = scope;
         showToast("💾 Đã lưu Lực Chiến thành công!");
       }
@@ -9383,6 +9457,11 @@
       document.getElementById("attResetCpTiersBtn")?.addEventListener("click", () => {
         renderCpTiersBody(JSON.parse(JSON.stringify(DEFAULT_CP_TIERS)));
         showToast("Đã khôi phục mốc mẫu Lực Chiến.");
+      });
+      document.getElementById("attAddManagementRoleBtn")?.addEventListener("click", () => addManagementRoleMultiplier());
+      document.getElementById("attResetManagementRolesBtn")?.addEventListener("click", () => {
+        renderManagementRoleMultipliers(JSON.parse(JSON.stringify(DEFAULT_MANAGEMENT_ROLE_MULTIPLIERS)));
+        showToast("Đã khôi phục hệ số chức danh quản lý mặc định.");
       });
       document.getElementById("attCpModalServerSelect")?.addEventListener("change", (e) => {
         renderCpMembersTableBody(e.target.value);

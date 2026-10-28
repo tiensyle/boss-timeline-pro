@@ -276,7 +276,8 @@ try {
     { name: 'Day Boss', period: 'day', points: 3, base: 3 },
     { name: 'Night Boss', period: 'night', points: 6, base: 3 }
   ]);
-  assert.ok((await page.locator('.act-period-badge.is-night').last().textContent()).includes('X2'));
+  assert.equal((await page.locator('.act-period-badge.is-night').last().textContent()).trim(), '🌙');
+  assert.ok((await page.locator('.act-period-badge.is-night').last().getAttribute('title')).includes('X2'));
   await page.locator(`.att-edit-act-btn[data-act-id="${dayNightActivities[1].id}"]`).click();
   assert.equal(await page.locator('#attActivityDaySection').isVisible(), false);
   assert.equal(await page.locator('#attActivityNightSection').isVisible(), true);
@@ -290,14 +291,36 @@ try {
     return {
       toolbarHeights: [...new Set(toolbarControls.map(element => Math.round(element.getBoundingClientRect().height)))],
       cardHeights: [...new Set(cards.map(element => Math.round(element.getBoundingClientRect().height)))],
-      cardRowCounts: [...new Set(cards.map(element => element.querySelectorAll(':scope > .act-card-row').length))]
+      cardRowCounts: [...new Set(cards.map(element => element.querySelectorAll(':scope > .act-card-row').length))],
+      cardRowOrder: cards.at(-1) ? [...cards.at(-1).children].map(element => element.className) : []
     };
   });
   assert.deepEqual(attendanceHeaderLayout.toolbarHeights, [48]);
   assert.deepEqual(attendanceHeaderLayout.cardHeights, [144]);
   assert.deepEqual(attendanceHeaderLayout.cardRowCounts, [4]);
+  assert.ok(attendanceHeaderLayout.cardRowOrder[0].includes('act-card-meta-row'));
+  assert.ok(attendanceHeaderLayout.cardRowOrder[1].includes('act-card-name-row'));
+  assert.ok(attendanceHeaderLayout.cardRowOrder[2].includes('act-card-points-row'));
+  assert.ok(attendanceHeaderLayout.cardRowOrder[3].includes('act-header-bottom'));
   checks.push('Day and night boss columns use separate attendance with automatic X2 night points');
   checks.push('Attendance toolbar controls and four-row boss cards have equal heights');
+
+  await page.evaluate(() => {
+    const member = getActiveWeek().members[0];
+    member.role = '👑 Chủ Guild';
+    member.combatPower = 100;
+    renderAttendanceTable();
+  });
+  await page.locator('#attCombatPowerBtn').click();
+  assert.equal(await page.locator('#attManagementRoleList .att-management-role-row').count(), 4);
+  assert.ok((await page.locator('#attManagementRoleList .att-management-role-name').first().inputValue()).includes('Chủ Guild'));
+  await page.locator('#attCpApplyTiersBtn').click();
+  const managementMultiplier = await page.evaluate(() => {
+    const member = getActiveWeek().members.find(item => item.role?.includes('Chủ Guild'));
+    return { multiplier: member.multiplier, roleMultiplier: member.managementRoleMultiplier, cpMultiplier: member.cpRankMultiplier };
+  });
+  assert.deepEqual(managementMultiplier, { multiplier: 2.5, roleMultiplier: 2.5, cpMultiplier: 2 });
+  checks.push('Management roles provide a configurable minimum salary multiplier');
 
   await page.evaluate(() => {
     getActiveWeek().members[0].name = "CURRENT-SOURCE";
