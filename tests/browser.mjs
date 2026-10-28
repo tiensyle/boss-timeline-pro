@@ -282,7 +282,22 @@ try {
   assert.equal(await page.locator('#attActivityNightSection').isVisible(), true);
   assert.equal(await page.locator('#attActivityPointsInput').inputValue(), '3');
   await page.locator('#attCancelActivityBtn').click();
+  const attendanceHeaderLayout = await page.evaluate(() => {
+    const toolbarControls = [
+      ...document.querySelectorAll('.att-toolbar .att-select, .att-toolbar .att-admin-btn, #attColumnVisibility summary')
+    ].filter(element => getComputedStyle(element).display !== 'none');
+    const cards = [...document.querySelectorAll('.act-card-header')];
+    return {
+      toolbarHeights: [...new Set(toolbarControls.map(element => Math.round(element.getBoundingClientRect().height)))],
+      cardHeights: [...new Set(cards.map(element => Math.round(element.getBoundingClientRect().height)))],
+      cardRowCounts: [...new Set(cards.map(element => element.querySelectorAll(':scope > .act-card-row').length))]
+    };
+  });
+  assert.deepEqual(attendanceHeaderLayout.toolbarHeights, [48]);
+  assert.deepEqual(attendanceHeaderLayout.cardHeights, [144]);
+  assert.deepEqual(attendanceHeaderLayout.cardRowCounts, [4]);
   checks.push('Day and night boss columns use separate attendance with automatic X2 night points');
+  checks.push('Attendance toolbar controls and four-row boss cards have equal heights');
 
   await page.evaluate(() => {
     getActiveWeek().members[0].name = "CURRENT-SOURCE";

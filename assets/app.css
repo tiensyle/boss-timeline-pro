@@ -3349,6 +3349,7 @@
     .att-eligibility.ineligible { color: var(--red); background: var(--red-soft); }
     .col-percent .att-badge { display: inline-block; max-width: 75px; white-space: normal; overflow-wrap: anywhere; }
     .att-toolbar {
+      --att-toolbar-control-height: 48px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -3410,7 +3411,7 @@
       min-width: 170px;
     }
     .att-select {
-      height: 42px;
+      height: var(--att-toolbar-control-height);
       padding: 0 32px 0 12px;
       border-radius: var(--radius);
       border: 1px solid var(--line-soft);
@@ -3434,7 +3435,8 @@
     .att-admin-btn {
       font-size: 13px;
       font-weight: 700;
-      min-height: 42px;
+      height: var(--att-toolbar-control-height);
+      min-height: var(--att-toolbar-control-height);
       padding: 0 14px;
       cursor: pointer;
       border-radius: var(--radius);
@@ -4034,18 +4036,37 @@
 
     /* Activity Column Header (Clear 4-tier layout) */
     .col-act {
-      min-width: 145px;
-      max-width: 185px;
+      width: 190px;
+      min-width: 190px;
+      max-width: 190px;
       padding: 8px 6px !important;
       background: var(--surface-2) !important;
       vertical-align: top !important;
     }
     .act-card-header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
+      display: grid;
+      grid-template-rows: 30px 42px 32px 28px;
+      align-items: stretch;
+      gap: 4px;
       width: 100%;
+      height: 144px;
+    }
+    .act-card-row {
+      min-width: 0;
+    }
+    .act-card-meta-row {
+      display: grid;
+      grid-template-columns: 26px minmax(58px, auto) 1fr;
+      align-items: center;
+      gap: 4px;
+    }
+    .act-card-meta-row .att-ocr-btn {
+      width: 26px;
+      height: 24px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+      font-size: 12px;
     }
     /* 1. Ngày tháng tách riêng ở trên */
     .act-header-date {
@@ -4057,9 +4078,12 @@
       color: var(--cyan);
       font-size: 11px;
       font-weight: 700;
-      padding: 2px 8px;
+      min-width: 0;
+      padding: 2px 5px;
       border-radius: 6px;
-      letter-spacing: 0.3px;
+      letter-spacing: 0;
+      justify-content: center;
+      white-space: nowrap;
     }
     /* 2. Tên Boss ở giữa */
     .act-header-name {
@@ -4070,7 +4094,17 @@
       text-align: center;
       word-break: break-word;
       white-space: normal;
-      min-height: 32px;
+      min-height: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+    .act-card-name-row {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -4088,17 +4122,23 @@
       padding: 2px 9px;
       border-radius: 12px;
     }
+    .act-card-points-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     /* 4. Dưới cùng: Ô Tất cả + Nút Sửa/Xóa */
     .act-header-bottom {
       width: 100%;
       border-top: 1px dashed var(--line-soft);
-      padding-top: 6px;
-      margin-top: 4px;
+      padding-top: 4px;
+      margin-top: 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 4px;
     }
+    .act-readonly-label { margin:auto; color:var(--muted); font-size:10px; font-weight:600; }
     .act-check-all-label {
       display: inline-flex;
       align-items: center;
@@ -4403,7 +4443,7 @@
 #attOcrManualPicker .att-ocr-chip-list { max-height:180px; overflow:auto; }
 #attOcrRetry { margin-bottom:12px; }
 #attColumnVisibility { position:relative; min-width:225px; }
-#attColumnVisibility summary { display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--line-soft); border-radius:10px; color:var(--text); background:linear-gradient(135deg, var(--surface), rgba(59,130,246,.07)); cursor:pointer; box-shadow:0 2px 8px rgba(15,23,42,.08); list-style:none; transition:border-color .2s, box-shadow .2s, transform .2s; }
+#attColumnVisibility summary { box-sizing:border-box; display:flex; align-items:center; gap:10px; height:var(--att-toolbar-control-height,48px); padding:6px 12px; border:1px solid var(--line-soft); border-radius:10px; color:var(--text); background:linear-gradient(135deg, var(--surface), rgba(59,130,246,.07)); cursor:pointer; box-shadow:0 2px 8px rgba(15,23,42,.08); list-style:none; transition:border-color .2s, box-shadow .2s, transform .2s; }
 #attColumnVisibility summary::-webkit-details-marker { display:none; }
 #attColumnVisibility summary:hover, #attColumnVisibility[open] summary { border-color:rgba(59,130,246,.45); box-shadow:0 6px 18px rgba(37,99,235,.14); transform:translateY(-1px); }
 #attColumnVisibility summary > span:nth-child(2) { display:flex; flex:1; flex-direction:column; line-height:1.2; }
@@ -4444,6 +4484,7 @@
 .att-point-formula { display:block; margin-top:7px; padding:7px 9px; border-radius:7px; color:var(--muted); background:rgba(59,130,246,.07); font-size:11px; }
 .att-point-formula strong:last-child { color:#818cf8; }
 .act-period-badge { display:inline-flex; align-self:center; margin:3px auto 2px; padding:2px 7px; border-radius:999px; font-size:9px; font-weight:800; line-height:1.3; white-space:nowrap; }
+.act-card-meta-row .act-period-badge { justify-content:center; min-width:0; margin:0; padding:2px 4px; overflow:hidden; text-overflow:ellipsis; }
 .act-period-badge.is-day { color:#b45309; background:rgba(245,158,11,.14); }
 .act-period-badge.is-night { color:#6366f1; background:rgba(99,102,241,.14); }
 @media (max-width:600px) {

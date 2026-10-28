@@ -7233,13 +7233,16 @@
         const allChecked = filteredMembers.length > 0 && filteredMembers.every(m => m.records && m.records[act.id]);
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
           <div class="act-card-header">
-            <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
-            <div class="act-period-badge ${act.timePeriod === "night" ? "is-night" : "is-day"}">${act.timePeriod === "night" ? "🌙 00h–7h · X2" : "☀️ Ban ngày"}</div>
-            <div class="act-header-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</div>
-            <div class="act-header-points">⭐ ${act.points} Điểm</div>
-            <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="${adminMode ? 'Chấm công / xem ảnh đội hình' : 'Xem ảnh và danh sách chấm công'}">📷</button>
-            ${adminMode ? `
-              <div class="act-header-bottom">
+            <div class="act-card-row act-card-meta-row">
+              <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="${adminMode ? 'Chấm công / xem ảnh đội hình' : 'Xem ảnh và danh sách chấm công'}" aria-label="Mở ảnh chấm công">📷</button>
+              <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
+              <div class="act-period-badge ${act.timePeriod === "night" ? "is-night" : "is-day"}">${act.timePeriod === "night" ? "🌙 00h–7h · X2" : "☀️ Ban ngày"}</div>
+            </div>
+            <div class="act-card-row act-card-name-row">
+              <div class="act-header-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</div>
+            </div>
+            <div class="act-card-row act-header-bottom">
+              ${adminMode ? `
                 <label class="act-check-all-label" title="Tích chọn tất cả thành viên đang hiển thị">
                   <input type="checkbox" class="att-check-all-box" data-act-id="${escapeHtml(act.id)}"${allChecked ? " checked" : ""}>
                   <span>Tất cả</span>
@@ -7248,8 +7251,11 @@
                   <button type="button" class="att-btn-micro att-edit-act-btn" data-act-id="${escapeHtml(act.id)}" title="Sửa tên / điểm">✏️</button>
                   <button type="button" class="att-btn-micro att-del-act-btn" data-act-id="${escapeHtml(act.id)}" title="Xóa cột này">🗑️</button>
                 </div>
-              </div>` : ""
-            }
+              ` : '<span class="act-readonly-label">Chỉ xem</span>'}
+            </div>
+            <div class="act-card-row act-card-points-row">
+              <div class="act-header-points">⭐ ${act.points} Điểm</div>
+            </div>
           </div>
         </th>`;
       });
