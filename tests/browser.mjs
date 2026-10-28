@@ -259,6 +259,31 @@ try {
   checks.push('Multiple attendance images, OCR matching, retry without duplicates, image deletion and column visibility');
   checks.push("Attendance OCR accepts Ctrl+V, manual faded names and member-visible evidence");
 
+  const activityCountBeforeDayNight = await page.evaluate(() => getActiveWeek().activities.length);
+  await page.locator('#attAddActivityBtn').click();
+  assert.equal(await page.locator('#attActivityDaySection').isVisible(), true);
+  assert.equal(await page.locator('#attActivityNightSection').isVisible(), true);
+  await page.locator('#attNewActivityNameBtn').click();
+  await page.locator('#attActivityNameInput').fill('Day Boss');
+  await page.locator('#attNewActivityNightNameBtn').click();
+  await page.locator('#attActivityNightNameInput').fill('Night Boss');
+  await page.locator('#attActivityPointsInput').fill('3');
+  assert.ok((await page.locator('#attNightPointsPreview').textContent()).includes('6'));
+  await page.locator('#attSaveActivityBtn').click();
+  const dayNightActivities = await page.evaluate(() => getActiveWeek().activities.slice(-2));
+  assert.equal(dayNightActivities.length + activityCountBeforeDayNight, await page.evaluate(() => getActiveWeek().activities.length));
+  assert.deepEqual(dayNightActivities.map(item => ({ name: item.name, period: item.timePeriod, points: item.points, base: item.basePoints })), [
+    { name: 'Day Boss', period: 'day', points: 3, base: 3 },
+    { name: 'Night Boss', period: 'night', points: 6, base: 3 }
+  ]);
+  assert.ok((await page.locator('.act-period-badge.is-night').last().textContent()).includes('X2'));
+  await page.locator(`.att-edit-act-btn[data-act-id="${dayNightActivities[1].id}"]`).click();
+  assert.equal(await page.locator('#attActivityDaySection').isVisible(), false);
+  assert.equal(await page.locator('#attActivityNightSection').isVisible(), true);
+  assert.equal(await page.locator('#attActivityPointsInput').inputValue(), '3');
+  await page.locator('#attCancelActivityBtn').click();
+  checks.push('Day and night boss columns use separate attendance with automatic X2 night points');
+
   await page.evaluate(() => {
     getActiveWeek().members[0].name = "CURRENT-SOURCE";
     renderAttendanceTable();

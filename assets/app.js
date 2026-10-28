@@ -7234,6 +7234,7 @@
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
           <div class="act-card-header">
             <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
+            <div class="act-period-badge ${act.timePeriod === "night" ? "is-night" : "is-day"}">${act.timePeriod === "night" ? "🌙 00h–7h · X2" : "☀️ Ban ngày"}</div>
             <div class="act-header-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</div>
             <div class="act-header-points">⭐ ${act.points} Điểm</div>
             <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="${adminMode ? 'Chấm công / xem ảnh đội hình' : 'Xem ảnh và danh sách chấm công'}">📷</button>
@@ -7377,14 +7378,14 @@
       let menu = document.getElementById('attColumnVisibility');
       if (!menu) {
         menu = document.createElement('details'); menu.id = 'attColumnVisibility';
-        menu.innerHTML = '<summary class="button-secondary">Ẩn / hiện cột</summary><div class="att-column-options"></div>';
+        menu.innerHTML = '<summary><span class="att-column-icon">▦</span><span><strong>Tùy chỉnh cột</strong><small>Ẩn hoặc hiện thông tin trên bảng</small></span><span class="att-column-chevron">⌄</span></summary><div class="att-column-options"><div class="att-column-options-head"><strong>Cột đang hiển thị</strong><small>Thiết lập được ghi nhớ trên thiết bị này</small></div><div class="att-column-options-list"></div></div>';
         document.querySelector('.att-toolbar-left').append(menu);
-        menu.querySelector('div').innerHTML = columns.filter(([key]) => key !== 'col-name').map(([key,label]) => `<label><input type="checkbox" data-column="${key}">${label}</label>`).join('') + '<button type="button">Hiện tất cả</button>';
+        menu.querySelector('.att-column-options-list').innerHTML = columns.filter(([key]) => key !== 'col-name').map(([key,label]) => `<label><span>${label}</span><input type="checkbox" data-column="${key}"><i></i></label>`).join('') + '<button type="button" class="button-secondary">Khôi phục tất cả cột</button>';
         menu.onchange = () => {
           const next = [...menu.querySelectorAll('input:not(:checked)')].map(input => input.dataset.column);
           localStorage.setItem('attendanceHiddenColumns', JSON.stringify(next)); applyAttendanceColumnVisibility();
         };
-        menu.querySelector('button').onclick = () => { localStorage.removeItem('attendanceHiddenColumns'); applyAttendanceColumnVisibility(); };
+        menu.querySelector('.att-column-options-list button').onclick = () => { localStorage.removeItem('attendanceHiddenColumns'); applyAttendanceColumnVisibility(); };
       }
       menu.querySelectorAll('input').forEach(input => { input.checked = !hidden.includes(input.dataset.column); });
       let left = 0;
@@ -8692,9 +8693,6 @@
 
     // Modal Activity Functions
     function refreshAttendanceBossNames() {
-      const select = document.getElementById("attActivityNameSelect");
-      const input = document.getElementById("attActivityNameInput");
-      if (!select || !input) return;
       const names = new Map();
       const addName = value => {
         const name = String(value || "").trim();
@@ -8702,18 +8700,41 @@
       };
       (state?.bosses || []).forEach(boss => addName(boss.name));
       (attendanceState?.weeks || []).forEach(week => (week.activities || []).forEach(act => addName(act.name)));
-      addName(input.value);
-      select.innerHTML = '<option value="">Chọn Boss / hoạt động đã thêm…</option>' +
-        [...names.values()].sort((a, b) => a.localeCompare(b, "vi")).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
-      select.value = names.get(input.value.trim().toLocaleLowerCase("vi")) || "";
-      input.hidden = true;
-      select.onchange = () => { input.value = select.value; input.hidden = true; };
-      document.getElementById("attNewActivityNameBtn").onclick = () => {
-        select.value = "";
-        input.hidden = false;
-        input.value = "";
-        input.focus();
+      const bindPicker = (selectId, inputId, buttonId, placeholder) => {
+        const select = document.getElementById(selectId);
+        const input = document.getElementById(inputId);
+        const button = document.getElementById(buttonId);
+        if (!select || !input || !button) return;
+        addName(input.value);
+        select.innerHTML = `<option value="">${placeholder}</option>` +
+          [...names.values()].sort((a, b) => a.localeCompare(b, "vi")).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+        select.value = names.get(input.value.trim().toLocaleLowerCase("vi")) || "";
+        input.hidden = Boolean(select.value) || !input.value;
+        select.onchange = () => { input.value = select.value; input.hidden = true; };
+        button.onclick = () => {
+          select.value = "";
+          input.hidden = false;
+          input.value = "";
+          input.focus();
+        };
       };
+      bindPicker("attActivityNameSelect", "attActivityNameInput", "attNewActivityNameBtn", "Chọn Boss / hoạt động ban ngày…");
+      bindPicker("attActivityNightNameSelect", "attActivityNightNameInput", "attNewActivityNightNameBtn", "Chọn Boss / hoạt động ban đêm…");
+    }
+
+    function updateAttendanceActivityPointPreview() {
+      const basePoints = Math.max(1, parseInt(document.getElementById("attActivityPointsInput")?.value, 10) || 1);
+      const day = document.getElementById("attDayPointsPreview");
+      const night = document.getElementById("attNightPointsPreview");
+      if (day) day.textContent = `${basePoints} điểm`;
+      if (night) night.textContent = `${basePoints * 2} điểm (X2)`;
+    }
+
+    function setAttendanceActivityPeriodMode(period = "both") {
+      const daySection = document.getElementById("attActivityDaySection");
+      const nightSection = document.getElementById("attActivityNightSection");
+      if (daySection) daySection.hidden = period === "night";
+      if (nightSection) nightSection.hidden = period === "day";
     }
 
     function openAttendanceActivityModal(actId = null) {
@@ -8722,6 +8743,7 @@
       const titleEl = document.getElementById("attActivityModalTitle");
       const dateInput = document.getElementById("attActivityDateInput");
       const nameInput = document.getElementById("attActivityNameInput");
+      const nightNameInput = document.getElementById("attActivityNightNameInput");
       const ptsInput = document.getElementById("attActivityPointsInput");
       const editIdInput = document.getElementById("attActivityEditId");
       const delBtn = document.getElementById("attDeleteActivityBtn");
@@ -8736,8 +8758,11 @@
         if (titleEl) titleEl.textContent = "Sửa Boss / Hoạt Động";
         if (editIdInput) editIdInput.value = act.id;
         if (dateInput) dateInput.value = act.date || "";
-        if (nameInput) nameInput.value = act.name || "";
-        if (ptsInput) ptsInput.value = act.points || 1;
+        const period = act.timePeriod === "night" ? "night" : "day";
+        if (nameInput) nameInput.value = period === "day" ? (act.name || "") : "";
+        if (nightNameInput) nightNameInput.value = period === "night" ? (act.name || "") : "";
+        if (ptsInput) ptsInput.value = act.basePoints || (period === "night" ? Math.max(1, Number(act.points || 2) / 2) : act.points) || 1;
+        setAttendanceActivityPeriodMode(period);
         if (delBtn) delBtn.style.display = "inline-flex";
       } else {
         if (titleEl) titleEl.textContent = "Thêm Boss / Hoạt Động Mới";
@@ -8748,11 +8773,14 @@
         const dateStr = `${days[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
         if (dateInput) dateInput.value = dateStr;
         if (nameInput) nameInput.value = "";
+        if (nightNameInput) nightNameInput.value = "";
         if (ptsInput) ptsInput.value = "2";
+        setAttendanceActivityPeriodMode("both");
         if (delBtn) delBtn.style.display = "none";
       }
 
       refreshAttendanceBossNames();
+      updateAttendanceActivityPointPreview();
       modal.classList.add("open");
       syncModalScrollLock();
       setTimeout(() => document.getElementById("attActivityNameSelect")?.focus(), 50);
@@ -8768,18 +8796,20 @@
       if (!isAdmin()) return;
       const dateInput = document.getElementById("attActivityDateInput");
       const nameInput = document.getElementById("attActivityNameInput");
+      const nightNameInput = document.getElementById("attActivityNightNameInput");
       const ptsInput = document.getElementById("attActivityPointsInput");
       const editIdInput = document.getElementById("attActivityEditId");
       const errEl = document.getElementById("attActivityModalError");
 
       const dateStr = (dateInput?.value || "").trim();
       const name = (nameInput?.value || "").trim();
-      const points = parseInt(ptsInput?.value, 10) || 1;
+      const nightName = (nightNameInput?.value || "").trim();
+      const basePoints = Math.max(1, parseInt(ptsInput?.value, 10) || 1);
       const editId = (editIdInput?.value || "").trim();
 
-      if (!name) {
+      if (!name && !nightName) {
         if (errEl) {
-          errEl.textContent = "Vui lòng nhập tên boss hoặc hoạt động.";
+          errEl.textContent = "Vui lòng chọn ít nhất một Boss ban ngày hoặc Boss ban đêm.";
           errEl.style.display = "block";
         }
         return;
@@ -8789,20 +8819,29 @@
       if (editId) {
         const act = currWeek.activities.find(a => a.id === editId);
         if (act) {
+          const period = act.timePeriod === "night" ? "night" : "day";
+          const updatedName = period === "night" ? nightName : name;
           act.date = dateStr;
-          act.name = name;
-          act.points = points;
-          showToast(`✅ Đã cập nhật: ${name} (${points}đ)`);
+          act.name = updatedName;
+          act.timePeriod = period;
+          act.basePoints = basePoints;
+          act.points = period === "night" ? basePoints * 2 : basePoints;
+          showToast(`✅ Đã cập nhật: ${updatedName} (${act.points}đ${period === "night" ? " · X2 ban đêm" : ""})`);
         }
       } else {
-        const newId = "act_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        currWeek.activities.push({
-          id: newId,
+        const created = [];
+        const makeActivity = (activityName, period) => ({
+          id: "act_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
           date: dateStr,
-          name,
-          points
+          name: activityName,
+          timePeriod: period,
+          basePoints,
+          points: period === "night" ? basePoints * 2 : basePoints
         });
-        showToast(`✅ Đã thêm hoạt động: ${name} (${points}đ)`);
+        if (name) created.push(makeActivity(name, "day"));
+        if (nightName) created.push(makeActivity(nightName, "night"));
+        currWeek.activities.push(...created);
+        showToast(`✅ Đã thêm ${created.length} hoạt động${nightName ? ` · Boss ban đêm ${basePoints * 2} điểm (X2)` : ""}`);
       }
 
       saveAttendanceState(attendanceState, true);
@@ -9261,8 +9300,10 @@
           const val = btn.dataset.val;
           const input = document.getElementById("attActivityPointsInput");
           if (input) input.value = val;
+          updateAttendanceActivityPointPreview();
         });
       });
+      document.getElementById("attActivityPointsInput")?.addEventListener("input", updateAttendanceActivityPointPreview);
 
       // Image OCR attendance modal
       document.getElementById("closeAttOcrModal")?.addEventListener("click", closeAttendanceOcrModal);
