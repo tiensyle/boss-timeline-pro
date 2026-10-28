@@ -201,7 +201,8 @@ try {
   await page.waitForFunction(() => document.getElementById("attOcrProgressText").textContent.includes("Đã xử lý 1 ảnh"));
   await page.evaluate(() => {
     const evidenceImage = attendanceOcrReview.evidenceImage;
-    attendanceOcrReview = { activityId: "a", matched: [], faded: [{ member: getActiveWeek().members[0] }], unmatched: [], evidenceImage };
+    const images = attendanceOcrReview.images;
+    attendanceOcrReview = { activityId: "a", matched: [], faded: [{ member: getActiveWeek().members[0] }], unmatched: [], evidenceImage, images };
     renderAttendanceOcrReview();
   });
   await page.locator('[data-ocr-source="faded"]').check();
@@ -221,6 +222,41 @@ try {
   assert.equal(await page.locator('#attOcrMatchedList input:enabled').count(), 0);
   await page.locator('#attOcrCancelBtn').click();
   await page.evaluate(() => { currentUserIsAdmin = true; setRole('admin', 'Test admin'); renderAttendanceTable(); });
+  await page.locator('.att-ocr-btn[data-act-id="a"]').click();
+  await page.evaluate(async () => {
+    const canvas = document.createElement('canvas'); canvas.width = 100; canvas.height = 100;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 100, 100);
+    window.Tesseract = { recognize: async () => ({ data: { words: [{ text: 'Decimal Member', confidence: 95, bbox: { x0: 5, y0: 5, x1: 60, y1: 30 } }] } }) };
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    queueAttendanceOcrFiles([new File([blob], 'second.png', { type: 'image/png' }), new File([blob], 'third.png', { type: 'image/png' })]);
+    await attendanceOcrAnalysisQueue;
+  });
+  assert.equal(await page.locator('#attOcrGallery img').count(), 3);
+  assert.equal(await page.locator('#attOcrMatchedList input:checked').count(), 1);
+  await page.locator('#attOcrRetry').click();
+  await page.waitForFunction(() => !document.getElementById('attOcrRetry').disabled);
+  assert.equal(await page.locator('#attOcrGallery img').count(), 3);
+  await page.locator('#attOcrGallery [data-remove-image]').last().click();
+  await page.locator('#attOcrApplyBtn').click();
+  assert.equal(await page.evaluate(() => getActiveWeek().activities.find(item => item.id === 'a').attendanceImages.length), 2);
+  await page.locator('.att-ocr-btn[data-act-id="a"]').click();
+  await page.locator('#attOcrGallery [data-remove-image]').last().click();
+  await page.locator('#attOcrGallery [data-remove-image]').last().click();
+  await page.locator('#attOcrApplyBtn').click();
+  await page.locator('.att-ocr-btn[data-act-id="a"]').click();
+  assert.equal(await page.locator('#attOcrGallery img').count(), 0);
+  await page.locator('#attOcrCancelBtn').click();
+  await page.locator('#attColumnVisibility summary').click();
+  await page.locator('#attColumnVisibility [data-column="col-cp"]').uncheck();
+  assert.equal(await page.locator('#attTableHead .col-cp').isVisible(), false);
+  await page.evaluate(() => renderAttendanceTable());
+  assert.equal(await page.locator('#attTableHead .col-cp').isVisible(), false);
+  await page.locator('#attColumnVisibility button').click();
+  assert.equal(await page.locator('#attTableHead .col-cp').isVisible(), true);
+  await page.locator('#attColumnVisibility summary').click();
+  assert.ok(['✓', '✕'].includes((await page.locator('.att-eligibility').first().textContent()).trim()));
+  assert.equal(await page.locator('#attUsdtPoolInput').count() ? await page.locator('#attUsdtPoolInput').getAttribute('autocomplete') : 'off', 'off');
+  checks.push('Multiple attendance images, OCR matching, retry without duplicates, image deletion and column visibility');
   checks.push("Attendance OCR accepts Ctrl+V, manual faded names and member-visible evidence");
 
   await page.evaluate(() => {

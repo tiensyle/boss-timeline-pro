@@ -6414,6 +6414,7 @@
           copiedActivities = cloneRealtimeValue(currWeek.activities || []).map(activity => {
             const copy = { ...activity };
             delete copy.attendanceImage;
+            delete copy.attendanceImages;
             delete copy.attendanceReview;
             return copy;
           });
@@ -7230,7 +7231,6 @@
 
       activities.forEach((act) => {
         const allChecked = filteredMembers.length > 0 && filteredMembers.every(m => m.records && m.records[act.id]);
-        const evidenceImage = getAttendanceEvidenceImage(act);
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
           <div class="act-card-header">
             <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
@@ -7344,7 +7344,7 @@
             <span class="val-reward-ppoints">${formatPoints(m.eligiblePPoints)}</span>
           </td>
           <td class="col-eligibility">
-            <span class="att-eligibility ${m.eligible ? "eligible" : "ineligible"}">${m.eligible ? "✅ Đủ điều kiện" : "❌ Không đạt"}</span>
+            <span title="${m.eligible ? "Đủ điều kiện" : "Không đạt"}" aria-label="${m.eligible ? "Đủ điều kiện" : "Không đạt"}" class="att-eligibility ${m.eligible ? "eligible" : "ineligible"}">${m.eligible ? "✓" : "✕"}</span>
           </td>`;
 
         const records = m.records || {};
@@ -7366,6 +7366,35 @@
 
       bodyEl.innerHTML = bodyHtml;
       bindAttendanceTableEvents();
+      applyAttendanceColumnVisibility();
+    }
+
+    function applyAttendanceColumnVisibility() {
+      const columns = [['col-stt','#'],['col-name','Thành viên'],['col-server','Server'],['col-cp','Lực chiến'],['col-mult','Hệ số'],['col-bonus','Thưởng vị trí'],['col-usdt','USDT'],['col-dias','DIAS'],['col-ppoints','P.Point thực tế'],['col-raw','Điểm thô'],['col-percent','% tham gia'],['col-reward-points','P.Point nhận thưởng'],['col-eligibility','Điều kiện thưởng']];
+      let hidden;
+      try { hidden = JSON.parse(localStorage.getItem('attendanceHiddenColumns') || '[]'); } catch { hidden = []; }
+      if (!Array.isArray(hidden)) hidden = [];
+      let menu = document.getElementById('attColumnVisibility');
+      if (!menu) {
+        menu = document.createElement('details'); menu.id = 'attColumnVisibility';
+        menu.innerHTML = '<summary class="button-secondary">Ẩn / hiện cột</summary><div class="att-column-options"></div>';
+        document.querySelector('.att-toolbar-left').append(menu);
+        menu.querySelector('div').innerHTML = columns.filter(([key]) => key !== 'col-name').map(([key,label]) => `<label><input type="checkbox" data-column="${key}">${label}</label>`).join('') + '<button type="button">Hiện tất cả</button>';
+        menu.onchange = () => {
+          const next = [...menu.querySelectorAll('input:not(:checked)')].map(input => input.dataset.column);
+          localStorage.setItem('attendanceHiddenColumns', JSON.stringify(next)); applyAttendanceColumnVisibility();
+        };
+        menu.querySelector('button').onclick = () => { localStorage.removeItem('attendanceHiddenColumns'); applyAttendanceColumnVisibility(); };
+      }
+      menu.querySelectorAll('input').forEach(input => { input.checked = !hidden.includes(input.dataset.column); });
+      let left = 0;
+      columns.forEach(([key]) => {
+        const cells = document.querySelectorAll(`.att-table .${key}`);
+        const invisible = key !== 'col-name' && hidden.includes(key);
+        cells.forEach(cell => { cell.style.display = invisible ? 'none' : ''; if (cell.classList.contains('col-sticky')) cell.style.left = `${left}px`; });
+        const header = document.querySelector(`.att-table th.${key}`);
+        if (header && !invisible && header.classList.contains('col-sticky')) left += header.getBoundingClientRect().width;
+      });
     }
 
     let closeAttendanceMemberMenu = () => {};
@@ -7622,7 +7651,7 @@
       }
       if (!neutralLuminance.length) return 0;
       neutralLuminance.sort((a, b) => a - b);
-      const start = Math.floor(neutralLuminance.length * 0.82);
+      const start = Math.floor(neutralLuminance.length * 0.95);
       const highlights = neutralLuminance.slice(start);
       return highlights.reduce((sum, value) => sum + value, 0) / Math.max(1, highlights.length);
     }
@@ -7709,6 +7738,71 @@
       return webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.62);
     }
 
+    function getAttendanceEvidenceImages(activity) {
+      if (Array.isArray(activity?.attendanceImages)) return activity.attendanceImages.filter(item => getAttendanceEvidenceImage({ attendanceImage: item.src }));
+      const src = getAttendanceEvidenceImage(activity);
+      return src ? [{ id: 'legacy', name: 'Ảnh đã lưu', src }] : [];
+    }
+
+    function renderAttendanceOcrGallery() {
+      let gallery = document.getElementById('attOcrGallery');
+      if (!gallery) {
+        gallery = document.createElement('div'); gallery.id = 'attOcrGallery';
+        document.querySelector('.att-ocr-body').prepend(gallery);
+      }
+      const images = attendanceOcrReview?.images || [];
+      gallery.innerHTML = images.map((item, index) => `<figure class="att-gallery-item"><img ${index === 0 ? 'id="attOcrSavedImage"' : ''} src="${escapeHtml(item.src)}" alt="Ảnh đội hình ${index + 1}"><figcaption>Ảnh ${index + 1} · ${escapeHtml(item.name)} ${isAdmin() ? `<button type="button" class="button-secondary" data-remove-image="${index}">Xóa ảnh</button>` : ''}</figcaption></figure>`).join('');
+      gallery.querySelectorAll('[data-remove-image]').forEach(button => button.onclick = () => {
+        if (!isAdmin()) return;
+        const [removed] = attendanceOcrReview.images.splice(Number(button.dataset.removeImage), 1);
+        attendanceOcrFiles = attendanceOcrFiles.filter(file => `${file.name}|${file.size}|${file.lastModified}` !== removed.id);
+        attendanceOcrSession++;
+        attendanceOcrReview.evidenceImage = attendanceOcrReview.images[0]?.src || '';
+        renderAttendanceOcrGallery(); renderAttendanceOcrFilePreviews(); refreshAttendanceOcrApplyButton();
+      });
+      let retry = document.getElementById('attOcrRetry');
+      if (!retry) {
+        retry = document.createElement('button'); retry.id = 'attOcrRetry'; retry.type = 'button'; retry.className = 'button-secondary';
+        retry.textContent = 'Nhận diện lại tất cả ảnh'; gallery.after(retry);
+        retry.onclick = async () => {
+          if (!isAdmin() || retry.disabled) return;
+          const session = attendanceOcrSession;
+          retry.disabled = true;
+          try {
+            const files = await Promise.all((attendanceOcrReview.images || []).map(async (item, index) => new File([await (await fetch(item.src)).blob()], `saved-${index}.webp`, { type: 'image/webp' })));
+            if (session !== attendanceOcrSession) return;
+            if (files.length) await analyzeAttendanceOcrFiles(files, true);
+          } finally { retry.disabled = false; }
+        };
+      }
+      retry.style.display = isAdmin() && images.length ? '' : 'none';
+    }
+
+    function renderAttendanceManualPicker() {
+      let wrap = document.getElementById('attOcrManualPicker');
+      if (!wrap) {
+        wrap = document.createElement('section'); wrap.id = 'attOcrManualPicker';
+        wrap.innerHTML = '<label>Thêm người tham gia (khi ảnh chưa nhận diện được)<input type="search" autocomplete="off" placeholder="Tìm tên thành viên"></label><div class="att-ocr-chip-list"></div>';
+        document.getElementById('attOcrResults').after(wrap);
+        wrap.querySelector('input').oninput = () => renderAttendanceManualPicker();
+      }
+      wrap.style.display = isAdmin() ? '' : 'none';
+      const query = normalizeAttendanceOcrName(wrap.querySelector('input').value);
+      const chosen = new Set((attendanceOcrReview?.matched || []).map(item => item.member.id));
+      const week = attendanceState.weeks.find(item => item.id === attendanceOcrReview?.weekId) || getActiveWeek();
+      const members = (week?.members || []).filter(member => !chosen.has(member.id) && normalizeAttendanceOcrName(member.name).includes(query));
+      const list = wrap.querySelector('div');
+      list.innerHTML = members.map(member => `<button type="button" class="att-ocr-chip" data-add-member="${escapeHtml(member.id)}">+ ${escapeHtml(member.name)}</button>`).join('') || '<span>Không có thành viên phù hợp</span>';
+      list.querySelectorAll('button').forEach(button => button.onclick = () => {
+        if (!isAdmin()) return;
+        const member = week.members.find(item => item.id === button.dataset.addMember);
+        if (!member) return;
+        attendanceOcrReview.matched.push({ member, manualFaded: true });
+        attendanceOcrReview.faded = attendanceOcrReview.faded.filter(item => item.member.id !== member.id);
+        renderAttendanceOcrReview(); renderAttendanceManualPicker();
+      });
+    }
+
     function getAttendanceEvidenceImage(activity) {
       const value = String(activity?.attendanceImage || activity?.evidenceImage || "");
       return /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value) ? value : "";
@@ -7752,15 +7846,15 @@
           target.push(item);
         }
         renderAttendanceOcrReview();
+        renderAttendanceManualPicker();
       }));
       refreshAttendanceOcrApplyButton();
     }
 
     function refreshAttendanceOcrApplyButton() {
-      const selectedCount = document.querySelectorAll("[data-ocr-member-id]:checked").length;
       const button = document.getElementById("attOcrApplyBtn");
-      const hasEvidenceImage = Boolean(getAttendanceEvidenceImage(attendanceOcrReview));
-      if (button) button.disabled = !isAdmin() || (selectedCount === 0 && !hasEvidenceImage);
+
+      if (button) button.disabled = !isAdmin();
     }
 
     function clearAttendanceOcrFilePreviews() {
@@ -7788,6 +7882,20 @@
           <img src="${escapeHtml(attendanceOcrPreviewUrls[index])}" alt="Ảnh đội hình ${index + 1}">
           <span title="${escapeHtml(file.name || `Ảnh ${index + 1}`)}">${escapeHtml(file.name || `Ảnh ${index + 1}`)}</span>
         </div>`).join("");
+      list.querySelectorAll('.att-ocr-preview-item').forEach((item, index) => {
+        const remove = document.createElement('button');
+        remove.type = 'button'; remove.textContent = '✕ Xóa'; remove.className = 'att-image-remove';
+        remove.onclick = event => {
+          event.preventDefault(); event.stopPropagation();
+          if (!isAdmin()) return;
+          attendanceOcrFiles.splice(index, 1);
+          attendanceOcrSession++;
+          renderAttendanceOcrFilePreviews();
+          renderAttendanceOcrGallery();
+          if (attendanceOcrFiles.length) queueAttendanceOcrFiles([]);
+        };
+        item.append(remove);
+      });
       if (count) count.textContent = `Đã chọn ${attendanceOcrFiles.length} ảnh · Bấm vào khung để chọn thêm`;
       preview.hidden = false;
       if (drop) drop.classList.add("has-preview");
@@ -7796,7 +7904,7 @@
     function queueAttendanceOcrFiles(files) {
       if (!isAdmin()) return;
       const imageFiles = [...(files || [])].filter(file => file && String(file.type || "").startsWith("image/"));
-      if (!imageFiles.length) {
+      if (!imageFiles.length && !attendanceOcrFiles.length) {
         showToast("Clipboard không có ảnh. Hãy sao chép ảnh rồi nhấn Ctrl+V.");
         return;
       }
@@ -7818,11 +7926,12 @@
       if (!activity) return;
       attendanceOcrSession++;
       attendanceOcrReview = {
-        activityId: actId,
+        activityId: actId, weekId: currWeek.id,
         matched: (currWeek.members || []).filter(member => member.records?.[actId]).map(member => ({ member })),
         faded: (activity.attendanceReview?.faded || []).map(id => currWeek.members.find(member => member.id === id)).filter(Boolean).map(member => ({ member })),
         unmatched: activity.attendanceReview?.unmatched || [],
-        evidenceImage: getAttendanceEvidenceImage(activity)
+        evidenceImage: getAttendanceEvidenceImage(activity),
+        images: getAttendanceEvidenceImages(activity)
       };
       attendanceOcrFiles = [];
       clearAttendanceOcrFilePreviews();
@@ -7840,17 +7949,8 @@
       document.getElementById('attOcrFileInput').disabled = !admin;
       document.querySelector('.att-ocr-safe-option').style.display = admin ? '' : 'none';
       document.getElementById('attOcrApplyBtn').style.display = admin ? '' : 'none';
-      let saved = document.getElementById('attOcrSavedImage');
-      if (!saved) {
-        saved = document.createElement('img');
-        saved.id = 'attOcrSavedImage';
-        saved.alt = 'Ảnh đội hình đã lưu';
-        saved.style.cssText = 'width:100%;max-height:480px;object-fit:contain;margin-bottom:12px';
-        document.querySelector('.att-ocr-body').prepend(saved);
-      }
-      saved.hidden = !attendanceOcrReview.evidenceImage;
-      if (attendanceOcrReview.evidenceImage) saved.src = attendanceOcrReview.evidenceImage;
-      else saved.removeAttribute('src');
+      renderAttendanceOcrGallery();
+      renderAttendanceManualPicker();
       renderAttendanceOcrReview();
       document.getElementById("attOcrModal").classList.add("open");
       syncModalScrollLock();
@@ -7882,15 +7982,16 @@
       syncModalScrollLock();
     }
 
-    async function analyzeAttendanceOcrFiles(files) {
+    async function analyzeAttendanceOcrFiles(files, refreshOnly = false) {
       if (!isAdmin()) return;
       const session = attendanceOcrSession;
+      const previousReview = attendanceOcrReview;
       const errorEl = document.getElementById("attOcrError");
       const applyBtn = document.getElementById("attOcrApplyBtn");
       if (errorEl) errorEl.hidden = true;
       if (applyBtn) applyBtn.disabled = true;
       document.getElementById("attOcrResults").hidden = true;
-      const currWeek = getActiveWeek();
+      const currWeek = attendanceState.weeks.find(week => week.id === previousReview.weekId) || getActiveWeek();
       const members = currWeek?.members || [];
       const detected = new Map();
       const unmatched = new Set();
@@ -7911,6 +8012,20 @@
           });
           if (session !== attendanceOcrSession || !isAdmin()) return;
           const words = collectAttendanceOcrWords(result?.data);
+          // A second contrast pass reveals dim names. Always classify brightness on the original image.
+          const contrast = document.createElement('canvas');
+          contrast.width = canvas.width; contrast.height = canvas.height;
+          const contrastContext = contrast.getContext('2d');
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+          for (let pixel = 0; pixel < pixels.data.length; pixel += 4) {
+            const luminance = pixels.data[pixel] * 0.2126 + pixels.data[pixel + 1] * 0.7152 + pixels.data[pixel + 2] * 0.0722;
+            const value = 255 - Math.max(0, Math.min(255, (luminance - 45) * 5));
+            pixels.data[pixel] = pixels.data[pixel + 1] = pixels.data[pixel + 2] = value;
+          }
+          contrastContext.putImageData(pixels, 0, 0);
+          const enhanced = await Tesseract.recognize(contrast, 'eng', { tessedit_pageseg_mode: '11' });
+          if (session !== attendanceOcrSession || !isAdmin()) return;
+          words.push(...collectAttendanceOcrWords(enhanced?.data));
           // Join adjacent OCR fragments only inside the same name row/card.
           const fragments = words.slice();
           fragments.forEach((left, i) => {
@@ -7922,32 +8037,41 @@
           });
           words.forEach(word => {
             const cleaned = String(word.text || "").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
-            if (normalizeAttendanceOcrName(cleaned).length < 2 || word.confidence < 22) return;
+            if (normalizeAttendanceOcrName(cleaned).length < 2) return;
 
             const match = matchAttendanceOcrWord(cleaned, members);
             if (!match) {
-              if (normalizeAttendanceOcrName(cleaned).length >= 3) unmatched.add(cleaned);
+              if (word.confidence >= 22 && normalizeAttendanceOcrName(cleaned).length >= 3) unmatched.add(cleaned);
               return;
             }
             const brightness = getAttendanceOcrWordBrightness(context, word.bbox, canvas.width, canvas.height);
-            const bright = brightness >= 142;
+            const bright = brightness >= 130 && (word.confidence >= 22 || match.score >= 0.97);
             const previous = detected.get(match.member.id);
             if (!previous || bright || (!previous.bright && brightness > previous.brightness)) {
               detected.set(match.member.id, { member: match.member, bright, brightness, score: match.score });
             }
           });
         }
-        const evidenceImage = await createAttendanceEvidenceImage(files);
+        const newImages = await Promise.all(files.map(async file => ({ id: `${file.name}|${file.size}|${file.lastModified}`, name: file.name || 'Ảnh đội hình', src: await createAttendanceEvidenceImage([file]) })));
+        const images = [...(previousReview.images || [])];
+        if (!refreshOnly) newImages.forEach(image => { if (!images.some(item => item.id === image.id)) images.push(image); });
+        const evidenceImage = images[0]?.src || '';
         if (session !== attendanceOcrSession || !isAdmin()) return;
         attendanceOcrReview = {
-          activityId: document.getElementById("attOcrActivityId").value,
-          matched: [...detected.values()].filter(item => item.bright).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
-          faded: [...detected.values()].filter(item => !item.bright).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
+          activityId: previousReview.activityId, weekId: currWeek.id,
+          matched: [...new Map([...(previousReview.matched || []).map(item => [item.member.id, item]), ...[...detected.values()].filter(item => item.bright).map(item => [item.member.id, item])]).values()].sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
+          faded: [...detected.values()].filter(item => !item.bright && !previousReview.matched.some(selected => selected.member.id === item.member.id)).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
           unmatched: [...unmatched].sort((a, b) => a.localeCompare(b, "vi")).slice(0, 80).map(text => ({ text })),
-          evidenceImage
+          evidenceImage, images
         };
         setAttendanceOcrProgress(100, `Đã xử lý ${files.length} ảnh. Hãy kiểm tra danh sách trước khi áp dụng.`);
         renderAttendanceOcrReview();
+        renderAttendanceOcrGallery();
+        renderAttendanceManualPicker();
+        if (!detected.size) {
+          errorEl.textContent = unmatched.size ? 'Đã đọc được chữ nhưng chưa khớp tên thành viên. Kiểm tra tên trong bảng hoặc chọn thành viên bên dưới.' : 'Chưa đọc được tên từ ảnh. Hãy dùng ảnh gốc rõ nét hoặc chọn thành viên bên dưới.';
+          errorEl.hidden = false;
+        }
       } catch (error) {
         console.error("Attendance OCR failed", error);
         if (errorEl) {
@@ -7960,7 +8084,7 @@
 
     function applyAttendanceOcrReview() {
       if (!isAdmin() || !attendanceOcrReview) return;
-      const currWeek = getActiveWeek();
+      const currWeek = attendanceState.weeks.find(week => week.id === attendanceOcrReview.weekId) || getActiveWeek();
       const activityId = attendanceOcrReview.activityId;
       const selectedIds = new Set([...document.querySelectorAll("[data-ocr-member-id]:checked")].map(input => input.dataset.ocrMemberId));
       const manuallySelectedFaded = document.querySelectorAll('[data-ocr-source="faded"]:checked').length;
@@ -7971,10 +8095,11 @@
         faded: attendanceOcrReview.faded.map(item => item.member.id),
         unmatched: attendanceOcrReview.unmatched
       };
-      if (activity && getAttendanceEvidenceImage(attendanceOcrReview)) {
-        activity.attendanceImage = attendanceOcrReview.evidenceImage;
-        activity.attendanceImageUpdatedAt = Date.now();
-      }
+      activity.attendanceImages = attendanceOcrReview.images || [];
+      // Compatibility with older clients; an empty gallery explicitly removes legacy evidence.
+      activity.attendanceImage = activity.attendanceImages[0]?.src || '';
+      delete activity.evidenceImage;
+      activity.attendanceImageUpdatedAt = Date.now();
       if (!keepExisting) {
         currWeek.members.forEach(member => {
           if (member.records) delete member.records[activityId];
@@ -9238,6 +9363,19 @@
       });
     }
 
+
+    function suppressBusinessAutofill(root = document) {
+      root.querySelectorAll('input:not([type="password"]), textarea, form').forEach(field => {
+        if (field.closest('#authModal')) return;
+        field.setAttribute('autocomplete', 'off');
+        field.setAttribute('data-lpignore', 'true');
+        field.setAttribute('data-1p-ignore', 'true');
+        field.setAttribute('data-bwignore', 'true');
+        if (field.tagName === 'INPUT') field.setAttribute('autocorrect', 'off');
+      });
+    }
+    suppressBusinessAutofill();
+    new MutationObserver(() => suppressBusinessAutofill()).observe(document.body, { childList: true, subtree: true });
 
     updateServerSwitcherButton();
     renderServerListUI();

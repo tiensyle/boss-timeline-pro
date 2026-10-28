@@ -4392,3 +4392,19 @@
 .role-card-admin .auth-role-icon, .auth-role-badge { color:var(--amber); background:var(--amber-soft); }
 .auth-role-badge.free { color:var(--cyan); background:var(--cyan-soft); }
 .auth-role-card:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+
+/* Attendance gallery and viewer preferences */
+.att-gallery-item { margin:0 0 14px; border:1px solid var(--line-soft); border-radius:8px; overflow:hidden; }
+.att-gallery-item img { display:block; width:100%; max-height:480px; object-fit:contain; background:#111; }
+.att-gallery-item figcaption { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:8px; overflow-wrap:anywhere; }
+.att-image-remove { position:absolute; top:5px; right:5px; z-index:2; background:#fff; color:#b91c1c; border:1px solid #ddd; border-radius:5px; cursor:pointer; }
+#attOcrManualPicker { margin-top:14px; padding:12px; border:1px solid var(--line-soft); border-radius:8px; }
+#attOcrManualPicker input { display:block; width:100%; margin:8px 0; }
+#attOcrManualPicker .att-ocr-chip-list { max-height:180px; overflow:auto; }
+#attOcrRetry { margin-bottom:12px; }
+#attColumnVisibility { position:relative; }
+#attColumnVisibility summary { cursor:pointer; }
+.att-column-options { position:absolute; top:100%; left:0; z-index:40; width:225px; padding:12px; border:1px solid var(--line-soft); border-radius:8px; background:var(--surface); box-shadow:0 8px 24px #0003; }
+.att-column-options label { display:flex; gap:8px; padding:5px; }
+.att-table .col-eligibility { width:72px; min-width:72px; }
+.att-table .att-eligibility { font-size:16px; padding:2px 7px; }
