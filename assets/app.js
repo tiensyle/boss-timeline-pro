@@ -5772,6 +5772,7 @@
     let attendanceColumnFilters = {};
     let attendanceColumnSort = null;
     let attendanceOcrReview = null;
+    let attendanceOcrSession = 0;
     let attendanceOcrLoaderPromise = null;
     let attendanceOcrFiles = [];
     let attendanceOcrPreviewUrls = [];
@@ -6413,6 +6414,7 @@
           copiedActivities = cloneRealtimeValue(currWeek.activities || []).map(activity => {
             const copy = { ...activity };
             delete copy.attendanceImage;
+            delete copy.attendanceReview;
             return copy;
           });
         }
@@ -7234,7 +7236,7 @@
             <div class="act-header-date">${escapeHtml(act.date || "Tự do")}</div>
             <div class="act-header-name" title="${escapeHtml(act.name)}">${escapeHtml(act.name)}</div>
             <div class="act-header-points">⭐ ${act.points} Điểm</div>
-            ${evidenceImage ? `<button type="button" class="att-evidence-thumb" data-act-id="${escapeHtml(act.id)}" title="Mở ảnh đối chiếu chấm công"><img src="${escapeHtml(evidenceImage)}" alt="Ảnh chấm công ${escapeHtml(act.name)}"><span>🔍 Xem ảnh chấm công</span></button>` : ""}
+            <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="${adminMode ? 'Chấm công / xem ảnh đội hình' : 'Xem ảnh và danh sách chấm công'}">📷</button>
             ${adminMode ? `
               <div class="act-header-bottom">
                 <label class="act-check-all-label" title="Tích chọn tất cả thành viên đang hiển thị">
@@ -7242,7 +7244,6 @@
                   <span>Tất cả</span>
                 </label>
                 <div class="act-btn-row">
-                  <button type="button" class="att-btn-micro att-ocr-btn" data-act-id="${escapeHtml(act.id)}" title="Tự động chấm công từ ảnh đội hình">📷</button>
                   <button type="button" class="att-btn-micro att-edit-act-btn" data-act-id="${escapeHtml(act.id)}" title="Sửa tên / điểm">✏️</button>
                   <button type="button" class="att-btn-micro att-del-act-btn" data-act-id="${escapeHtml(act.id)}" title="Xóa cột này">🗑️</button>
                 </div>
@@ -7492,7 +7493,6 @@
 
       document.querySelectorAll(".att-ocr-btn").forEach(btn => {
         btn.addEventListener("click", () => {
-          if (!adminMode) return;
           openAttendanceOcrModal(btn.dataset.actId);
         });
       });
@@ -7632,6 +7632,12 @@
       if (token.length < 2) return null;
       const ranked = members.map(member => ({ member, score: attendanceOcrSimilarity(token, member.name) }))
         .sort((a, b) => b.score - a.score);
+      // OCR often confuses narrow letters and digits in small game fonts.
+      const visual = value => normalizeAttendanceOcrName(value).replace(/[il1]/g, "l").replace(/[o0]/g, "o");
+      ranked.forEach(item => {
+        if (visual(token) === visual(item.member.name)) item.score = Math.max(item.score, 0.97);
+      });
+      ranked.sort((a, b) => b.score - a.score);
       const best = ranked[0];
       const secondScore = ranked[1]?.score || 0;
       const threshold = token.length <= 4 ? 0.86 : token.length <= 6 ? 0.78 : 0.72;
@@ -7668,7 +7674,7 @@
 
     async function prepareAttendanceOcrCanvas(file) {
       const image = await loadAttendanceOcrImage(file);
-      const scale = Math.min(1, 1800 / Math.max(1, image.naturalWidth));
+      const scale = Math.min(3, 3000 / Math.max(1, image.naturalWidth));
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -7725,7 +7731,7 @@
         const target = document.getElementById(targetId);
         if (!target) return;
         target.innerHTML = items.length ? items.map(item => selectable
-          ? `<label class="att-ocr-chip ${className}"><input type="checkbox" data-ocr-member-id="${escapeHtml(item.member.id)}" data-ocr-source="${checkedByDefault ? "bright" : "faded"}"${checkedByDefault ? " checked" : ""}><span>${escapeHtml(item.member.name)}</span></label>`
+          ? `<label class="att-ocr-chip ${className}"><input type="checkbox" data-ocr-member-id="${escapeHtml(item.member.id)}" data-ocr-source="${item.manualFaded || !checkedByDefault ? "faded" : "bright"}"${checkedByDefault ? " checked" : ""}${!isAdmin() ? " disabled" : ""}><span>${escapeHtml(item.member.name)}</span></label>`
           : `<span class="att-ocr-chip ${className}">${escapeHtml(item.member?.name || item.text)}</span>`).join("")
           : '<span class="att-ocr-empty">Không có</span>';
       };
@@ -7735,7 +7741,18 @@
       document.getElementById("attOcrMatchedCount").textContent = attendanceOcrReview.matched.length;
       document.getElementById("attOcrFadedCount").textContent = attendanceOcrReview.faded.length;
       document.getElementById("attOcrUnmatchedCount").textContent = attendanceOcrReview.unmatched.length;
-      document.querySelectorAll("[data-ocr-member-id]").forEach(input => input.addEventListener("change", refreshAttendanceOcrApplyButton));
+      document.querySelectorAll("[data-ocr-member-id]").forEach(input => input.addEventListener("change", () => {
+        const id = input.dataset.ocrMemberId;
+        const source = input.checked ? attendanceOcrReview.faded : attendanceOcrReview.matched;
+        const target = input.checked ? attendanceOcrReview.matched : attendanceOcrReview.faded;
+        const index = source.findIndex(item => item.member.id === id);
+        if (index >= 0) {
+          const [item] = source.splice(index, 1);
+          if (input.checked) item.manualFaded = true;
+          target.push(item);
+        }
+        renderAttendanceOcrReview();
+      }));
       refreshAttendanceOcrApplyButton();
     }
 
@@ -7743,7 +7760,7 @@
       const selectedCount = document.querySelectorAll("[data-ocr-member-id]:checked").length;
       const button = document.getElementById("attOcrApplyBtn");
       const hasEvidenceImage = Boolean(getAttendanceEvidenceImage(attendanceOcrReview));
-      if (button) button.disabled = selectedCount === 0 && !hasEvidenceImage;
+      if (button) button.disabled = !isAdmin() || (selectedCount === 0 && !hasEvidenceImage);
     }
 
     function clearAttendanceOcrFilePreviews() {
@@ -7777,6 +7794,7 @@
     }
 
     function queueAttendanceOcrFiles(files) {
+      if (!isAdmin()) return;
       const imageFiles = [...(files || [])].filter(file => file && String(file.type || "").startsWith("image/"));
       if (!imageFiles.length) {
         showToast("Clipboard không có ảnh. Hãy sao chép ảnh rồi nhấn Ctrl+V.");
@@ -7788,16 +7806,24 @@
       });
       renderAttendanceOcrFilePreviews();
       const snapshot = attendanceOcrFiles.slice();
+      const session = attendanceOcrSession;
       attendanceOcrAnalysisQueue = attendanceOcrAnalysisQueue
         .catch(() => {})
-        .then(() => analyzeAttendanceOcrFiles(snapshot));
+        .then(() => session === attendanceOcrSession && analyzeAttendanceOcrFiles(snapshot));
     }
 
     function openAttendanceOcrModal(actId) {
       const currWeek = getActiveWeek();
       const activity = currWeek?.activities?.find(item => item.id === actId);
       if (!activity) return;
-      attendanceOcrReview = { activityId: actId, matched: [], faded: [], unmatched: [] };
+      attendanceOcrSession++;
+      attendanceOcrReview = {
+        activityId: actId,
+        matched: (currWeek.members || []).filter(member => member.records?.[actId]).map(member => ({ member })),
+        faded: (activity.attendanceReview?.faded || []).map(id => currWeek.members.find(member => member.id === id)).filter(Boolean).map(member => ({ member })),
+        unmatched: activity.attendanceReview?.unmatched || [],
+        evidenceImage: getAttendanceEvidenceImage(activity)
+      };
       attendanceOcrFiles = [];
       clearAttendanceOcrFilePreviews();
       attendanceOcrAnalysisQueue = Promise.resolve();
@@ -7809,11 +7835,29 @@
       document.getElementById("attOcrResults").hidden = true;
       document.getElementById("attOcrError").hidden = true;
       document.getElementById("attOcrApplyBtn").disabled = true;
+      const admin = isAdmin();
+      document.querySelector('.att-ocr-drop').style.display = admin ? '' : 'none';
+      document.getElementById('attOcrFileInput').disabled = !admin;
+      document.querySelector('.att-ocr-safe-option').style.display = admin ? '' : 'none';
+      document.getElementById('attOcrApplyBtn').style.display = admin ? '' : 'none';
+      let saved = document.getElementById('attOcrSavedImage');
+      if (!saved) {
+        saved = document.createElement('img');
+        saved.id = 'attOcrSavedImage';
+        saved.alt = 'Ảnh đội hình đã lưu';
+        saved.style.cssText = 'width:100%;max-height:480px;object-fit:contain;margin-bottom:12px';
+        document.querySelector('.att-ocr-body').prepend(saved);
+      }
+      saved.hidden = !attendanceOcrReview.evidenceImage;
+      if (attendanceOcrReview.evidenceImage) saved.src = attendanceOcrReview.evidenceImage;
+      else saved.removeAttribute('src');
+      renderAttendanceOcrReview();
       document.getElementById("attOcrModal").classList.add("open");
       syncModalScrollLock();
     }
 
     function closeAttendanceOcrModal() {
+      attendanceOcrSession++;
       document.getElementById("attOcrModal")?.classList.remove("open");
       clearAttendanceOcrFilePreviews();
       syncModalScrollLock();
@@ -7839,6 +7883,8 @@
     }
 
     async function analyzeAttendanceOcrFiles(files) {
+      if (!isAdmin()) return;
+      const session = attendanceOcrSession;
       const errorEl = document.getElementById("attOcrError");
       const applyBtn = document.getElementById("attOcrApplyBtn");
       if (errorEl) errorEl.hidden = true;
@@ -7855,6 +7901,7 @@
           setAttendanceOcrProgress(index / files.length * 100, `Đang đọc ảnh ${index + 1}/${files.length}: ${file.name}`);
           const { canvas, context } = await prepareAttendanceOcrCanvas(file);
           const result = await Tesseract.recognize(canvas, "eng", {
+            tessedit_pageseg_mode: "11",
             logger: message => {
               if (message.status === "recognizing text") {
                 const total = ((index + (message.progress || 0)) / files.length) * 100;
@@ -7862,11 +7909,21 @@
               }
             }
           });
+          if (session !== attendanceOcrSession || !isAdmin()) return;
           const words = collectAttendanceOcrWords(result?.data);
+          // Join adjacent OCR fragments only inside the same name row/card.
+          const fragments = words.slice();
+          fragments.forEach((left, i) => {
+            const right = fragments[i + 1];
+            if (!right) return;
+            const height = Math.max(1, left.bbox.y1 - left.bbox.y0);
+            if (Math.abs(left.bbox.y0 - right.bbox.y0) > height * 0.5 || right.bbox.x0 < left.bbox.x1 || right.bbox.x0 - left.bbox.x1 > height) return;
+            words.push({ text: left.text + right.text, confidence: Math.min(left.confidence, right.confidence), bbox: { x0: left.bbox.x0, y0: Math.min(left.bbox.y0, right.bbox.y0), x1: right.bbox.x1, y1: Math.max(left.bbox.y1, right.bbox.y1) } });
+          });
           words.forEach(word => {
             const cleaned = String(word.text || "").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
             if (normalizeAttendanceOcrName(cleaned).length < 2 || word.confidence < 22) return;
-            if ((word.bbox.y0 + word.bbox.y1) / 2 < canvas.height * 0.16) return;
+
             const match = matchAttendanceOcrWord(cleaned, members);
             if (!match) {
               if (normalizeAttendanceOcrName(cleaned).length >= 3) unmatched.add(cleaned);
@@ -7881,6 +7938,7 @@
           });
         }
         const evidenceImage = await createAttendanceEvidenceImage(files);
+        if (session !== attendanceOcrSession || !isAdmin()) return;
         attendanceOcrReview = {
           activityId: document.getElementById("attOcrActivityId").value,
           matched: [...detected.values()].filter(item => item.bright).sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
@@ -7908,6 +7966,11 @@
       const manuallySelectedFaded = document.querySelectorAll('[data-ocr-source="faded"]:checked').length;
       const keepExisting = document.getElementById("attOcrKeepExisting")?.checked !== false;
       const activity = currWeek.activities.find(item => item.id === activityId);
+      if (!activity) return;
+      activity.attendanceReview = {
+        faded: attendanceOcrReview.faded.map(item => item.member.id),
+        unmatched: attendanceOcrReview.unmatched
+      };
       if (activity && getAttendanceEvidenceImage(attendanceOcrReview)) {
         activity.attendanceImage = attendanceOcrReview.evidenceImage;
         activity.attendanceImageUpdatedAt = Date.now();

@@ -205,12 +205,22 @@ try {
     renderAttendanceOcrReview();
   });
   await page.locator('[data-ocr-source="faded"]').check();
+  assert.equal(await page.locator('#attOcrMatchedList [data-ocr-member-id]').count(), 1);
+  assert.equal(await page.locator('#attOcrFadedList [data-ocr-member-id]').count(), 0);
   await page.locator("#attOcrApplyBtn").click();
   assert.equal(await page.evaluate(() => Boolean(getActiveWeek().members[0].records.a)), true);
-  assert.equal(await page.locator('.att-evidence-thumb[data-act-id="a"]').count(), 1);
-  await page.locator('.att-evidence-thumb[data-act-id="a"]').click();
-  assert.equal(await page.locator("#attEvidenceModal").isVisible(), true);
-  await page.locator("#attEvidenceCloseBtn").click();
+  assert.equal(await page.locator('.att-evidence-thumb').count(), 0);
+  await page.locator('.att-ocr-btn[data-act-id="a"]').click();
+  assert.equal(await page.locator('#attOcrSavedImage').isVisible(), true);
+  await page.locator('#attOcrCancelBtn').click();
+  await page.evaluate(() => { currentUserIsAdmin = false; setRole('member', 'Viewer'); renderAttendanceTable(); });
+  await page.locator('.att-ocr-btn[data-act-id="a"]').click();
+  assert.equal(await page.locator('#attOcrSavedImage').isVisible(), true);
+  assert.equal(await page.locator('#attOcrApplyBtn').isVisible(), false);
+  assert.equal(await page.locator('#attOcrFileInput').isDisabled(), true);
+  assert.equal(await page.locator('#attOcrMatchedList input:enabled').count(), 0);
+  await page.locator('#attOcrCancelBtn').click();
+  await page.evaluate(() => { currentUserIsAdmin = true; setRole('admin', 'Test admin'); renderAttendanceTable(); });
   checks.push("Attendance OCR accepts Ctrl+V, manual faded names and member-visible evidence");
 
   await page.evaluate(() => {
