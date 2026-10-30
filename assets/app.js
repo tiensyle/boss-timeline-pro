@@ -8753,7 +8753,7 @@
       const unmatched = attendanceCpImageReview.unmatched || [];
       list.innerHTML = matched.length ? matched.map(item => `
         <label class="att-cp-image-match-row">
-          <input type="checkbox" data-cp-image-member-id="${escapeHtml(item.member.id)}" checked>
+          <input type="checkbox" data-cp-image-member-id="${escapeHtml(item.member.id)}"${item.checked === false ? "" : " checked"}>
           <span><strong>${escapeHtml(item.member.name)}</strong><small>Ảnh đọc: ${escapeHtml(item.sourceName)}</small></span>
           <input type="text" class="att-cp-image-value" data-cp-image-value-for="${escapeHtml(item.member.id)}" value="${escapeHtml(formatCombatPowerInput(item.combatPower))}">
         </label>`).join("") : '<div class="att-cp-image-empty">Chưa tìm thấy tên thành viên phù hợp.</div>';
@@ -8773,7 +8773,26 @@
       const session = ++attendanceCpOcrSession;
       const members = getActiveWeek()?.members || [];
       const allMatched = new Map();
-      const allUnmatched = [];
+      const previousReview = attendanceCpImageReview;
+      const previousSelected = new Map();
+      document.querySelectorAll("[data-cp-image-member-id]").forEach(checkbox => {
+        const memberId = checkbox.dataset.cpImageMemberId;
+        const valueInput = document.querySelector(`[data-cp-image-value-for="${CSS.escape(memberId)}"]`);
+        previousSelected.set(memberId, {
+          checked: checkbox.checked,
+          combatPower: parseCombatPowerInput(valueInput?.value)
+        });
+      });
+      (previousReview?.matched || []).forEach(item => {
+        const edited = previousSelected.get(item.member.id);
+        allMatched.set(item.member.id, {
+          ...item,
+          combatPower: edited?.combatPower || item.combatPower,
+          checked: edited?.checked ?? item.checked ?? true
+        });
+      });
+      const allUnmatched = [...(previousReview?.unmatched || [])];
+      const totalImageCount = (previousReview?.imageCount || 0) + imageFiles.length;
       try {
         const Tesseract = await loadAttendanceOcrLibrary();
         for (let index = 0; index < imageFiles.length; index++) {
@@ -8801,13 +8820,17 @@
           if (session !== attendanceCpOcrSession) return;
           const extracted = extractAttendanceCpOcrEntries(collectAttendanceOcrWords(result?.data), members);
           extracted.matched.forEach(item => {
-            const previous = allMatched.get(item.member.id);
-            if (!previous || item.score > previous.score) allMatched.set(item.member.id, item);
+            // Ảnh nhập sau được ưu tiên để có thể cập nhật Lực Chiến mới của cùng thành viên.
+            allMatched.set(item.member.id, { ...item, checked: true });
           });
           allUnmatched.push(...extracted.unmatched);
         }
-        attendanceCpImageReview = { matched: [...allMatched.values()], unmatched: allUnmatched };
-        setAttendanceCpImageProgress(100, `Đã đọc ${imageFiles.length} ảnh · Khớp ${allMatched.size} thành viên. Hãy kiểm tra trước khi điền.`);
+        const uniqueUnmatched = [...new Map(allUnmatched.map(item => [
+          `${normalizeAttendanceOcrName(item.name)}:${item.combatPower}`,
+          item
+        ])).values()];
+        attendanceCpImageReview = { matched: [...allMatched.values()], unmatched: uniqueUnmatched, imageCount: totalImageCount };
+        setAttendanceCpImageProgress(100, `Đã đọc tổng ${totalImageCount} ảnh · Khớp ${allMatched.size} thành viên. Hãy kiểm tra trước khi điền.`);
         renderAttendanceCpImageReview();
       } catch (error) {
         console.error("Combat power image OCR failed", error);
@@ -9647,6 +9670,7 @@
       document.getElementById("attCpImageInput")?.addEventListener("change", event => {
         const files = [...(event.target.files || [])];
         if (files.length) analyzeAttendanceCpImages(files);
+        event.target.value = "";
       });
       document.getElementById("attCpApplyImageResultsBtn")?.addEventListener("click", applyAttendanceCpImageReview);
       const cpImageDrop = document.querySelector(".att-cp-image-drop");
