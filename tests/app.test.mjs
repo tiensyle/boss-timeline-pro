@@ -161,7 +161,7 @@ test("ready bosses stay above bosses recorded dead while respawns remain time-or
   ]);
 });
 
-test("default boss order prioritizes levels 60, 65, 70, 75 and 80", () => {
+test("default boss order keeps every ready boss above respawning bosses", () => {
   const now = 1000;
   const ctx = load(["sortBossesForDisplay"], {
     activeLevelFilter: "all",
@@ -176,7 +176,24 @@ test("default boss order prioritizes levels 60, 65, 70, 75 and 80", () => {
   ];
 
   assert.deepEqual(ctx.sortBossesForDisplay(bosses, now).map(boss => boss.id), [
-    "level-60-ready", "level-80-respawning", "level-75-respawning", "level-85-ready", "level-90-ready"
+    "level-60-ready", "level-85-ready", "level-90-ready", "level-80-respawning", "level-75-respawning"
+  ]);
+});
+
+test("default respawning order ignores level and uses nearest spawn time", () => {
+  const now = 1000;
+  const ctx = load(["sortBossesForDisplay"], {
+    activeLevelFilter: "all",
+    getNextBossEventTime: boss => boss.nextAt
+  });
+  const bosses = [
+    { id: "level-60-late", level: 60, nextAt: 9000 },
+    { id: "level-90-soon", level: 90, nextAt: 2000 },
+    { id: "level-75-middle", level: 75, nextAt: 5000 }
+  ];
+
+  assert.deepEqual(ctx.sortBossesForDisplay(bosses, now).map(boss => boss.id), [
+    "level-90-soon", "level-75-middle", "level-60-late"
   ]);
 });
 

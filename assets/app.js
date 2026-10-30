@@ -2615,22 +2615,23 @@
         const aRespawning = Number.isFinite(aTime) && aTime > now;
         const bRespawning = Number.isFinite(bTime) && bTime > now;
 
-        // Ở chế độ mặc định, toàn bộ nhóm cấp phổ biến 60–80 được ưu tiên hiển thị.
-        if (!isLevelSort) {
-          const aPriority = priorityLevels.has(Number(a.level));
-          const bPriority = priorityLevels.has(Number(b.level));
-          if (aPriority !== bPriority) return aPriority ? -1 : 1;
-        }
-
-        // Trong cùng nhóm ưu tiên, boss đang sống/chưa ghi nhận chết đứng trước boss hồi sinh.
+        // Trạng thái luôn là tiêu chí đầu tiên: Boss chưa chết/sẵn sàng phải
+        // nằm trên toàn bộ Boss đang chờ hồi sinh, bất kể cấp độ.
         if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
 
         // Khi người dùng chọn sắp xếp theo cấp, cấp độ là tiêu chí chính trong mỗi nhóm trạng thái.
         if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
         if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);
 
-        // Chế độ mặc định giữ boss hồi sinh gần nhất ở trên trong cùng nhóm.
+        // Boss đang hồi sinh luôn xếp theo giờ ra gần nhất, không xen cấp độ.
         if (aRespawning && aTime !== bTime) return aTime - bTime;
+
+        // Trong nhóm Boss sẵn sàng, giữ ưu tiên cấp phổ biến 60–80 như trước.
+        if (!isLevelSort) {
+          const aPriority = priorityLevels.has(Number(a.level));
+          const bPriority = priorityLevels.has(Number(b.level));
+          if (aPriority !== bPriority) return aPriority ? -1 : 1;
+        }
         return 0;
       });
     }
