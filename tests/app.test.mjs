@@ -446,7 +446,7 @@ test("maintenance reset spawns appear in today's schedule before fixed boss time
   assert.deepEqual(today.map(item => item.eventTime), [now, now, fixedAt(18), fixedAt(21)]);
 });
 
-test("schedule hides an old recorded spawn after a newer death and uses the actual respawn", () => {
+test("schedule keeps a confirmed earlier spawn and also forecasts the actual next respawn", () => {
   const now = new Date(2026, 9, 30, 20, 0).getTime();
   const oldSpawn = new Date(2026, 9, 30, 13, 52).getTime();
   const diedAt = new Date(2026, 9, 30, 19, 55).getTime();
@@ -455,21 +455,22 @@ test("schedule hides an old recorded spawn after a newer death and uses the actu
   const state = { bosses: [boss], history: [{ type: "respawn", bossId: boss.id, time: oldSpawn }] };
   const ctx = load(["getTargetDateForFilter", "getBossScheduleEventTimes"], { state });
 
-  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "today")), []);
+  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "today")), [oldSpawn]);
   const week = copy(ctx.getBossScheduleEventTimes(boss, now, "all"));
-  assert.equal(week[0], respawnsAt);
-  assert.equal(week.includes(oldSpawn), false);
+  assert.equal(week[0], oldSpawn);
+  assert.equal(week.includes(respawnsAt), true);
 });
 
-test("a dead fixed boss shows only its next actual respawn, not an elapsed fixed slot", () => {
+test("a fixed boss schedule retains a confirmed slot that already occurred today", () => {
   const now = new Date(2026, 9, 30, 20, 0).getTime();
   const diedAt = new Date(2026, 9, 30, 19, 55).getTime();
   const respawnsAt = new Date(2026, 9, 31, 18, 0).getTime();
   const boss = { id: "roderick", spawnMode: "fixed", fixedSchedules: [{ day: 5, time: "18:00" }], diedAt, respawnsAt };
   const ctx = load(["getTargetDateForFilter", "getBossScheduleEventTimes"], { state: { bosses: [boss], history: [] } });
 
-  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "today")), []);
-  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "all")), [respawnsAt]);
+  const elapsedSlot = new Date(2026, 9, 30, 18, 0).getTime();
+  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "today")), [elapsedSlot]);
+  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "all")), [elapsedSlot]);
 });
 
 test("interval forecasts cover all 7 days, long cycles, boundaries and unknown anchors", () => {
