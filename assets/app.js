@@ -3003,7 +3003,12 @@
       end.setDate(end.getDate() + (dayFilter === "all" ? 7 : 1));
       const times = new Set();
 
-      if (boss.spawnMode === "fixed") {
+      if (boss.spawnMode === "fixed" && boss.diedAt && boss.respawnsAt) {
+        const actualRespawnAt = Number(boss.respawnsAt);
+        if (Number.isFinite(actualRespawnAt) && actualRespawnAt >= start.getTime() && actualRespawnAt < end.getTime()) {
+          times.add(actualRespawnAt);
+        }
+      } else if (boss.spawnMode === "fixed") {
         const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
           ? boss.fixedSchedules
           : [{ day: "all", time: boss.fixedTime || "18:00" }];
@@ -3022,10 +3027,11 @@
           && state.history.some(event => event.type === "respawn"
             && (event.bossId === "all" || event.bossId === boss.id)
             && Number(event.time) === lastRespawnAt);
-        if (hasRecordedSpawn && lastRespawnAt >= start.getTime() && lastRespawnAt < end.getTime()) {
+        const recordedSpawnIsLatest = !boss.diedAt || lastRespawnAt >= Number(boss.diedAt);
+        if (hasRecordedSpawn && recordedSpawnIsLatest && lastRespawnAt >= start.getTime() && lastRespawnAt < end.getTime()) {
           times.add(lastRespawnAt);
         }
-        const baseTime = boss.diedAt ? boss.diedAt + intervalMs
+        const baseTime = boss.diedAt ? (boss.respawnsAt || boss.diedAt + intervalMs)
           : (boss.respawnsAt || (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : null));
         // An untracked interval boss has no reliable anchor for a forecast.
         if (!Number.isFinite(baseTime) || !Number.isFinite(intervalMs)) return [];

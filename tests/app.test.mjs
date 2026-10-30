@@ -446,6 +446,32 @@ test("maintenance reset spawns appear in today's schedule before fixed boss time
   assert.deepEqual(today.map(item => item.eventTime), [now, now, fixedAt(18), fixedAt(21)]);
 });
 
+test("schedule hides an old recorded spawn after a newer death and uses the actual respawn", () => {
+  const now = new Date(2026, 9, 30, 20, 0).getTime();
+  const oldSpawn = new Date(2026, 9, 30, 13, 52).getTime();
+  const diedAt = new Date(2026, 9, 30, 19, 55).getTime();
+  const respawnsAt = new Date(2026, 10, 1, 19, 55).getTime();
+  const boss = { id: "duplican", spawnMode: "interval", respawnMinutes: 2880, lastRespawnAt: oldSpawn, diedAt, respawnsAt };
+  const state = { bosses: [boss], history: [{ type: "respawn", bossId: boss.id, time: oldSpawn }] };
+  const ctx = load(["getTargetDateForFilter", "getBossScheduleEventTimes"], { state });
+
+  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "today")), []);
+  const week = copy(ctx.getBossScheduleEventTimes(boss, now, "all"));
+  assert.equal(week[0], respawnsAt);
+  assert.equal(week.includes(oldSpawn), false);
+});
+
+test("a dead fixed boss shows only its next actual respawn, not an elapsed fixed slot", () => {
+  const now = new Date(2026, 9, 30, 20, 0).getTime();
+  const diedAt = new Date(2026, 9, 30, 19, 55).getTime();
+  const respawnsAt = new Date(2026, 9, 31, 18, 0).getTime();
+  const boss = { id: "roderick", spawnMode: "fixed", fixedSchedules: [{ day: 5, time: "18:00" }], diedAt, respawnsAt };
+  const ctx = load(["getTargetDateForFilter", "getBossScheduleEventTimes"], { state: { bosses: [boss], history: [] } });
+
+  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "today")), []);
+  assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss, now, "all")), [respawnsAt]);
+});
+
 test("interval forecasts cover all 7 days, long cycles, boundaries and unknown anchors", () => {
   const ctx = scheduleContext();
   const midnight = new Date(2026, 9, 9).getTime();
