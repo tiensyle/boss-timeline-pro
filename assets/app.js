@@ -45,20 +45,20 @@
 
     const TRANSLATIONS = {
       vi: {
-        sidebarSubtitle: "Respawn Control",
-        navDashboard: "Dashboard",
+        sidebarSubtitle: "Quản lý hồi sinh",
+        navDashboard: "Tổng quan",
         navTodaySchedule: "Lịch boss hôm nay",
         navWeeklySchedule: "Boss Tiêu Biểu",
-        navBossList: "Boss List",
-        navTimeline: "Timeline",
+        navBossList: "Danh sách boss",
+        navTimeline: "Dòng thời gian",
         navAttendance: "Chấm Công & Lương",
         resetMaintenance: "Reset sau bảo trì",
-        realtimeCountdown: "Realtime countdown",
-        realtimeConnected: "Realtime",
+        realtimeCountdown: "Đếm ngược thời gian thực",
+        realtimeConnected: "Thời gian thực",
         realtimeConnecting: "Đang kết nối…",
-        dashboardTitle: "Dashboard theo dõi boss chết và hồi sinh",
-        dashboardSub: "Theo dõi nhiều boss cùng lúc, ghi nhận thời điểm chết, xem countdown hồi sinh, lọc trạng thái và lưu dữ liệu ngay trên trình duyệt.",
-        adminRole: "Admin",
+        dashboardTitle: "Bảng theo dõi boss chết và hồi sinh",
+        dashboardSub: "Theo dõi nhiều boss cùng lúc, ghi nhận thời điểm chết, xem đếm ngược hồi sinh, lọc trạng thái và lưu dữ liệu ngay trên trình duyệt.",
+        adminRole: "Quản trị viên",
         memberRole: "Thành viên",
         soundOn: "Âm thanh: Bật",
         soundOff: "Âm thanh: Tắt",
@@ -72,21 +72,21 @@
         metricRespawningDesc: "Đang hồi sinh",
         metricSoon: "Sắp hồi sinh",
         metricSoonDesc: "Cần chuẩn bị",
-        nextRespawnTitle: "NEXT RESPAWN",
+        nextRespawnTitle: "BOSS HỒI SINH TIẾP THEO",
         noNextBossTitle: "Không có boss nào đang chờ hồi sinh",
-        noNextBossSub: "Tất cả boss hiện đang ở trạng thái sống. Khi có boss chết, khu vực này sẽ tự động hiển thị countdown ưu tiên gần nhất.",
-        readyStatus: "READY",
-        readyHint: "Bấm \"Ghi nhận chết\" trên card boss để bắt đầu đếm ngược hồi sinh.",
+        noNextBossSub: "Tất cả boss hiện đang ở trạng thái sống. Khi có boss chết, khu vực này sẽ tự động hiển thị thời gian đếm ngược gần nhất.",
+        readyStatus: "SẴN SÀNG",
+        readyHint: "Bấm \"Ghi nhận chết\" trên thẻ boss để bắt đầu đếm ngược hồi sinh.",
         nextWillRespawn: "sẽ hồi sinh tiếp theo",
         estimatedRespawnAt: "Dự kiến hồi sinh lúc",
         prepareBeforeZero: "Chuẩn bị trước khi timer về 0.",
         diedAtLabel: "Chết lúc",
         schedulePanelTitle: "Lịch Hồi Sinh & Dự Báo Boss (7 Ngày)",
-        scheduleSubAll: "Đầy đủ lịch đếm ngược các ngày trong tuần & chu kỳ multi-day (30h, 48h...)",
+        scheduleSubAll: "Đầy đủ lịch đếm ngược các ngày trong tuần và chu kỳ nhiều ngày (30h, 48h...)",
         exportPdf: "Xuất PDF",
         colTimeDate: "GIỜ & NGÀY HỒI SINH",
-        colLevel: "LEVEL",
-        colBoss: "BOSS",
+        colLevel: "CẤP",
+        colBoss: "TÊN BOSS",
         colCycle: "CHU KỲ",
         colMap: "ĐỊA ĐIỂM",
         colNotes: "GHI CHÚ",
@@ -114,7 +114,7 @@
         aliveBadge: "• ĐANG SỐNG",
         soonBadge: "• SẮP HỒI SINH",
         respawningBadge: "• ĐANG HỒI SINH",
-        historyTitle: "Timeline gần đây",
+        historyTitle: "Dòng thời gian gần đây",
         historySub: "Lịch sử chết và hồi sinh mới nhất",
         clearHistoryBtn: "Xóa lịch sử",
         offsetModalTitle: "Ghi nhận boss chết lùi giờ",
@@ -582,6 +582,9 @@
           firebaseAuthReady = true;
           setRole("admin", user.displayName || user.email || "Admin");
           closeAuthModal();
+          // Luôn áp dụng bản Firebase đã nhận trong lúc khôi phục đăng nhập trước khi
+          // cho phép lưu, tránh dữ liệu cũ trên máy mới ghi đè ghi chú/giờ của máy khác.
+          if (typeof applyDeferredBossRemoteAfterAuth === "function") applyDeferredBossRemoteAfterAuth();
           // Writes that were queued while Auth restored can now be retried safely.
           if (typeof saveState === "function" && remoteStateReady) saveState();
           if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady) {
@@ -1788,6 +1791,15 @@
       render();
     }
 
+    function applyDeferredBossRemoteAfterAuth() {
+      if (!firebaseAuthReady || !bossDeferredRemoteData) return false;
+      const queued = bossDeferredRemoteData;
+      bossDeferredRemoteData = null;
+      const remote = getBossRemoteData(queued);
+      applyRemoteState(remote.bosses, remote.history, queued.updated_at, queued.last_editor || queued.data?._clientId);
+      return true;
+    }
+
     let activeStateRef = null;
     let activeDiscordConfigRef = null;
     let connectedRefBound = false;
@@ -1840,6 +1852,12 @@
         const data = snapshot.val();
         const val = data ? { data, last_editor: data._clientId, updated_at: data.updated_at, version: data.version } : null;
         remoteStateReady = true;
+        if (!firebaseAuthReady) {
+          // Snapshot đầu tiên thường đến trước khi Firebase Auth xác nhận quyền Admin.
+          // Giữ lại để áp dụng ngay sau đăng nhập thay vì âm thầm bỏ qua.
+          bossDeferredRemoteData = cloneRealtimeValue(val);
+          return;
+        }
         if (remoteSaveInFlight) {
           bossDeferredRemoteData = cloneRealtimeValue(val);
           return;
@@ -2325,19 +2343,22 @@
         const aRespawning = Number.isFinite(aTime) && aTime > now;
         const bRespawning = Number.isFinite(bTime) && bTime > now;
 
-        // Ở chế độ mặc định, ưu tiên nhóm boss phổ biến Level 60–80 lên đầu.
-        // Các chế độ sắp xếp Level thủ công vẫn tuân theo lựa chọn của người dùng.
+        // Boss sắp hồi sinh luôn ở trên cùng và được xếp theo thời gian gần nhất.
+        // Boss đang sống/chưa có mốc hồi sinh được đưa xuống dưới.
+        if (aRespawning !== bRespawning) return aRespawning ? -1 : 1;
+        if (aRespawning && aTime !== bTime) return aTime - bTime;
+
+        // Với các boss cùng trạng thái, tiếp tục áp dụng lựa chọn sắp xếp theo cấp.
+        if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
+        if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);
+
+        // Trong nhóm boss đang sống, ưu tiên các cấp phổ biến 60–80.
         if (levelMode !== "level-asc" && levelMode !== "level-desc") {
           const priorityLevels = new Set([60, 65, 70, 75, 80]);
           const aPriority = priorityLevels.has(Number(a.level));
           const bPriority = priorityLevels.has(Number(b.level));
           if (aPriority !== bPriority) return aPriority ? -1 : 1;
         }
-
-        if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
-        if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
-        if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);
-        if (aRespawning && aTime !== bTime) return aTime - bTime;
         return 0;
       });
     }
@@ -2407,7 +2428,7 @@
           : (status === "alive" ? "Đang sống" : (status === "soon" ? "Sắp hồi sinh" : "Đang hồi sinh"));
 
         const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
-        const timerValue = isAlive ? "READY" : formatCountdown(remaining);
+        const timerValue = isAlive ? (isEn ? "READY" : "SẴN SÀNG") : formatCountdown(remaining);
         const actionIcon = isAlive ? iconSvg.skull : iconSvg.check;
         const actionLabel = isAlive
           ? (isEn ? "Record Death" : "Ghi nhận chết")
@@ -2527,7 +2548,7 @@
         : (status === "alive" ? "Đang sống" : (status === "soon" ? "Sắp hồi sinh" : "Đang hồi sinh"));
 
       const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
-      const timerValue = isAlive ? "READY" : formatCountdown(remaining);
+      const timerValue = isAlive ? (isEn ? "READY" : "SẴN SÀNG") : formatCountdown(remaining);
 
       // Update Column 1 (Spawn Time)
       if (row.children[0]) {
@@ -2654,7 +2675,7 @@
       const progress = getProgress(boss, now);
       const isAlive = status === "alive";
       const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
-      const timerValue = isAlive ? "READY" : formatCountdown(remaining);
+      const timerValue = isAlive ? (isEn ? "READY" : "SẴN SÀNG") : formatCountdown(remaining);
       const statusClass = `status-${status}`;
       const statusBadgeText = isEn
         ? (status === "alive" ? "• ALIVE" : (status === "soon" ? "• SPAWNING SOON" : "• COUNTING DOWN"))
@@ -2662,7 +2683,7 @@
 
       const respawnText = boss.spawnMode === "fixed"
         ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`)
-        : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
+        : (isEn ? "Respawn " : "Hồi sinh sau ") + formatRespawnMinutes(boss.respawnMinutes);
       const eventTime = getNextBossEventTime(boss, now);
       const respawnTimeText = isAlive
         ? respawnText
@@ -2733,7 +2754,7 @@
       const progress = getProgress(boss, now);
       const isAlive = status === "alive";
       const timerLabel = isAlive ? (isEn ? "Status" : "Trạng thái") : (isEn ? "Remaining" : "Còn lại");
-      const timerValue = isAlive ? "READY" : formatCountdown(remaining);
+      const timerValue = isAlive ? (isEn ? "READY" : "SẴN SÀNG") : formatCountdown(remaining);
       const statusClass = `status-${status}`;
       const actionIcon = isAlive ? iconSvg.skull : iconSvg.check;
       const actionLabel = isAlive
@@ -2775,7 +2796,7 @@
           </div>
         `;
 
-      const respawnText = boss.spawnMode === "fixed" ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`) : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
+      const respawnText = boss.spawnMode === "fixed" ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`) : (isEn ? "Respawn " : "Hồi sinh sau ") + formatRespawnMinutes(boss.respawnMinutes);
       const eventTime = getNextBossEventTime(boss, now);
       const respawnTimeText = isAlive ? respawnText : (isEn ? "Respawn " : "Hồi sinh ") + formatTimeOnly(eventTime);
 
@@ -3658,7 +3679,7 @@
 
       const respawnText = boss.spawnMode === "fixed"
         ? (isEn ? `Fixed ${boss.fixedTime}` : `Cố định ${boss.fixedTime}`)
-        : `Respawn ${formatRespawnMinutes(boss.respawnMinutes)}`;
+        : (isEn ? "Respawn " : "Hồi sinh sau ") + formatRespawnMinutes(boss.respawnMinutes);
       document.getElementById("offsetBossInfo").innerHTML = `
         <span style="font-weight:700; color:var(--text);">${escapeHtml(boss.name)}</span>
         <span style="color:var(--muted); margin:0 6px;">·</span>
