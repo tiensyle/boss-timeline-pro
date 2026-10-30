@@ -3598,8 +3598,7 @@
       const date = new Date(d);
       const h = String(date.getHours()).padStart(2, "0");
       const m = String(date.getMinutes()).padStart(2, "0");
-      const s = String(date.getSeconds()).padStart(2, "0");
-      return `${h}:${m}:${s}`;
+      return `${h}:${m}`;
     }
 
     function formatFullDateTime(d, isEn = currentLang === "en") {
@@ -3851,7 +3850,6 @@
     function initOffsetModal() {
       const offsetDateInput = document.getElementById("offsetCustomDateInput");
       const offsetTimeInput = document.getElementById("offsetCustomTimeInput");
-      attachTimeInputMask(offsetTimeInput, true);
 
       // Quick time offsets
       document.getElementById("offsetPresetGrid")?.addEventListener("click", (e) => {
@@ -5777,6 +5775,8 @@
     let attendanceOcrFiles = [];
     let attendanceOcrPreviewUrls = [];
     let attendanceOcrAnalysisQueue = Promise.resolve();
+    let attendanceCpImageReview = null;
+    let attendanceCpOcrSession = 0;
     let closeAttendanceColumnFilter = () => {};
     const attendanceFilterColumns = [
       ["name", "Thành viên", "text"], ["combatPower", "Lực chiến", "number"],
@@ -8560,12 +8560,21 @@
 
       const pasteWrap = document.getElementById("attCpPasteWrap");
       if (pasteWrap) pasteWrap.style.display = "none";
+      attendanceCpOcrSession++;
+      attendanceCpImageReview = null;
+      const imageInput = document.getElementById("attCpImageInput");
+      if (imageInput) imageInput.value = "";
+      const imageProgress = document.getElementById("attCpImageProgress");
+      const imageResults = document.getElementById("attCpImageResults");
+      if (imageProgress) imageProgress.hidden = true;
+      if (imageResults) imageResults.hidden = true;
 
       modal.classList.add("open");
       syncModalScrollLock();
     }
 
     function closeAttendanceCombatPowerModal() {
+      attendanceCpOcrSession++;
       const modal = document.getElementById("attCombatPowerModal");
       if (modal) modal.classList.remove("open");
       syncModalScrollLock();
@@ -8665,6 +8674,163 @@
         role: (row.querySelector(".att-management-role-name")?.value || "").trim(),
         multiplier: Math.max(1, Math.min(10, Number(row.querySelector(".att-management-role-multiplier")?.value) || 1))
       })).filter(item => item.role);
+    }
+
+    function matchAttendanceCpOcrName(rawText, members) {
+      const token = normalizeAttendanceOcrName(rawText);
+      if (token.length < 2) return null;
+      const ranked = members.map(member => ({ member, score: attendanceOcrSimilarity(token, member.name) }))
+        .sort((a, b) => b.score - a.score);
+      const best = ranked[0];
+      const second = ranked[1]?.score || 0;
+      const threshold = token.length <= 4 ? 0.6 : token.length <= 7 ? 0.66 : 0.7;
+      if (!best || best.score < threshold || (best.score < 0.95 && best.score - second < 0.08)) return null;
+      return best;
+    }
+
+    function buildAttendanceCpOcrRows(words) {
+      const rows = [];
+      [...(words || [])].filter(word => word?.bbox && String(word.text || "").trim()).sort((a, b) => {
+        const ay = (a.bbox.y0 + a.bbox.y1) / 2;
+        const by = (b.bbox.y0 + b.bbox.y1) / 2;
+        return ay - by || a.bbox.x0 - b.bbox.x0;
+      }).forEach(word => {
+        const centerY = (word.bbox.y0 + word.bbox.y1) / 2;
+        const height = Math.max(1, word.bbox.y1 - word.bbox.y0);
+        let row = rows.find(item => Math.abs(item.centerY - centerY) <= Math.max(10, Math.min(item.height, height) * 0.7));
+        if (!row) {
+          row = { centerY, height, words: [] };
+          rows.push(row);
+        }
+        row.words.push(word);
+        row.centerY = row.words.reduce((sum, item) => sum + (item.bbox.y0 + item.bbox.y1) / 2, 0) / row.words.length;
+        row.height = Math.max(row.height, height);
+      });
+      return rows.map(row => ({ ...row, words: row.words.sort((a, b) => a.bbox.x0 - b.bbox.x0) }));
+    }
+
+    function extractAttendanceCpOcrEntries(words, members) {
+      const matched = new Map();
+      const unmatched = [];
+      buildAttendanceCpOcrRows(words).forEach(row => {
+        const numberWords = row.words.filter(word => /\d/.test(word.text || ""));
+        if (!numberWords.length) return;
+        const numberWord = numberWords[numberWords.length - 1];
+        const combatPower = Number(String(numberWord.text || "").replace(/[^0-9]/g, ""));
+        if (!Number.isFinite(combatPower) || combatPower < 100) return;
+        const name = row.words
+          .filter(word => word.bbox.x1 < numberWord.bbox.x0 && /[\p{L}\p{N}]/u.test(word.text || ""))
+          .map(word => String(word.text || "").replace(/[^\p{L}\p{N}]/gu, ""))
+          .filter(Boolean).join(" ").trim();
+        if (!name) return;
+        const match = matchAttendanceCpOcrName(name, members);
+        if (!match) {
+          unmatched.push({ name, combatPower });
+          return;
+        }
+        const previous = matched.get(match.member.id);
+        if (!previous || match.score > previous.score) matched.set(match.member.id, { member: match.member, sourceName: name, combatPower, score: match.score });
+      });
+      return { matched: [...matched.values()], unmatched };
+    }
+
+    function setAttendanceCpImageProgress(percent, text) {
+      const wrap = document.getElementById("attCpImageProgress");
+      const bar = document.getElementById("attCpImageProgressBar");
+      const label = document.getElementById("attCpImageProgressText");
+      if (wrap) wrap.hidden = false;
+      if (bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+      if (label) label.textContent = text;
+    }
+
+    function renderAttendanceCpImageReview() {
+      const results = document.getElementById("attCpImageResults");
+      const list = document.getElementById("attCpImageMatchedList");
+      const unmatchedWrap = document.getElementById("attCpImageUnmatchedWrap");
+      const unmatchedList = document.getElementById("attCpImageUnmatchedList");
+      if (!results || !list || !attendanceCpImageReview) return;
+      const matched = attendanceCpImageReview.matched || [];
+      const unmatched = attendanceCpImageReview.unmatched || [];
+      list.innerHTML = matched.length ? matched.map(item => `
+        <label class="att-cp-image-match-row">
+          <input type="checkbox" data-cp-image-member-id="${escapeHtml(item.member.id)}" checked>
+          <span><strong>${escapeHtml(item.member.name)}</strong><small>Ảnh đọc: ${escapeHtml(item.sourceName)}</small></span>
+          <input type="text" class="att-cp-image-value" data-cp-image-value-for="${escapeHtml(item.member.id)}" value="${escapeHtml(formatCombatPowerInput(item.combatPower))}">
+        </label>`).join("") : '<div class="att-cp-image-empty">Chưa tìm thấy tên thành viên phù hợp.</div>';
+      document.getElementById("attCpImageResultCount").textContent = `${matched.length} thành viên`;
+      if (unmatchedWrap) unmatchedWrap.hidden = unmatched.length === 0;
+      document.getElementById("attCpImageUnmatchedCount").textContent = unmatched.length;
+      if (unmatchedList) unmatchedList.innerHTML = unmatched.map(item => `<span>${escapeHtml(item.name)} · ${item.combatPower.toLocaleString("vi-VN")}</span>`).join("");
+      const apply = document.getElementById("attCpApplyImageResultsBtn");
+      if (apply) apply.disabled = matched.length === 0;
+      results.hidden = false;
+    }
+
+    async function analyzeAttendanceCpImages(files) {
+      if (!isAdmin()) return;
+      const imageFiles = [...(files || [])].filter(file => String(file?.type || "").startsWith("image/"));
+      if (!imageFiles.length) return;
+      const session = ++attendanceCpOcrSession;
+      const members = getActiveWeek()?.members || [];
+      const allMatched = new Map();
+      const allUnmatched = [];
+      try {
+        const Tesseract = await loadAttendanceOcrLibrary();
+        for (let index = 0; index < imageFiles.length; index++) {
+          setAttendanceCpImageProgress(index / imageFiles.length * 100, `Đang đọc ảnh ${index + 1}/${imageFiles.length}…`);
+          const { canvas, context } = await prepareAttendanceOcrCanvas(imageFiles[index]);
+          const contrast = document.createElement("canvas");
+          contrast.width = canvas.width;
+          contrast.height = canvas.height;
+          const contrastContext = contrast.getContext("2d");
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+          for (let pixel = 0; pixel < pixels.data.length; pixel += 4) {
+            const luminance = pixels.data[pixel] * 0.2126 + pixels.data[pixel + 1] * 0.7152 + pixels.data[pixel + 2] * 0.0722;
+            const value = 255 - Math.max(0, Math.min(255, (luminance - 45) * 5));
+            pixels.data[pixel] = pixels.data[pixel + 1] = pixels.data[pixel + 2] = value;
+          }
+          contrastContext.putImageData(pixels, 0, 0);
+          const result = await Tesseract.recognize(contrast, "eng", {
+            tessedit_pageseg_mode: "11",
+            logger: message => {
+              if (message.status !== "recognizing text") return;
+              const percent = ((index + (message.progress || 0)) / imageFiles.length) * 100;
+              setAttendanceCpImageProgress(percent, `Đang đối chiếu ảnh ${index + 1}/${imageFiles.length} · ${Math.round((message.progress || 0) * 100)}%`);
+            }
+          });
+          if (session !== attendanceCpOcrSession) return;
+          const extracted = extractAttendanceCpOcrEntries(collectAttendanceOcrWords(result?.data), members);
+          extracted.matched.forEach(item => {
+            const previous = allMatched.get(item.member.id);
+            if (!previous || item.score > previous.score) allMatched.set(item.member.id, item);
+          });
+          allUnmatched.push(...extracted.unmatched);
+        }
+        attendanceCpImageReview = { matched: [...allMatched.values()], unmatched: allUnmatched };
+        setAttendanceCpImageProgress(100, `Đã đọc ${imageFiles.length} ảnh · Khớp ${allMatched.size} thành viên. Hãy kiểm tra trước khi điền.`);
+        renderAttendanceCpImageReview();
+      } catch (error) {
+        console.error("Combat power image OCR failed", error);
+        setAttendanceCpImageProgress(0, error?.message || "Không thể nhận diện ảnh. Hãy thử lại bằng ảnh rõ hơn.");
+      }
+    }
+
+    function applyAttendanceCpImageReview() {
+      if (!isAdmin() || !attendanceCpImageReview) return;
+      const selected = new Map();
+      document.querySelectorAll("[data-cp-image-member-id]:checked").forEach(checkbox => {
+        const memberId = checkbox.dataset.cpImageMemberId;
+        const valueInput = document.querySelector(`[data-cp-image-value-for="${CSS.escape(memberId)}"]`);
+        selected.set(memberId, parseCombatPowerInput(valueInput?.value));
+      });
+      const serverSelect = document.getElementById("attCpModalServerSelect");
+      if (serverSelect) serverSelect.value = "all";
+      renderCpMembersTableBody("all");
+      selected.forEach((value, memberId) => {
+        const input = document.querySelector(`#attCpMembersTableBody .att-cp-member-input[data-member-id="${CSS.escape(memberId)}"]`);
+        if (input) input.value = formatCombatPowerInput(value);
+      });
+      showToast(`📷 Đã điền Lực Chiến cho ${selected.size} thành viên. Kiểm tra rồi bấm Lưu hoặc Áp Hệ Số.`);
     }
 
     function renderCpMembersTableBody(serverFilter = "all") {
@@ -9396,15 +9562,22 @@
         if (files.length) queueAttendanceOcrFiles(files);
       });
       document.addEventListener("paste", event => {
-        if (!document.getElementById("attOcrModal")?.classList.contains("open")) return;
         const files = [...(event.clipboardData?.items || [])]
           .filter(item => item.kind === "file" && String(item.type || "").startsWith("image/"))
           .map(item => item.getAsFile())
           .filter(Boolean);
         if (!files.length) return;
-        event.preventDefault();
-        queueAttendanceOcrFiles(files);
-        showToast(`📋 Đã dán ${files.length} ảnh từ Clipboard.`);
+        if (document.getElementById("attOcrModal")?.classList.contains("open")) {
+          event.preventDefault();
+          queueAttendanceOcrFiles(files);
+          showToast(`📋 Đã dán ${files.length} ảnh chấm công từ Clipboard.`);
+          return;
+        }
+        if (document.getElementById("attCombatPowerModal")?.classList.contains("open")) {
+          event.preventDefault();
+          analyzeAttendanceCpImages(files);
+          showToast(`📋 Đã dán ${files.length} ảnh Lực Chiến từ Clipboard.`);
+        }
       });
       const ocrDrop = document.querySelector(".att-ocr-drop");
       if (ocrDrop) {
@@ -9471,6 +9644,23 @@
         if (wrap) wrap.style.display = wrap.style.display === "none" ? "block" : "none";
       });
       document.getElementById("attCpApplyPasteBtn")?.addEventListener("click", applyCombatPowerPaste);
+      document.getElementById("attCpImageInput")?.addEventListener("change", event => {
+        const files = [...(event.target.files || [])];
+        if (files.length) analyzeAttendanceCpImages(files);
+      });
+      document.getElementById("attCpApplyImageResultsBtn")?.addEventListener("click", applyAttendanceCpImageReview);
+      const cpImageDrop = document.querySelector(".att-cp-image-drop");
+      if (cpImageDrop) {
+        ["dragenter", "dragover"].forEach(type => cpImageDrop.addEventListener(type, event => {
+          event.preventDefault();
+          cpImageDrop.classList.add("is-dragging");
+        }));
+        ["dragleave", "drop"].forEach(type => cpImageDrop.addEventListener(type, event => {
+          event.preventDefault();
+          cpImageDrop.classList.remove("is-dragging");
+          if (type === "drop") analyzeAttendanceCpImages(event.dataTransfer?.files || []);
+        }));
+      }
 
       // Backdrop dismiss
       ["attMemberModal", "attActivityModal", "attOcrModal", "attEvidenceModal", "attWeekModal", "attExportModal", "attRoleBonusModal", "attCombatPowerModal"].forEach(modalId => {

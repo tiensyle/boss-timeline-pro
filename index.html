@@ -760,7 +760,7 @@
           <span data-i18n="offsetCustomLabel">Hoặc nhập chính xác giờ chết:</span>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <input type="text" id="offsetCustomTimeInput" placeholder="18:52:59 (Giờ 24h)" maxlength="8" style="flex:1; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:700; font-family:monospace;">
+          <input type="time" id="offsetCustomTimeInput" step="60" aria-label="Giờ chết, định dạng giờ và phút" style="flex:1; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; font-weight:700; font-family:monospace;">
           <button type="button" class="button-ghost" id="offsetSetNowBtn" style="white-space:nowrap; padding:9px 14px;" data-i18n="offsetNowBtn">Giờ hiện tại</button>
         </div>
       </div>
@@ -1638,6 +1638,31 @@
           <p style="font-size:11px; color:var(--muted); margin:4px 0 8px 0;">
             💡 Có thể nhập số đầy đủ (ví dụ: <code>18500000</code>) hoặc viết tắt (ví dụ: <code>18.5M</code> hay <code>900k</code>).
           </p>
+
+          <div class="att-cp-image-import">
+            <label class="att-cp-image-drop" for="attCpImageInput">
+              <span class="att-cp-image-icon">📷</span>
+              <span><strong>Nhập Lực Chiến từ ảnh</strong><small>Chọn, kéo ảnh hoặc nhấn Ctrl+V để dán ảnh đã sao chép</small></span>
+              <span class="att-cp-image-action">Chọn ảnh</span>
+              <input type="file" id="attCpImageInput" accept="image/png,image/jpeg,image/webp" multiple>
+            </label>
+            <div id="attCpImageProgress" class="att-cp-image-progress" hidden>
+              <div><span id="attCpImageProgressBar"></span></div>
+              <small id="attCpImageProgressText">Đang chuẩn bị nhận diện…</small>
+            </div>
+            <div id="attCpImageResults" class="att-cp-image-results" hidden>
+              <div class="att-cp-image-result-head">
+                <strong>Đối chiếu kết quả</strong>
+                <span id="attCpImageResultCount">0 thành viên</span>
+              </div>
+              <div id="attCpImageMatchedList"></div>
+              <details id="attCpImageUnmatchedWrap" hidden>
+                <summary>Chưa khớp với thành viên (<span id="attCpImageUnmatchedCount">0</span>)</summary>
+                <div id="attCpImageUnmatchedList"></div>
+              </details>
+              <button type="button" class="button-primary" id="attCpApplyImageResultsBtn">Điền vào bảng Lực Chiến</button>
+            </div>
+          </div>
 
           <div style="max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:6px; background:var(--surface);">
             <table style="width:100%; border-collapse:collapse; font-size:12px;">

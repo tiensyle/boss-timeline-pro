@@ -4388,9 +4388,38 @@
     .att-management-role-x { color:var(--amber); font-weight:800; text-align:right; }
     .att-management-role-badge { display:inline-flex; max-width:100px; padding:2px 6px; border-radius:999px; overflow:hidden; color:#7c3aed; background:rgba(124,58,237,.1); font-size:10px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
     .att-management-role-badge.is-empty { color:var(--muted); background:var(--surface-2); font-weight:500; }
+    .att-cp-image-import { margin:9px 0 11px; }
+    .att-cp-image-drop { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px dashed rgba(245,158,11,.55); border-radius:8px; color:var(--text); background:rgba(245,158,11,.06); cursor:pointer; transition:border-color .15s,background .15s; }
+    .att-cp-image-drop:hover, .att-cp-image-drop.is-dragging { border-color:#f59e0b; background:rgba(245,158,11,.12); }
+    .att-cp-image-drop input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .att-cp-image-icon { display:grid; width:34px; height:34px; flex:0 0 auto; border-radius:8px; place-items:center; color:#fff; background:linear-gradient(135deg,#f59e0b,#ea580c); box-shadow:0 4px 10px rgba(234,88,12,.22); }
+    .att-cp-image-drop > span:nth-child(2) { display:flex; min-width:0; flex:1; flex-direction:column; }
+    .att-cp-image-drop strong { font-size:12.5px; }
+    .att-cp-image-drop small { margin-top:2px; color:var(--muted); font-size:10.5px; }
+    .att-cp-image-action { padding:5px 9px; border:1px solid rgba(245,158,11,.4); border-radius:6px; color:#d97706; background:var(--surface); font-size:11px; font-weight:700; }
+    .att-cp-image-progress { margin-top:7px; }
+    .att-cp-image-progress > div { height:5px; overflow:hidden; border-radius:999px; background:var(--surface-2); }
+    .att-cp-image-progress > div span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#f59e0b,#06b6d4); transition:width .2s; }
+    .att-cp-image-progress small { display:block; margin-top:4px; color:var(--muted); font-size:10.5px; }
+    .att-cp-image-results { margin-top:8px; padding:9px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
+    .att-cp-image-result-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-size:11.5px; }
+    .att-cp-image-result-head span { color:var(--green); font-weight:700; }
+    #attCpImageMatchedList { display:grid; gap:5px; max-height:180px; overflow:auto; }
+    .att-cp-image-match-row { display:grid; grid-template-columns:18px minmax(120px,1fr) 105px; align-items:center; gap:7px; padding:6px 7px; border-radius:6px; background:var(--surface); }
+    .att-cp-image-match-row > span { display:flex; min-width:0; flex-direction:column; }
+    .att-cp-image-match-row strong { overflow:hidden; color:var(--text); font-size:11.5px; text-overflow:ellipsis; white-space:nowrap; }
+    .att-cp-image-match-row small { overflow:hidden; color:var(--muted); font-size:9.5px; text-overflow:ellipsis; white-space:nowrap; }
+    .att-cp-image-value { width:100%; box-sizing:border-box; padding:4px 6px; border:1px solid var(--line); border-radius:5px; color:var(--amber); background:var(--surface-2); font:700 11px monospace; text-align:right; }
+    .att-cp-image-empty { padding:10px; color:var(--muted); font-size:11px; text-align:center; }
+    #attCpImageUnmatchedWrap { margin:7px 0; color:var(--muted); font-size:10.5px; }
+    #attCpImageUnmatchedList { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+    #attCpImageUnmatchedList span { padding:3px 6px; border-radius:4px; color:var(--red); background:var(--red-soft); }
+    #attCpApplyImageResultsBtn { width:100%; justify-content:center; margin-top:8px; padding:7px 10px; font-size:11.5px; }
     @media (max-width:600px) {
       .att-management-role-row { grid-template-columns:minmax(120px,1fr) 18px 62px 30px; }
       .att-management-role-arrow { display:none; }
+      .att-cp-image-action { display:none; }
+      .att-cp-image-match-row { grid-template-columns:18px minmax(90px,1fr) 90px; }
     }
 
 
