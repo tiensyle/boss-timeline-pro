@@ -2343,9 +2343,9 @@
         const aRespawning = Number.isFinite(aTime) && aTime > now;
         const bRespawning = Number.isFinite(bTime) && bTime > now;
 
-        // Boss sắp hồi sinh luôn ở trên cùng và được xếp theo thời gian gần nhất.
-        // Boss đang sống/chưa có mốc hồi sinh được đưa xuống dưới.
-        if (aRespawning !== bRespawning) return aRespawning ? -1 : 1;
+        // Boss đang sống/chưa ghi nhận chết luôn ở trên cùng để Admin dễ thao tác.
+        // Sau đó mới đến boss đang hồi sinh, xếp theo thời gian gần nhất.
+        if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
         if (aRespawning && aTime !== bTime) return aTime - bTime;
 
         // Với các boss cùng trạng thái, tiếp tục áp dụng lựa chọn sắp xếp theo cấp.
