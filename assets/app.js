@@ -3851,6 +3851,20 @@
       const offsetDateInput = document.getElementById("offsetCustomDateInput");
       const offsetTimeInput = document.getElementById("offsetCustomTimeInput");
 
+      // Chỉ chuẩn hóa sau khi rời ô để việc bôi đen và sửa số không làm con trỏ nhảy về cuối.
+      offsetTimeInput?.addEventListener("blur", () => {
+        const rawTime = offsetTimeInput.value.trim();
+        const digits = rawTime.replace(/\D/g, "").slice(0, 4);
+        const parts = rawTime.includes(":")
+          ? rawTime.split(":")
+          : [digits.slice(0, Math.max(1, digits.length - 2)), digits.slice(-2)];
+        if (!parts[0] && !parts[1]) return;
+        const hours = Math.min(23, Math.max(0, Number(parts[0]) || 0));
+        const minutes = Math.min(59, Math.max(0, Number(parts[1]) || 0));
+        offsetTimeInput.value = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+        updateOffsetPreview();
+      });
+
       // Quick time offsets
       document.getElementById("offsetPresetGrid")?.addEventListener("click", (e) => {
         const chip = e.target.closest(".offset-preset-chip");
