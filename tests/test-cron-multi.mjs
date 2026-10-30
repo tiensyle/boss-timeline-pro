@@ -1,7 +1,8 @@
 // Quick smoke test for multi-server cron-daily.js
 
 // Mock fetch
-global.fetch = async (url) => {
+const cronLocks = new Map();
+global.fetch = async (url, options = {}) => {
   if (url.includes("boss_timeline_servers_list")) {
     return {
       ok: true, json: async () => [
@@ -33,6 +34,14 @@ global.fetch = async (url) => {
   if (url.includes("boss_timeline_servers/s3/state")) {
     return { ok: true, json: async () => ({ bosses: [], history: [] }) };
   }
+  if (url.includes("boss_timeline_cron_runs")) {
+    const method = options.method || "GET";
+    if (method === "GET") return new Response(JSON.stringify(cronLocks.get(url) || null), { status: 200, headers: { etag: '"0"' } });
+    if (method === "PUT") {
+      cronLocks.set(url, JSON.parse(options.body));
+      return Response.json(cronLocks.get(url));
+    }
+  }
   // Discord webhooks
   if (url.includes("discord.com")) {
     console.log("  → Sending Discord to:", url.slice(0, 60) + "...");
@@ -44,6 +53,7 @@ global.fetch = async (url) => {
 
 process.env.DISCORD_WEBHOOK_S1 = "https://discord.com/api/webhooks/111/aaaaaa";
 process.env.DISCORD_WEBHOOK_S2 = "https://discord.com/api/webhooks/222/bbbbbb";
+process.env.CRON_SECRET = "smoke-test-secret";
 // s3 không có webhook → phải bị skip
 
 const { default: handler } = await import("../api/cron-daily.js");
@@ -58,7 +68,7 @@ const res = {
   })
 };
 
-await handler({}, res);
+await handler({ method: "GET", headers: { authorization: "Bearer smoke-test-secret" } }, res);
 console.log("HTTP Status:", responseBody.code);
 console.log(JSON.stringify(responseBody.body, null, 2));
 

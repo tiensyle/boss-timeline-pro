@@ -41,6 +41,9 @@
 - API `/api/discord` yêu cầu Firebase ID token và kiểm tra quyền Admin trước khi gửi tin nhắn hoặc ảnh.
 - Bản GitHub Pages tại `https://tiensyle.github.io/boss-timeline-pro/` tự gọi API hiện có tại `https://bosschill.vercel.app/api/discord`. API cho phép đúng origin `https://tiensyle.github.io`, vẫn yêu cầu Admin; các website GitHub Pages của tài khoản khác không được phép.
 - Thông báo tự động được khóa bằng transaction để hai tab không cùng gửi một sự kiện; khi gửi thất bại, khóa được gỡ để cho phép thử lại. Các yêu cầu được xếp hàng và xử lý thời gian chờ khi API trả về 429.
+- API `/api/cron-daily` bắt buộc biến `CRON_SECRET`; Vercel Cron gửi giá trị này dưới dạng `Authorization: Bearer ...`. Không đặt bí mật này trong mã nguồn hoặc trình duyệt.
+- Cron dùng khóa idempotent theo ngày Việt Nam và server tại `boss_timeline_cron_runs`. Đặt `FIREBASE_DATABASE_AUTH` trong môi trường backend để API có quyền ghi khóa mà không mở quyền ghi công khai trong Database Rules.
+- Nếu Discord xác nhận gửi nhưng việc cập nhật khóa gặp lỗi, Cron giữ khóa `pending` để tránh gửi lặp ngay lập tức. Các lần gửi Discord thất bại rõ ràng sẽ gỡ khóa để lần chạy sau thử lại.
 - Nếu website và API ở hai miền khác nhau, đặt `window.BOSS_TIMELINE_DISCORD_API` trong `firebase-config.js` thành URL HTTPS của API. Đặt biến `DISCORD_ALLOWED_ORIGINS` trên API thành danh sách origin website, phân cách bằng dấu phẩy, ví dụ `https://guild.example.com`. Không dùng dấu `*`.
 - Khi tắt cấu hình tag mọi người, báo cáo gửi thủ công cũng không tag `@everyone`. Thông báo boss chết vẫn tắt theo thiết kế hiện tại.
 

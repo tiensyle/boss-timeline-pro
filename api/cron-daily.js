@@ -1,4 +1,37 @@
+import { timingSafeEqual, randomUUID } from "node:crypto";
+
 const DEFAULT_DATABASE_URL = "https://time-boss-chill-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+function secretsEqual(actual, expected) {
+  const a = Buffer.from(String(actual || ""));
+  const b = Buffer.from(String(expected || ""));
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function firebaseUrl(databaseUrl, path, env) {
+  const token = String(env.FIREBASE_DATABASE_AUTH || "").trim();
+  return `${databaseUrl}/${path}.json${token ? `?auth=${encodeURIComponent(token)}` : ""}`;
+}
+
+async function mutateCronLock(fetchImpl, url, mutate) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const read = await fetchImpl(url, { headers: { "X-Firebase-ETag": "true" }, signal: AbortSignal.timeout(8000) });
+    if (!read.ok) throw new Error(`Cron lock read failed: HTTP ${read.status}`);
+    const current = await read.json();
+    const next = mutate(current);
+    if (next === undefined) return { committed: false, current };
+    const etag = read.headers?.get?.("etag") || "null_etag";
+    const write = await fetchImpl(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "if-match": etag },
+      body: JSON.stringify(next),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (write.ok) return { committed: true, value: next };
+    if (write.status !== 412) throw new Error(`Cron lock write failed: HTTP ${write.status}`);
+  }
+  return { committed: false, current: null };
+}
 
 function getVnNow() {
   return Date.now();
@@ -108,12 +141,21 @@ function buildDiscordPayload(serverName, serverIcon, items, dateDisplay) {
   };
 }
 
-export default async function handler(req, res) {
+export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = process.env, now = () => getVnNow() } = {}) {
+  return async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
-  const databaseUrl = (process.env.FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL).trim();
-  const now = getVnNow();
-  const vnNow = getVnDateParts(now);
+  if (req.method && req.method !== "GET") return res.status(405).json({ success: false, error: "Method Not Allowed" });
+  const cronSecret = String(env.CRON_SECRET || "").trim();
+  if (!cronSecret) return res.status(503).json({ success: false, error: "Cron is not configured" });
+  const authorization = String(req.headers?.authorization || req.headers?.Authorization || "");
+  if (!authorization.startsWith("Bearer ") || !secretsEqual(authorization.slice(7), cronSecret)) {
+    return res.status(401).json({ success: false, error: "Unauthorized" });
+  }
+
+  const databaseUrl = (env.FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL).trim().replace(/\/$/, "");
+  const nowTimestamp = now();
+  const vnNow = getVnDateParts(nowTimestamp);
 
   const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
   const dayStr = dayNames[vnNow.day];
@@ -125,7 +167,7 @@ export default async function handler(req, res) {
   // ─── Bước 1: Lấy danh sách servers từ Firebase ───────────────────────────
   let serversList = [];
   try {
-    const svListRes = await fetch(`${databaseUrl}/boss_timeline_servers_list.json`, {
+    const svListRes = await fetchImpl(firebaseUrl(databaseUrl, "boss_timeline_servers_list", env), {
       signal: AbortSignal.timeout(10000)
     });
     if (svListRes.ok) {
@@ -153,15 +195,19 @@ export default async function handler(req, res) {
     const serverId = server.id || "s1";
     const serverName = server.name || serverId;
     const serverIcon = server.icon || "";
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(serverId)) {
+      results.push({ serverId, serverName, status: "skipped", reason: "Invalid server ID" });
+      continue;
+    }
 
     // Chọn đúng webhook cho server này: ưu tiên env var, fallback Firebase
     const suffix = serverId.toUpperCase().replace(/-/g, "_");
-    let webhookUrl = (process.env[`DISCORD_WEBHOOK_${suffix}`] || "").trim();
+    let webhookUrl = (env[`DISCORD_WEBHOOK_${suffix}`] || "").trim();
 
     // Fallback: đọc từ Firebase boss_timeline_webhook_urls/{serverId}/url
     if (!webhookUrl) {
       try {
-        const fbWebhookRes = await fetch(`${databaseUrl}/boss_timeline_webhook_urls/${serverId}.json`, {
+        const fbWebhookRes = await fetchImpl(firebaseUrl(databaseUrl, `boss_timeline_webhook_urls/${serverId}`, env), {
           signal: AbortSignal.timeout(8000)
         });
         if (fbWebhookRes.ok) {
@@ -178,24 +224,46 @@ export default async function handler(req, res) {
       continue;
     }
 
+    const dateKey = `${yyyy}-${mm}-${dd}`;
+    const lockUrl = firebaseUrl(databaseUrl, `boss_timeline_cron_runs/${dateKey}/${serverId}`, env);
+    const owner = randomUUID();
+    let claimed = false;
+    try {
+      const claim = await mutateCronLock(fetchImpl, lockUrl, current => {
+        if (current?.state === "sent") return undefined;
+        if (current?.state === "pending" && nowTimestamp - Number(current.claimedAt || 0) < 10 * 60 * 1000) return undefined;
+        return { state: "pending", owner, claimedAt: nowTimestamp };
+      });
+      if (!claim.committed) {
+        results.push({ serverId, serverName, status: claim.current?.state === "sent" ? "already_sent" : "busy" });
+        continue;
+      }
+      claimed = true;
+    } catch (error) {
+      results.push({ serverId, serverName, status: "error", reason: error.message });
+      continue;
+    }
+
     // Path Firebase: s1 dùng root path, các server khác dùng path riêng
     const statePath = serverId === "s1"
-      ? `${databaseUrl}/boss_timeline_state/data.json`
-      : `${databaseUrl}/boss_timeline_servers/${serverId}/state/data.json`;
+      ? firebaseUrl(databaseUrl, "boss_timeline_state/data", env)
+      : firebaseUrl(databaseUrl, `boss_timeline_servers/${serverId}/state/data`, env);
 
     let bosses = [];
     let history = [];
     try {
-      const stateRes = await fetch(statePath, { signal: AbortSignal.timeout(15000) });
+      const stateRes = await fetchImpl(statePath, { signal: AbortSignal.timeout(15000) });
       if (stateRes.ok) {
         const stateData = await stateRes.json();
         bosses = Array.isArray(stateData?.bosses) ? stateData.bosses : [];
         history = Array.isArray(stateData?.history) ? stateData.history : [];
       } else {
+        if (claimed) await mutateCronLock(fetchImpl, lockUrl, current => current?.owner === owner ? null : undefined).catch(() => {});
         results.push({ serverId, serverName, status: "error", reason: `Firebase fetch failed: HTTP ${stateRes.status}` });
         continue;
       }
     } catch (err) {
+      if (claimed) await mutateCronLock(fetchImpl, lockUrl, current => current?.owner === owner ? null : undefined).catch(() => {});
       results.push({ serverId, serverName, status: "error", reason: `Firebase fetch error: ${err.message}` });
       continue;
     }
@@ -203,7 +271,7 @@ export default async function handler(req, res) {
     // Tính toán các mốc boss trong ngày
     const items = [];
     bosses.forEach((boss, idx) => {
-      const times = calculateBossEventTimesForToday(boss, history, now);
+      const times = calculateBossEventTimesForToday(boss, history, nowTimestamp);
       times.forEach(eventTime => {
         items.push({ boss, eventTime, order: idx });
       });
@@ -212,8 +280,9 @@ export default async function handler(req, res) {
 
     // Build payload và gửi Discord
     const payload = buildDiscordPayload(serverName, serverIcon, items, dateDisplay);
+    let discordAccepted = false;
     try {
-      const discordRes = await fetch(webhookUrl, {
+      const discordRes = await fetchImpl(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -221,12 +290,20 @@ export default async function handler(req, res) {
       });
 
       if (discordRes.ok) {
+        discordAccepted = true;
+        await mutateCronLock(fetchImpl, lockUrl, current => current?.owner === owner
+          ? { ...current, state: "sent", sentAt: nowTimestamp } : undefined);
         results.push({ serverId, serverName, status: "sent", bossCount: items.length });
       } else {
+        if (claimed) await mutateCronLock(fetchImpl, lockUrl, current => current?.owner === owner ? null : undefined).catch(() => {});
         const errText = await discordRes.text().catch(() => "");
         results.push({ serverId, serverName, status: "discord_error", httpStatus: discordRes.status, details: errText });
       }
     } catch (err) {
+      // Release only when delivery definitely failed. If Discord accepted the
+      // request but recording "sent" failed, preserve the pending claim to avoid
+      // an immediate duplicate on retry.
+      if (claimed && !discordAccepted) await mutateCronLock(fetchImpl, lockUrl, current => current?.owner === owner ? null : undefined).catch(() => {});
       results.push({ serverId, serverName, status: "error", reason: `Discord send error: ${err.message}` });
     }
   }
@@ -238,4 +315,7 @@ export default async function handler(req, res) {
     summary: `Sent to ${sentCount}/${serversList.length} servers`,
     results
   });
+  };
 }
+
+export default createCronDailyHandler();

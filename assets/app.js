@@ -278,10 +278,14 @@
     let alertsDbRef = null;
     let attendanceDbRef = null;
     let remoteStateReady = false;
-    let serverTimeReady = !REALTIME_ENABLED;
     let remoteSaveInFlight = false;
     let pendingRemoteSave = false;
+    let pendingBossSaveWaiters = [];
+    const activeBossSaveWaiters = new Set();
+    let activeBossTransactionLocal = null;
+    let lastReportedBossConflictKey = "";
     let lastRemoteUpdatedAt = 0;
+    let lastAppliedBossVersion = 0;
     const CLIENT_ID = "client_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 
     function cloneRealtimeValue(value) {
@@ -586,7 +590,6 @@
           // Luôn áp dụng bản Firebase đã nhận trong lúc khôi phục đăng nhập trước khi
           // cho phép lưu, tránh dữ liệu cũ trên máy mới ghi đè ghi chú/giờ của máy khác.
           if (typeof applyDeferredBossRemoteAfterAuth === "function") applyDeferredBossRemoteAfterAuth();
-          if (typeof refreshBossSyncStatus === "function") refreshBossSyncStatus();
           // Writes that were queued while Auth restored can now be retried safely.
           if (typeof saveState === "function" && remoteStateReady) saveState();
           if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady) {
@@ -1280,8 +1283,8 @@
       return;
     }
 
-    function notifyBossAlert(boss, milestoneType, eventTime = null) {
-      if (isSoundEnabled) {
+    function notifyBossAlert(boss, milestoneType, eventTime = null, sendDiscord = true, playLocal = true) {
+      if (isSoundEnabled && playLocal) {
         let toastMsg = "";
         if (milestoneType === "10m") {
           playChime("10m");
@@ -1299,7 +1302,7 @@
         if (toastMsg) showToast(toastMsg);
         window.setTimeout(() => speakText("BOSS BOSS"), 300);
       }
-      sendDiscordBossAlert(boss, milestoneType, eventTime);
+      if (sendDiscord) sendDiscordBossAlert(boss, milestoneType, eventTime);
     }
 
     function checkBossSoundAlerts(now) {
@@ -1307,6 +1310,7 @@
       state.bosses.forEach((boss) => {
         let eventTime = null;
         let eventKey = "";
+        let timerConfirmed = true;
 
         if (boss.spawnMode === "fixed") {
           eventTime = getNextFixedSpawnTime(boss, now);
@@ -1315,6 +1319,16 @@
         } else {
 
           if (!boss.diedAt || !boss.respawnsAt) return;
+          const confirmedBoss = typeof bossSyncBase !== "undefined"
+            ? (bossSyncBase?.bosses || []).find(item => item.id === boss.id)
+            : null;
+          timerConfirmed = !!confirmedBoss
+            && Number(confirmedBoss.revision || 0) === Number(boss.revision || 0)
+            && confirmedBoss.diedAt === boss.diedAt
+            && confirmedBoss.respawnsAt === boss.respawnsAt;
+          // Keep local sound available for an optimistic timer, but never publish
+          // Discord alerts until this exact timer cycle exists in a Firebase snapshot.
+          if (!timerConfirmed && !isSoundEnabled) return;
           eventTime = boss.respawnsAt;
           eventKey = boss.id + "_" + boss.respawnsAt;
         }
@@ -1322,26 +1336,32 @@
         const remaining = eventTime - now;
         if (remaining <= 0) return; // Mốc 0m được autoResolveRespawns kích hoạt tự động
 
+        const deliverMilestone = milestoneType => {
+          const confirmedKey = `${eventKey}_${milestoneType}`;
+          const localKey = `${confirmedKey}_local`;
+          if (!timerConfirmed) {
+            if (isSoundEnabled && !activeSoundNotified[localKey]) {
+              activeSoundNotified[localKey] = true;
+              notifyBossAlert(boss, milestoneType, eventTime, false, true);
+            }
+            return;
+          }
+          if (activeSoundNotified[confirmedKey]) return;
+          activeSoundNotified[confirmedKey] = true;
+          notifyBossAlert(boss, milestoneType, eventTime, true, !activeSoundNotified[localKey]);
+        };
+
         // Mốc 10 phút (kích hoạt trong khoảng 7.5 phút - 10.5 phút)
         if (remaining <= 10.5 * 60 * 1000 && remaining > 7.5 * 60 * 1000) {
-          if (!activeSoundNotified[eventKey + "_10m"]) {
-            activeSoundNotified[eventKey + "_10m"] = true;
-            notifyBossAlert(boss, "10m", eventTime);
-          }
+          deliverMilestone("10m");
         }
         // Mốc 5 phút (kích hoạt trong khoảng 2.5 phút - 5.5 phút)
         else if (remaining <= 5.5 * 60 * 1000 && remaining > 2.5 * 60 * 1000) {
-          if (!activeSoundNotified[eventKey + "_5m"]) {
-            activeSoundNotified[eventKey + "_5m"] = true;
-            notifyBossAlert(boss, "5m", eventTime);
-          }
+          deliverMilestone("5m");
         }
         // Mốc 1 phút (kích hoạt trong khoảng 5 giây - 90 giây)
         else if (remaining <= 90 * 1000 && remaining > 5000) {
-          if (!activeSoundNotified[eventKey + "_1m"]) {
-            activeSoundNotified[eventKey + "_1m"] = true;
-            notifyBossAlert(boss, "1m", eventTime);
-          }
+          deliverMilestone("1m");
         }
       });
     }
@@ -1496,6 +1516,7 @@
     }
 
     let editingBossId = null;
+    let editingBossRevision = null;
     let toastTimer = null;
 
     function createDefaultState() {
@@ -1633,13 +1654,21 @@
       ? new BroadcastChannel("boss_timeline_local_channel")
       : null;
 
+    function handleBossBroadcastMessage(data) {
+      if (!data || !Array.isArray(data.bosses)) return false;
+      if (data._clientId === CLIENT_ID) return false;
+      if (data.serverId && data.serverId !== currentServerId) return false;
+      // Local/member-only state is never authoritative. Every accepted message
+      // must identify the Firebase snapshot that confirmed it.
+      if (!(Number(data.version) > 0)) return false;
+      const applied = applyRemoteState(data.bosses, data.history || [], data.updated_at, data._clientId, bossSyncBase, data.version);
+      if (applied) showToast("🔄 Đã đồng bộ từ cửa sổ/tab khác trên máy.");
+      return applied;
+    }
+
     if (broadcastChannel) {
       broadcastChannel.onmessage = (event) => {
-        if (!event.data || !Array.isArray(event.data.bosses)) return;
-        if (event.data._clientId === CLIENT_ID) return;
-        if (event.data.serverId && event.data.serverId !== currentServerId) return;
-        applyRemoteState(event.data.bosses, event.data.history || [], getNow());
-        showToast("🔄 Đã đồng bộ từ cửa sổ/tab khác trên máy.");
+        handleBossBroadcastMessage(event.data);
       };
     }
 
@@ -1667,20 +1696,8 @@
       return Date.now() + serverTimeOffset;
     }
 
-    function canProcessBossTimers() {
-      return !REALTIME_ENABLED || (firebaseAuthReady && remoteStateReady && serverTimeReady);
-    }
-
-    function getBossTimerRevision(boss) {
-      if (!boss) return 0;
-      return Math.max(
-        Number(boss.timerUpdatedAt) || 0,
-        Number(boss.diedAt) || 0,
-        Number(boss.lastRespawnAt) || 0
-      );
-    }
-
     let lastLocalEditTime = 0;
+    let lastBossConflictIds = [];
 
     function loadBossSyncBase() {
       try {
@@ -1702,49 +1719,197 @@
 
     function mergeBossStateChanges(base, local, remote) {
       const merged = mergeRealtimeChanges(base, local, remote);
-      const timerFields = ["diedAt", "respawnsAt", "lastRespawnAt", "timerUpdatedAt"];
+      const timerFields = ["diedAt", "respawnsAt", "lastRespawnAt"];
       const before = new Map((base?.bosses || []).map(boss => [boss.id, boss]));
-      const remoteBosses = new Map((remote?.bosses || []).map(boss => [boss.id, boss]));
+      const remoteById = new Map((remote?.bosses || []).map(boss => [boss.id, boss]));
+      const localIds = new Set((local?.bosses || []).map(boss => boss.id));
+      const conflictIds = new Set();
+
+      // A stale delete must not remove a boss that was edited after the deleting
+      // client last received it.
+      for (const previous of base?.bosses || []) {
+        const remoteBoss = remoteById.get(previous.id);
+        if (localIds.has(previous.id) || !remoteBoss) continue;
+        if ((Number(remoteBoss.revision) || 0) > (Number(previous.revision) || 0)) {
+          if (!merged.bosses.some(item => item.id === previous.id)) merged.bosses.push(cloneRealtimeValue(remoteBoss));
+          conflictIds.add(previous.id);
+        }
+      }
       for (const boss of local.bosses) {
         const previous = before.get(boss.id);
         const target = merged.bosses.find(item => item.id === boss.id);
+        const remoteBoss = remoteById.get(boss.id);
+        const baseRevision = Number(previous?.revision);
+        const localRevision = Number(boss?.revision);
+        const remoteRevision = Number(remoteBoss?.revision);
+
+        // The remote deletion wins, but a locally edited deleted boss is still a
+        // rejected operation: flag it and remove its unconfirmed history below.
+        if (previous && !remoteBoss && JSON.stringify(previous) !== JSON.stringify(boss)) {
+          conflictIds.add(boss.id);
+          continue;
+        }
+
+        // Optimistic concurrency per boss: a client may only apply an edit based on
+        // the revision it last received. If both sides advanced, keep Firebase and
+        // reject the stale local operation instead of silently overwriting it.
+        if (previous && target && remoteBoss && Number.isFinite(baseRevision)
+          && localRevision > baseRevision && remoteRevision > baseRevision) {
+          Object.keys(target).forEach(key => delete target[key]);
+          Object.assign(target, cloneRealtimeValue(remoteBoss));
+          conflictIds.add(boss.id);
+          continue;
+        }
         if (previous && target && timerFields.some(key => previous[key] !== boss[key])) {
-          // A death/respawn is one atomic transition. A newer transition received
-          // from Firebase must beat a stale cached transition from this browser.
-          const remoteBoss = remoteBosses.get(boss.id);
-          const winner = remoteBoss && getBossTimerRevision(remoteBoss) > getBossTimerRevision(boss)
-            ? remoteBoss
-            : boss;
-          timerFields.forEach(key => { target[key] = winner[key] ?? null; });
+          // A death/respawn is one state transition, not three independent field edits.
+          timerFields.forEach(key => { target[key] = boss[key] ?? null; });
         }
       }
+      if (conflictIds.size) {
+        const baseHistoryIds = new Set((base?.history || []).map(item => item.id));
+        const remoteHistoryIds = new Set((remote?.history || []).map(item => item.id));
+        merged.history = merged.history.filter(item => !conflictIds.has(item.bossId)
+          || baseHistoryIds.has(item.id) || remoteHistoryIds.has(item.id));
+      }
+      const baseHistoryIds = new Set((base?.history || []).map(item => item.id));
+      const hasNewResetAll = (local?.history || []).some(item => item.bossId === "all" && !baseHistoryIds.has(item.id));
+      const baseBossIds = new Set((base?.bosses || []).map(boss => boss.id));
+      const remoteBossIds = new Set((remote?.bosses || []).map(boss => boss.id));
+      const bossSetChanged = baseBossIds.size !== remoteBossIds.size
+        || [...baseBossIds].some(id => !remoteBossIds.has(id));
+      if (hasNewResetAll && (conflictIds.size || bossSetChanged)) {
+        // Maintenance reset is all-or-nothing. A partial reset would make both
+        // current state and the "ALL BOSSES" history entry untrue.
+        for (const boss of local.bosses || []) {
+          const previous = before.get(boss.id);
+          if (previous && JSON.stringify(previous) !== JSON.stringify(boss)) conflictIds.add(boss.id);
+        }
+        merged.bosses = cloneRealtimeValue(remote?.bosses || []);
+        merged.history = cloneRealtimeValue(remote?.history || []);
+      }
+      if (typeof lastBossConflictIds !== "undefined") lastBossConflictIds = [...conflictIds];
       return merged;
+    }
+
+    function broadcastConfirmedBossState(confirmedState) {
+      if (!broadcastChannel || !confirmedState || !Array.isArray(confirmedState.bosses)) return;
+      broadcastChannel.postMessage({
+        _clientId: CLIENT_ID,
+        serverId: currentServerId,
+        bosses: confirmedState.bosses.map(normalizeBoss),
+        history: Array.isArray(confirmedState.history) ? confirmedState.history.slice(0, 30) : [],
+        updated_at: confirmedState.updated_at || null,
+        version: Number(confirmedState.version) || 0
+      });
+    }
+
+    function discardConflictedQueuedBossChanges(conflictIds, confirmedState) {
+      if (!conflictIds?.length || !confirmedState) return;
+      const rejected = new Set(conflictIds);
+      const confirmedById = new Map((confirmedState.bosses || []).map(boss => [boss.id, boss]));
+      state.bosses = state.bosses.map(boss => rejected.has(boss.id) && confirmedById.has(boss.id)
+        ? cloneRealtimeValue(confirmedById.get(boss.id)) : boss);
+      const confirmedHistoryIds = new Set((confirmedState.history || []).map(item => item.id));
+      state.history = state.history.filter(item => !rejected.has(item.bossId) || confirmedHistoryIds.has(item.id));
+      lastRenderedGridKey = "";
+      saveStateLocal(false);
+      render();
+    }
+
+    function reportRejectedBossOperations(conflictIds, attemptedState) {
+      const attemptedById = new Map((attemptedState?.bosses || []).map(boss => [boss.id, boss]));
+      const operations = (conflictIds || []).map(bossId => {
+        const boss = attemptedById.get(bossId);
+        return {
+        operation: boss ? "update" : "delete",
+        bossId,
+        bossName: boss?.name || bossId,
+        revision: Number(boss?.revision) || 0,
+        diedAt: boss?.diedAt || null,
+        respawnsAt: boss?.respawnsAt || null,
+        notes: boss?.notes || "",
+        rejectedAt: getNow(),
+        serverId: currentServerId
+      }; });
+      if (!operations.length) return;
+      try {
+        localStorage.setItem(STORAGE_KEY + ".rejectedOperations", JSON.stringify(operations));
+      } catch (error) {}
+      console.warn("[Boss Sync] Firebase rejected stale operations:", operations);
+      showToast("⚠️ Thao tác offline đã bị từ chối vì Boss có dữ liệu mới hơn. Chi tiết đã được lưu để kiểm tra.");
+      if (typeof showConfirmModal === "function") {
+        const lines = operations.map(item => item.operation === "delete"
+          ? `${escapeHtml(item.bossName || item.bossId)} — thao tác xóa Boss`
+          : `${escapeHtml(item.bossName || item.bossId)} — giờ chết: ${item.diedAt ? escapeHtml(formatFullDateTime(item.diedAt)) : "không có"}`);
+        showConfirmModal({
+          title: "Thao tác không được Firebase chấp nhận",
+          subtitle: "Một Admin khác đã cập nhật Boss trước khi máy này kết nối lại.",
+          message: `Dữ liệu máy chủ được giữ nguyên. Thao tác bị từ chối:<br><br>${lines.join("<br>")}`,
+          html: true,
+          confirmText: "Đã hiểu",
+          cancelText: "Đóng",
+          isDanger: false
+        });
+      }
+    }
+
+    function getChangedBossIds(beforeState, afterState) {
+      const beforeMap = new Map((beforeState?.bosses || []).map(boss => [boss.id, boss]));
+      const afterMap = new Map((afterState?.bosses || []).map(boss => [boss.id, boss]));
+      const ids = new Set([...beforeMap.keys(), ...afterMap.keys()]);
+      return [...ids].filter(id => JSON.stringify(beforeMap.get(id)) !== JSON.stringify(afterMap.get(id)));
+    }
+
+    function enqueueBossSaveWaiter(bossIds = []) {
+      return new Promise(resolve => {
+        const finish = outcome => {
+          activeBossSaveWaiters.delete(finish);
+          resolve(outcome);
+        };
+        finish.bossIds = new Set(bossIds);
+        activeBossSaveWaiters.add(finish);
+        pendingBossSaveWaiters.push(finish);
+      });
     }
 
     async function saveState(seedOnly = false) {
       // Luon giu local cache de app van mo duoc khi mat mang.
       lastLocalEditTime = Date.now();
-      saveStateLocal(true);
-      if (!isAdmin() || !REALTIME_ENABLED || !stateDbRef) return;
+      // Do not broadcast optimistic data to sibling tabs before Firebase accepts it.
+      saveStateLocal(false);
+      if (!isAdmin() || !REALTIME_ENABLED || !stateDbRef) return false;
 
-      if (remoteSaveInFlight || !canProcessBossTimers()) {
+      if (remoteSaveInFlight || !remoteStateReady) {
         pendingRemoteSave = true;
-        return;
+        return enqueueBossSaveWaiter(getChangedBossIds(activeBossTransactionLocal || bossSyncBase, state));
       }
 
+      // Waiters created while Firebase was not ready belong to this transaction.
+      // Waiters added after remoteSaveInFlight becomes true belong to the next one.
+      const currentSaveWaiters = pendingBossSaveWaiters.splice(0);
       const local = { bosses: state.bosses.map(normalizeBoss), history: cloneRealtimeValue(state.history.slice(0, 30)) };
+      activeBossTransactionLocal = cloneRealtimeValue(local);
       const base = cloneRealtimeValue(bossSyncBase);
-      if (!seedOnly && JSON.stringify(base) === JSON.stringify(local)) return;
+      if (!seedOnly && JSON.stringify(base) === JSON.stringify(local)) {
+        pendingRemoteSave = false;
+        currentSaveWaiters.forEach(resolve => resolve(true));
+        return true;
+      }
       const saveRef = stateDbRef;
       const generation = bossSyncGeneration;
       remoteSaveInFlight = true;
       pendingRemoteSave = false;
       bossDeferredRemoteData = null;
+      if (typeof lastBossConflictIds !== "undefined") lastBossConflictIds = [];
+      setRealtimeStatus("saving", "Đang lưu thay đổi lên Firebase…");
       let saved = false;
+      let transactionConflictIds = [];
+      let confirmedRemote = null;
       try {
         const result = await saveRef.transaction(current => {
           if (seedOnly && current?.data) return;
           const merged = current ? mergeBossStateChanges(base, local, getBossRemoteData(current)) : cloneRealtimeValue(local);
+          transactionConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
           merged.history = merged.history.sort((a, b) => b.time - a.time).slice(0, 30);
           const updatedAt = new Date(getNow()).toISOString();
           const version = (Number(current?.version) || 0) + 1;
@@ -1757,17 +1922,30 @@
             version
           };
         }, undefined, false);
-        if (generation !== bossSyncGeneration) return;
+        if (generation !== bossSyncGeneration) return false;
         const confirmed = result.snapshot.val();
         if (confirmed) {
           const remote = getBossRemoteData(confirmed);
-          applyRemoteState(remote.bosses, remote.history, confirmed.updated_at, CLIENT_ID, result.committed ? local : base);
+          confirmedRemote = { ...cloneRealtimeValue(remote), updated_at: confirmed.updated_at, version: Number(confirmed.version) || 0 };
+          applyRemoteState(remote.bosses, remote.history, confirmed.updated_at, CLIENT_ID, result.committed ? local : base, confirmed.version);
+          if (transactionConflictIds.length) discardConflictedQueuedBossChanges(transactionConflictIds, confirmedRemote);
           if (bossDeferredRemoteData && Number(bossDeferredRemoteData.version) > Number(confirmed.version)) {
             const deferred = getBossRemoteData(bossDeferredRemoteData);
-            applyRemoteState(deferred.bosses, deferred.history, bossDeferredRemoteData.updated_at);
+            applyRemoteState(deferred.bosses, deferred.history, bossDeferredRemoteData.updated_at, undefined, bossSyncBase, bossDeferredRemoteData.version);
           }
         }
         saved = true;
+        const conflictIds = transactionConflictIds;
+        setRealtimeStatus("online", conflictIds.length
+          ? "Có xung đột — dữ liệu mới nhất trên Firebase được giữ lại"
+          : "Đã đồng bộ thay đổi lên Firebase");
+        if (conflictIds.length && typeof showToast === "function") {
+          showToast("⚠️ Boss vừa được Admin khác cập nhật. Thao tác cũ của bạn không được ghi đè.");
+          reportRejectedBossOperations(conflictIds, local);
+        }
+        // Broadcast the exact server snapshot, never state that may already contain
+        // another local edit waiting for its own transaction.
+        broadcastConfirmedBossState(confirmedRemote);
       } catch (error) {
         console.error("Firebase save error:", error);
         setRealtimeStatus("offline", "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
@@ -1775,11 +1953,39 @@
         if (generation === bossSyncGeneration) {
           remoteSaveInFlight = false;
           bossDeferredRemoteData = null;
+          activeBossTransactionLocal = null;
           const savePending = pendingRemoteSave;
           pendingRemoteSave = !saved || savePending;
-          if (saved && savePending) saveState();
+          const completedOutcome = !saved ? false : (transactionConflictIds.length ? "conflict" : true);
+          currentSaveWaiters.forEach(resolve => resolve(completedOutcome));
+          if (saved && savePending) {
+            const waiters = pendingBossSaveWaiters.splice(0);
+            pendingRemoteSave = false;
+            if (transactionConflictIds.length) {
+              const rejected = new Set(transactionConflictIds);
+              const safeWaiters = [];
+              waiters.forEach(waiter => {
+                if ([...waiter.bossIds].some(id => rejected.has(id))) waiter("conflict");
+                else safeWaiters.push(waiter);
+              });
+              const hasRemaining = JSON.stringify(bossSyncBase) !== JSON.stringify({ bosses: state.bosses.map(normalizeBoss), history: state.history.slice(0, 30) });
+              if (hasRemaining) saveState().then(outcome => safeWaiters.forEach(resolve => resolve(outcome)));
+              else safeWaiters.forEach(resolve => resolve(true));
+            } else {
+              saveState().then(outcome => waiters.forEach(resolve => resolve(outcome)));
+            }
+          } else if (!saved && pendingBossSaveWaiters.length) {
+            const waiters = pendingBossSaveWaiters.splice(0);
+            waiters.forEach(resolve => resolve(false));
+          }
         }
       }
+      if (!saved) return false;
+      if (!transactionConflictIds.length) return true;
+      const rejected = [...transactionConflictIds];
+      const changed = getChangedBossIds(base, local);
+      const accepted = changed.filter(id => !rejected.includes(id));
+      return accepted.length ? { acceptedBossIds: accepted, rejectedBossIds: rejected } : "conflict";
     }
 
     function setRealtimeStatus(type, title) {
@@ -1788,23 +1994,16 @@
       el.dataset.status = type;
       el.title = title || "";
       el.querySelector(".realtime-status-text").textContent =
-        type === "online" ? "Realtime" : type === "connecting" ? "Đang kết nối…" : "Offline";
+        type === "online" ? "Đã đồng bộ" : type === "saving" ? "Đang lưu…" : type === "connecting" ? "Đang kết nối…" : "Offline";
     }
 
-    function refreshBossSyncStatus() {
-      if (!REALTIME_ENABLED) {
-        setRealtimeStatus("offline", "Chưa cấu hình Firebase — kiểm tra firebase-config.js");
-      } else if (firebaseRealtimeConnected && canProcessBossTimers()) {
-        setRealtimeStatus("online", "Đã nhận dữ liệu và giờ chuẩn Firebase — đồng bộ tức thì cho cả team");
-      } else {
-        setRealtimeStatus("connecting", "Đang nhận dữ liệu boss và giờ chuẩn từ Firebase…");
-      }
-    }
-
-    function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId, localBase = bossSyncBase) {
-      if (!Array.isArray(incomingBosses)) return;
+    function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId, localBase = bossSyncBase, remoteVersion = 0) {
+      if (!Array.isArray(incomingBosses)) return false;
       // Auth restoration must finish before choosing whether to preserve unsent admin edits.
-      if (!firebaseAuthReady) return;
+      if (!firebaseAuthReady) return false;
+      const numericVersion = Number(remoteVersion) || 0;
+      if (numericVersion && numericVersion < lastAppliedBossVersion) return false;
+      if (numericVersion) lastAppliedBossVersion = numericVersion;
 
       if (updatedAt) {
         const remoteTime = new Date(updatedAt).getTime();
@@ -1815,11 +2014,21 @@
         bosses: incomingBosses.map(normalizeBoss),
         history: Array.isArray(incomingHistory) ? incomingHistory.slice(0, 30) : []
       };
+      const attemptedState = cloneRealtimeValue(state);
       state = isAdmin() ? mergeBossStateChanges(localBase || state, state, remote) : remote;
+      const snapshotConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
       bossSyncBase = cloneRealtimeValue(remote);
       lastRenderedGridKey = ""; // Bat buoc render lai giao dien moi
       saveStateLocal(false); // Luu vao cache nhung KHONG broadcast nguoc lai de triet tieu loop
       render();
+      if (snapshotConflictIds.length) {
+        const conflictKey = `${numericVersion}:${snapshotConflictIds.sort().join(",")}:${snapshotConflictIds.map(id => attemptedState.bosses.find(b => b.id === id)?.revision || 0).join(",")}`;
+        if (conflictKey !== lastReportedBossConflictKey) {
+          lastReportedBossConflictKey = conflictKey;
+          reportRejectedBossOperations(snapshotConflictIds, attemptedState);
+        }
+      }
+      return true;
     }
 
     function applyDeferredBossRemoteAfterAuth() {
@@ -1827,7 +2036,7 @@
       const queued = bossDeferredRemoteData;
       bossDeferredRemoteData = null;
       const remote = getBossRemoteData(queued);
-      applyRemoteState(remote.bosses, remote.history, queued.updated_at, queued.last_editor || queued.data?._clientId);
+      applyRemoteState(remote.bosses, remote.history, queued.updated_at, queued.last_editor || queued.data?._clientId, bossSyncBase, queued.version || queued.data?.version);
       return true;
     }
 
@@ -1851,21 +2060,19 @@
         activeDiscordConfigRef = null;
       }
 
-      refreshBossSyncStatus();
+      setRealtimeStatus(firebaseRealtimeConnected ? "online" : "connecting", firebaseRealtimeConnected
+        ? "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team"
+        : "Đang kết nối Google Firebase Realtime…");
 
       // Giam sat ket noi Firebase connection state (chi can gan 1 lan)
       if (!connectedRefBound && firebaseDb) {
         firebaseDb.ref(".info/serverTimeOffset").on("value", (snap) => {
           serverTimeOffset = Number(snap.val()) || 0;
-          serverTimeReady = true;
-          refreshBossSyncStatus();
-          if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
-          if (canProcessBossTimers()) render();
         });
         firebaseDb.ref(".info/connected").on("value", (snap) => {
           firebaseRealtimeConnected = snap.val() === true;
           if (firebaseRealtimeConnected) {
-            refreshBossSyncStatus();
+            setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
             if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
             if (isAdmin() && attendanceRemoteStateReady && attendancePendingRemoteSave) pushAttendanceToFirebase();
           } else {
@@ -1885,7 +2092,6 @@
         const data = snapshot.val();
         const val = data ? { data, last_editor: data._clientId, updated_at: data.updated_at, version: data.version } : null;
         remoteStateReady = true;
-        refreshBossSyncStatus();
         if (!firebaseAuthReady) {
           // Snapshot đầu tiên thường đến trước khi Firebase Auth xác nhận quyền Admin.
           // Giữ lại để áp dụng ngay sau đăng nhập thay vì âm thầm bỏ qua.
@@ -1899,7 +2105,7 @@
         if (val) {
           const senderId = val.last_editor || val.data?._clientId;
           const remote = getBossRemoteData(val);
-          applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId);
+          applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId, bossSyncBase, val.version || val.data?.version);
           if (senderId !== CLIENT_ID) showToast("🔄 Team vừa cập nhật Boss Timeline.");
           if (isAdmin()) saveState();
         } else if (!val) {
@@ -1997,7 +2203,9 @@
         diedAt: diedAtVal,
         respawnsAt: respawnsAtVal,
         lastRespawnAt: Number(boss.lastRespawnAt) || null,
-        timerUpdatedAt: getBossTimerRevision(boss) || null,
+        revision: Math.max(0, Number(boss.revision) || 0),
+        updatedAt: Math.max(0, Number(boss.updatedAt) || 0),
+        updatedBy: String(boss.updatedBy || "").slice(0, 120),
         avatar: ["ember", "frost", "void", "stone", "storm"].includes(boss.avatar) ? boss.avatar : "ember",
         notes: String(boss.notes || "").slice(0, 160)
       };
@@ -2240,23 +2448,35 @@
 
 
     function historyItem(type, boss, time = getNow(), source = null) {
+      const eventTime = Number(time) || getNow();
       return {
-        id: source === "automatic"
-          ? `history_auto_${boss.id}_${time}`
-          : "history_" + Math.random().toString(36).slice(2, 9),
+        // A stable ID makes the same automatic transition idempotent across clients.
+        id: `history_${type}_${String(boss.id).replace(/[^a-zA-Z0-9_-]/g, "_")}_${eventTime}`,
         type,
         bossId: boss.id,
         bossName: boss.name,
         map: boss.map,
-        time,
+        time: eventTime,
         source,
         adminName: isAdmin() ? currentAdminName : null
       };
     }
 
     function pushHistory(type, boss, time = getNow(), source = null) {
-      state.history.unshift(historyItem(type, boss, time, source));
+      const item = historyItem(type, boss, time, source);
+      if (!state.history.some(existing => existing.id === item.id)) state.history.unshift(item);
       state.history = state.history.slice(0, 30);
+    }
+
+    function touchBossRevision(boss, time = getNow()) {
+      boss.revision = Math.max(0, Number(boss.revision) || 0) + 1;
+      boss.updatedAt = Number(time) || getNow();
+      boss.updatedBy = CLIENT_ID;
+    }
+
+    function isBossRevisionCurrent(bossId, revision) {
+      const current = state.bosses.find(item => item.id === bossId);
+      return Boolean(current) && (Number(current.revision) || 0) === revision;
     }
 
     // Một luồng hồi sinh dùng chung cho cả Admin và countdown tự động.
@@ -2268,15 +2488,20 @@
       boss.lastRespawnAt = time;
       boss.diedAt = null;
       boss.respawnsAt = null;
-      boss.timerUpdatedAt = time;
+      touchBossRevision(boss, time);
       pushHistory("respawn", boss, time, source);
       return true;
     }
 
-    function autoResolveRespawns() {
-      if (!canProcessBossTimers()) return;
+    let autoRespawnSaveInFlight = false;
+
+    async function autoResolveRespawns() {
+      // Members render countdown/status from confirmed Firebase timers only. They
+      // must never create transitions, revisions, history, or broadcasts locally.
+      if (!isAdmin() || autoRespawnSaveInFlight) return;
       const now = getNow();
       let changed = false;
+      const confirmedCandidates = [];
 
       state.bosses.forEach((boss) => {
         if (boss.spawnMode === "fixed") {
@@ -2284,11 +2509,8 @@
             const nextTime = getNextFixedSpawnTime(boss, boss.diedAt);
             if (nextTime && nextTime <= now) {
               const targetKey = boss.id + "_" + nextTime;
-              if (!activeSoundNotified[targetKey + "_0m"]) {
-                activeSoundNotified[targetKey + "_0m"] = true;
-                notifyBossAlert(boss, "0m", nextTime);
-              }
               performRespawn(boss, nextTime, "automatic");
+              confirmedCandidates.push({ bossId: boss.id, revision: boss.revision, eventTime: nextTime, targetKey });
               changed = true;
             }
           }
@@ -2296,24 +2518,32 @@
           if (boss.diedAt && boss.respawnsAt && boss.respawnsAt <= now) {
             const cycleKey = boss.id + "_" + boss.respawnsAt;
             const respawnTime = boss.respawnsAt;
-            if (!activeSoundNotified[cycleKey + "_0m"]) {
-              activeSoundNotified[cycleKey + "_0m"] = true;
-              notifyBossAlert(boss, "0m", respawnTime);
-            }
             performRespawn(boss, boss.respawnsAt, "automatic");
+            confirmedCandidates.push({ bossId: boss.id, revision: boss.revision, eventTime: respawnTime, targetKey: cycleKey });
             changed = true;
           }
         }
       });
 
       if (changed) {
-        if (isAdmin()) {
-          saveState();
-        } else {
-          saveStateLocal();
+        autoRespawnSaveInFlight = true;
+        try {
+          const outcome = await saveState();
+          if (outcome === true) {
+            confirmedCandidates.forEach(candidate => {
+              const boss = state.bosses.find(item => item.id === candidate.bossId);
+              if (!boss || (Number(boss.revision) || 0) !== candidate.revision) return;
+              if (!activeSoundNotified[candidate.targetKey + "_0m"]) {
+                activeSoundNotified[candidate.targetKey + "_0m"] = true;
+                notifyBossAlert(boss, "0m", candidate.eventTime);
+              }
+            });
+            const isEn = currentLang === "en";
+            showToast(isEn ? "A boss respawn was confirmed and synchronized." : "Boss hồi sinh đã được Firebase xác nhận và đồng bộ.");
+          }
+        } finally {
+          autoRespawnSaveInFlight = false;
         }
-        const isEn = currentLang === "en";
-        showToast(isEn ? "A boss has respawned. Timeline updated." : "Có boss vừa hồi sinh. Timeline đã được cập nhật.");
       }
     }
 
@@ -2376,29 +2606,30 @@
     }
 
     function sortBossesForDisplay(bosses, now, levelMode = activeLevelFilter) {
+      const isLevelSort = levelMode === "level-asc" || levelMode === "level-desc";
+      const priorityLevels = new Set([60, 65, 70, 75, 80]);
+
       return bosses.sort((a, b) => {
         const aTime = getNextBossEventTime(a, now);
         const bTime = getNextBossEventTime(b, now);
         const aRespawning = Number.isFinite(aTime) && aTime > now;
         const bRespawning = Number.isFinite(bTime) && bTime > now;
 
-        // Theo yêu cầu vận hành, các cấp 60/65/70/75/80 luôn được ưu tiên
-        // trước những cấp khác trong chế độ sắp xếp mặc định.
-        if (levelMode !== "level-asc" && levelMode !== "level-desc") {
-          const priorityLevels = new Set([60, 65, 70, 75, 80]);
+        // Ở chế độ mặc định, toàn bộ nhóm cấp phổ biến 60–80 được ưu tiên hiển thị.
+        if (!isLevelSort) {
           const aPriority = priorityLevels.has(Number(a.level));
           const bPriority = priorityLevels.has(Number(b.level));
           if (aPriority !== bPriority) return aPriority ? -1 : 1;
         }
 
-        // Boss đang sống/chưa ghi nhận chết luôn ở trên cùng để Admin dễ thao tác.
-        // Sau đó mới đến boss đang hồi sinh, xếp theo thời gian gần nhất.
+        // Trong cùng nhóm ưu tiên, boss đang sống/chưa ghi nhận chết đứng trước boss hồi sinh.
         if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
 
-        // Với các boss cùng trạng thái, tiếp tục áp dụng lựa chọn sắp xếp theo cấp.
+        // Khi người dùng chọn sắp xếp theo cấp, cấp độ là tiêu chí chính trong mỗi nhóm trạng thái.
         if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
         if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);
 
+        // Chế độ mặc định giữ boss hồi sinh gần nhất ở trên trong cùng nhóm.
         if (aRespawning && aTime !== bTime) return aTime - bTime;
         return 0;
       });
@@ -3025,7 +3256,7 @@
         if (hasRecordedSpawn && lastRespawnAt >= start.getTime() && lastRespawnAt < end.getTime()) {
           times.add(lastRespawnAt);
         }
-        const baseTime = boss.diedAt ? (boss.respawnsAt || boss.diedAt + intervalMs)
+        const baseTime = boss.diedAt ? boss.diedAt + intervalMs
           : (boss.respawnsAt || (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : null));
         // An untracked interval boss has no reliable anchor for a forecast.
         if (!Number.isFinite(baseTime) || !Number.isFinite(intervalMs)) return [];
@@ -3581,7 +3812,7 @@
       if (!boss || !["kill", "revive"].includes(action)) return;
       closeBossActionConfirmation();
       const time = getNow();
-      pendingBossAction = { action, id, time, serverId: currentServerId, generation: bossSyncGeneration };
+      pendingBossAction = { action, id, time, revision: Number(boss.revision) || 0, serverId: currentServerId, generation: bossSyncGeneration };
       document.getElementById(`${action}ConfirmBossName`).textContent = boss.name;
       document.getElementById(`${action}ConfirmAdmin`).textContent = currentAdminName;
       if (action === "kill") {
@@ -3597,11 +3828,16 @@
       const pending = pendingBossAction;
       closeBossActionConfirmation();
       if (!pending || pending.action !== action || pending.serverId !== currentServerId || pending.generation !== bossSyncGeneration || !isAdmin()) return;
+      const latestBoss = state.bosses.find(item => item.id === pending.id);
+      if (!latestBoss || (Number(latestBoss.revision) || 0) !== pending.revision) {
+        showToast("⚠️ Boss vừa được Admin khác cập nhật. Hãy kiểm tra lại trước khi thao tác.");
+        return;
+      }
       if (action === "kill") killBoss(pending.id, pending.time);
       else reviveBoss(pending.id);
     }
 
-    function killBoss(id, diedAt = getNow()) {
+    async function killBoss(id, diedAt = getNow()) {
       const isEn = currentLang === "en";
       if (!isAdmin()) {
         showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
@@ -3612,22 +3848,32 @@
 
       const now = diedAt;
       boss.diedAt = now;
-      boss.timerUpdatedAt = now;
       if (boss.spawnMode === "fixed") {
         boss.respawnsAt = getNextFixedSpawnTime(boss, now);
       } else {
         boss.respawnsAt = now + (boss.respawnMinutes || 30) * 60 * 1000;
       }
+      touchBossRevision(boss, now);
+      const actionRevision = boss.revision;
       pushHistory("death", boss, now);
       lastLocalEditTime = Date.now();
       lastRenderedGridKey = ""; // Bắt buộc render cập nhật nút và countdown tức thì
-      saveState();
       render();
-      sendDiscordKillAlert(boss, now, boss.respawnsAt);
-      showToast(isEn ? `💀 ${boss.name} death recorded. Respawn countdown started.` : `💀 Đã ghi nhận ${boss.name} chết! Bắt đầu đếm ngược hồi sinh.`);
+      showToast(isEn ? `⏳ Saving ${boss.name}'s death record…` : `⏳ Đang lưu giờ chết của ${boss.name}…`);
+      const saved = await saveState();
+      if (saved === true && isBossRevisionCurrent(id, actionRevision)) {
+        sendDiscordKillAlert(boss, now, boss.respawnsAt);
+        showToast(isEn ? `💀 ${boss.name} synchronized. Respawn countdown started.` : `💀 Đã đồng bộ ${boss.name} chết! Bắt đầu đếm ngược hồi sinh.`);
+      } else if (saved === true) {
+        showToast(isEn ? "A newer death record is being synchronized." : "⏳ Có giờ chết mới hơn đang được đồng bộ.");
+      } else if (saved === "conflict") {
+        showToast(isEn ? "Another Admin updated this boss first. Your death record was not saved." : "⚠️ Admin khác đã cập nhật Boss trước. Giờ chết của bạn không được lưu.");
+      } else if (saved === false) {
+        showToast(isEn ? "Save failed. The change remains on this device for retry." : "⚠️ Chưa lưu được Firebase. Thay đổi được giữ trên máy để thử lại.");
+      }
     }
 
-    function reviveBoss(id) {
+    async function reviveBoss(id) {
       const isEn = currentLang === "en";
       if (!isAdmin()) {
         showToast(isEn ? "Only Admin can revive bosses." : "Chỉ Admin mới có quyền cho hồi sinh boss.");
@@ -3638,16 +3884,22 @@
 
       const now = getNow();
       performRespawn(boss, now, "manual");
+      const actionRevision = boss.revision;
       lastLocalEditTime = Date.now();
       lastRenderedGridKey = ""; // Bắt buộc render cập nhật nút tức thì
-      saveState();
       render();
-      showToast(isEn ? `✨ ${boss.name} revived (READY 100%).` : `✨ Đã cho ${boss.name} hồi sinh (READY 100%)!`);
+      showToast(isEn ? `⏳ Saving ${boss.name}'s respawn…` : `⏳ Đang lưu trạng thái hồi sinh của ${boss.name}…`);
+      const saved = await saveState();
+      if (saved === true && isBossRevisionCurrent(id, actionRevision)) showToast(isEn ? `✨ ${boss.name} respawn synchronized (READY 100%).` : `✨ Đã đồng bộ ${boss.name} hồi sinh (READY 100%)!`);
+      else if (saved === true) showToast(isEn ? "A newer boss operation is being synchronized." : "⏳ Có thao tác Boss mới hơn đang được đồng bộ.");
+      else if (saved === "conflict") showToast(isEn ? "Another Admin updated this boss first. Your respawn was not saved." : "⚠️ Admin khác đã cập nhật Boss trước. Lệnh hồi sinh của bạn không được lưu.");
+      else if (saved === false) showToast(isEn ? "Save failed. The change remains on this device for retry." : "⚠️ Chưa lưu được Firebase. Thay đổi được giữ trên máy để thử lại.");
     }
 
     // ── OFFSET DEATH MODAL ────────────────────────────────────────
     let _offsetBossId = null;
     let _offsetMinutes = 0;
+    let _offsetBossRevision = null;
 
     function dateToYMD(d) {
       const date = new Date(d);
@@ -3698,6 +3950,7 @@
       if (!boss) return;
       _offsetBossId = id;
       _offsetMinutes = 0;
+      _offsetBossRevision = Number(boss.revision) || 0;
       const t = TRANSLATIONS[currentLang];
 
       document.getElementById("offsetModalTitle").textContent = t.offsetModalTitle;
@@ -3752,6 +4005,7 @@
       document.getElementById("offsetDeathModal").classList.remove("open");
       _offsetBossId = null;
       _offsetMinutes = 0;
+      _offsetBossRevision = null;
     }
 
     function getOffsetDiedAt() {
@@ -3823,7 +4077,7 @@
       }
     }
 
-    function confirmOffsetDeath() {
+    async function confirmOffsetDeath() {
       const isEn = currentLang === "en";
       if (!isAdmin()) {
         showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
@@ -3831,6 +4085,14 @@
       }
       const boss = state.bosses.find((b) => b.id === _offsetBossId);
       if (!boss) return;
+      if ((Number(boss.revision) || 0) !== _offsetBossRevision) {
+        closeOffsetModal();
+        render();
+        showToast(isEn
+          ? "This boss was updated by another Admin. Review the latest time before trying again."
+          : "⚠️ Boss vừa được Admin khác cập nhật. Hãy kiểm tra giờ mới nhất rồi thao tác lại.");
+        return;
+      }
       const diedAt = getOffsetDiedAt();
       boss.diedAt = diedAt;
       if (boss.spawnMode === "fixed") {
@@ -3838,16 +4100,29 @@
       } else {
         boss.respawnsAt = diedAt + boss.respawnMinutes * 60 * 1000;
       }
+      touchBossRevision(boss);
+      const actionRevision = boss.revision;
       pushHistory("death", boss, diedAt);
       lastLocalEditTime = Date.now();
-      saveState();
       closeOffsetModal();
       render();
-      sendDiscordKillAlert(boss, diedAt, boss.respawnsAt);
       const diedFullStr = formatFullDateTime(diedAt, isEn);
-      showToast(isEn
-        ? `${boss.name} recorded as dead on ${diedFullStr}. Countdown started!`
-        : `${boss.name} đã ghi nhận chết vào ${diedFullStr}. Bắt đầu đếm ngược!`);
+      showToast(isEn ? `Saving ${boss.name}'s custom death time…` : `⏳ Đang lưu giờ chết tùy chỉnh của ${boss.name}…`);
+      const saveResult = await saveState();
+      if (saveResult === true && isBossRevisionCurrent(boss.id, actionRevision)) {
+        sendDiscordKillAlert(boss, diedAt, boss.respawnsAt);
+        showToast(isEn
+          ? `${boss.name} synchronized as dead on ${diedFullStr}. Countdown started!`
+          : `${boss.name} đã đồng bộ giờ chết ${diedFullStr}. Bắt đầu đếm ngược!`);
+      } else if (saveResult === true) {
+        showToast(isEn ? "A newer custom death time is being synchronized." : "⏳ Có giờ chết tùy chỉnh mới hơn đang được đồng bộ.");
+      } else if (saveResult === "conflict") {
+        showToast(isEn
+          ? "Another Admin updated this boss first. Your custom time was not saved."
+          : "⚠️ Admin khác đã cập nhật Boss trước. Giờ tùy chỉnh của bạn không được lưu.");
+      } else if (saveResult === false) {
+        showToast(isEn ? "Save failed. The change remains on this device for retry." : "⚠️ Chưa lưu được Firebase. Thay đổi được giữ trên máy để thử lại.");
+      }
     }
 
     function attachTimeInputMask(input, includeSeconds = false) {
@@ -4054,6 +4329,7 @@
       }
       editingBossId = id;
       const boss = id ? state.bosses.find((item) => item.id === id) : null;
+      editingBossRevision = boss ? (Number(boss.revision) || 0) : null;
       elements.modalTitle.textContent = boss ? "Chỉnh sửa boss" : "Thêm boss";
       elements.modalHint.textContent = boss ? "Cập nhật thông tin boss và thời gian hồi sinh." : "Nhập thông tin boss và chọn loại thời gian xuất hiện.";
       elements.deleteBossBtn.hidden = !boss;
@@ -4093,9 +4369,10 @@
       elements.modal.classList.remove("open");
       syncModalScrollLock();
       editingBossId = null;
+      editingBossRevision = null;
     }
 
-    function handleFormSubmit(event) {
+    async function handleFormSubmit(event) {
       event.preventDefault();
       if (!isAdmin()) {
         showToast("Chỉ Admin mới có quyền lưu thông tin boss.");
@@ -4131,11 +4408,18 @@
         return;
       }
 
+      const wasEditing = Boolean(editingBossId);
       if (editingBossId) {
         const boss = state.bosses.find((item) => item.id === editingBossId);
         if (boss) {
+          if ((Number(boss.revision) || 0) !== editingBossRevision) {
+            showToast("⚠️ Boss vừa được Admin khác chỉnh sửa. Biểu mẫu đã được đóng để tránh ghi đè dữ liệu mới.");
+            closeModal();
+            render();
+            return;
+          }
           Object.assign(boss, normalizeBoss({ ...boss, ...payload }));
-          showToast("Đã cập nhật thông tin boss.");
+          touchBossRevision(boss);
         }
       } else {
         const newBoss = normalizeBoss({
@@ -4145,13 +4429,17 @@
           respawnsAt: null,
           lastRespawnAt: null
         });
+        touchBossRevision(newBoss);
         state.bosses.unshift(newBoss);
-        showToast("Đã thêm boss mới.");
       }
 
-      saveState();
       closeModal();
       render();
+      showToast("⏳ Đang lưu thông tin Boss…");
+      const saved = await saveState();
+      if (saved === true) showToast(wasEditing ? "Đã đồng bộ thông tin Boss." : "Đã đồng bộ Boss mới.");
+      else if (saved === "conflict") showToast("⚠️ Admin khác đã cập nhật Boss trước. Thay đổi của bạn không được lưu.");
+      else if (saved === false) showToast("⚠️ Chưa lưu được Firebase. Thay đổi được giữ trên máy để thử lại.");
     }
 
     function showConfirmModal({ title, subtitle, message, html = false, confirmText = "Đồng ý", cancelText = "Hủy bỏ", isDanger = true }) {
@@ -4213,6 +4501,7 @@
       const boss = state.bosses.find((item) => item.id === editingBossId);
       if (!boss) return;
       const bossId = boss.id;
+      const bossRevision = Number(boss.revision) || 0;
       const generation = bossSyncGeneration;
 
       const confirmed = await showConfirmModal({
@@ -4228,11 +4517,22 @@
       });
       if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
 
+      const latestBoss = state.bosses.find(item => item.id === bossId);
+      if (!latestBoss || (Number(latestBoss.revision) || 0) !== bossRevision) {
+        closeModal();
+        render();
+        showToast(isEn ? "This boss changed before deletion. Review it and try again." : "⚠️ Boss vừa được Admin khác cập nhật. Hãy kiểm tra lại trước khi xóa.");
+        return;
+      }
+
       state.bosses = state.bosses.filter((item) => item.id !== bossId);
-      saveState();
       closeModal();
       render();
-      showToast(isEn ? "Deleted boss from tracker." : "Đã xóa boss khỏi danh sách.");
+      showToast(isEn ? "Deleting boss…" : "⏳ Đang xóa Boss…");
+      const saveResult = await saveState();
+      if (saveResult === true) showToast(isEn ? "Boss deletion synchronized." : "Đã đồng bộ việc xóa Boss.");
+      else if (saveResult === "conflict") showToast(isEn ? "The boss changed before deletion. It was not deleted." : "⚠️ Boss đã được cập nhật trước khi xóa nên không bị xóa.");
+      else if (saveResult === false) showToast(isEn ? "Delete failed. It remains queued on this device." : "⚠️ Chưa xóa được trên Firebase. Thao tác đang được giữ để thử lại.");
     }
 
     async function resetAllTimers() {
@@ -4242,6 +4542,8 @@
         showToast(isEn ? "Only Admin can reset boss timers after maintenance." : "Chỉ Admin mới có quyền reset thời gian boss sau bảo trì.");
         return;
       }
+
+      const revisionsAtOpen = new Map(state.bosses.map(boss => [boss.id, Number(boss.revision) || 0]));
 
       const confirmed = await showConfirmModal({
         title: isEn ? "💥 SERVER MAINTENANCE FINISHED?" : "💥 BẢO TRÌ SERVER GAME XONG?",
@@ -4255,6 +4557,14 @@
         isDanger: true
       });
       if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
+      const confirmationIsStale = state.bosses.length !== revisionsAtOpen.size
+        || state.bosses.some(boss => revisionsAtOpen.get(boss.id) !== (Number(boss.revision) || 0));
+      if (confirmationIsStale) {
+        showToast(isEn
+          ? "The boss list changed while confirmation was open. Review it and reset again."
+          : "⚠️ Danh sách Boss đã thay đổi khi hộp xác nhận đang mở. Hãy kiểm tra và reset lại.");
+        return;
+      }
 
       const now = getNow();
       state.bosses = sortBossesForMaintenance(state.bosses);
@@ -4262,6 +4572,7 @@
         boss.diedAt = null;
         boss.respawnsAt = null;
         boss.lastRespawnAt = now;
+        touchBossRevision(boss, now);
       });
 
       state.history.unshift({
@@ -4274,9 +4585,12 @@
       });
       state.history = state.history.slice(0, 30);
 
-      saveState();
       render();
-      showToast(isEn ? "⚡ Reset all Bosses to ALIVE state after maintenance!" : "⚡ Đã reset tất cả Boss về trạng thái SỐNG sau bảo trì!");
+      showToast(isEn ? "Resetting and synchronizing all bosses…" : "⏳ Đang reset và đồng bộ tất cả Boss…");
+      const saveResult = await saveState();
+      if (saveResult === true) showToast(isEn ? "⚡ All Bosses synchronized as ALIVE after maintenance!" : "⚡ Đã đồng bộ tất cả Boss về trạng thái SỐNG sau bảo trì!");
+      else if (saveResult === "conflict") showToast(isEn ? "Some bosses changed during reset and kept their newer state." : "⚠️ Một số Boss vừa được cập nhật nên được giữ trạng thái mới hơn.");
+      else if (saveResult === false) showToast(isEn ? "Reset could not reach Firebase and remains queued locally." : "⚠️ Chưa reset được trên Firebase. Thao tác đang được giữ trên máy.");
     }
 
     async function clearHistory() {
@@ -4302,9 +4616,12 @@
       if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
 
       state.history = [];
-      saveState();
       render();
-      showToast(isEn ? "Timeline history cleared." : "Đã xóa lịch sử timeline.");
+      showToast(isEn ? "Clearing timeline history…" : "⏳ Đang xóa lịch sử timeline…");
+      const saveResult = await saveState();
+      if (saveResult === true) showToast(isEn ? "Timeline history deletion synchronized." : "Đã đồng bộ việc xóa lịch sử timeline.");
+      else if (saveResult === "conflict") showToast(isEn ? "New team events were preserved while older history was cleared." : "Lịch sử cũ đã xóa; sự kiện mới của team vẫn được giữ lại.");
+      else if (saveResult === false) showToast(isEn ? "Clear failed and remains queued locally." : "⚠️ Chưa xóa được trên Firebase. Thao tác đang được giữ trên máy.");
     }
 
 
@@ -5423,9 +5740,13 @@
       currentServerId = newServerId;
       closeBossActionConfirmation();
       bossSyncGeneration++;
+      lastAppliedBossVersion = 0;
       remoteStateReady = false;
       remoteSaveInFlight = false;
       pendingRemoteSave = false;
+      activeBossSaveWaiters.forEach(resolve => resolve(false));
+      activeBossSaveWaiters.clear();
+      pendingBossSaveWaiters = [];
       bossDeferredRemoteData = null;
       bossFirebaseSeedAttempted = false;
       try {
@@ -5504,17 +5825,39 @@
         icon: randomIcon
       };
 
-      serverList.push(newServerObj);
-      try {
-        localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
-      } catch (e) {}
-
-      // Đồng bộ danh sách server lên Firebase
+      // Update the shared list inside one Firebase transaction so a concurrent
+      // create/rename/delete from another Admin is preserved.
       if (firebaseDb) {
         try {
-          firebaseDb.ref("boss_timeline_servers_list").set(serverList).catch(e => console.warn(e));
-        } catch (e) {}
+          const listRef = firebaseDb.ref("boss_timeline_servers_list");
+          if (typeof listRef.transaction === "function") {
+            const result = await listRef.transaction(current => {
+              const latest = Array.isArray(current) ? current.slice() : serverList.slice();
+              let candidate = newId;
+              let candidateNumber = nextNum;
+              while (latest.some(item => item.id === candidate)) candidate = "s" + (++candidateNumber);
+              newServerObj.id = candidate;
+              if (latest.some(item => String(item.name || "").toLowerCase() === trimmed.toLowerCase())) return;
+              return [...latest, { ...newServerObj }];
+            });
+            if (!result.committed) {
+              showToast("❌ Không thể tạo Server vì tên vừa được Admin khác sử dụng.");
+              return;
+            }
+            serverList = result.snapshot.val() || [];
+            newId = newServerObj.id;
+          } else {
+            serverList.push(newServerObj);
+          }
+        } catch (e) {
+          console.warn(e);
+          showToast("❌ Không thể đồng bộ danh sách Server.");
+          return;
+        }
+      } else {
+        serverList.push(newServerObj);
       }
+      try { localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList)); } catch (e) {}
 
       // Khởi tạo state cho server mới
       let newBosses = [];
@@ -5549,13 +5892,32 @@
           const bMap = {};
           newBosses.forEach(b => { bMap[b.id] = b; });
           const seed = {
-            data: { _clientId: CLIENT_ID, bosses: newBosses, history: [] },
+            data: { _clientId: CLIENT_ID, bosses: newBosses, history: [], updated_at: new Date(getNow()).toISOString(), version: 1 },
             bosses_map: bMap,
             last_editor: CLIENT_ID,
-            updated_at: new Date(getNow()).toISOString()
+            updated_at: new Date(getNow()).toISOString(),
+            version: 1
           };
-          firebaseDb.ref(paths.statePath).set(seed).catch(e => console.warn(e));
-        } catch (e) {}
+          await firebaseDb.ref(paths.statePath).set(seed);
+        } catch (e) {
+          console.warn("Firebase server initialization error:", e);
+          try {
+            const rollback = await firebaseDb.ref("boss_timeline_servers_list").transaction(current => {
+              const latest = Array.isArray(current) ? current : [];
+              return latest.filter(item => !(item?.id === newId && item?.name === newServerObj.name));
+            });
+            if (rollback.committed) serverList = rollback.snapshot.val() || [];
+          } catch (rollbackError) {
+            console.warn("Firebase server list rollback error:", rollbackError);
+          }
+          try {
+            localStorage.removeItem(newStorageKey);
+            localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
+          } catch (storageError) {}
+          renderServerListUI();
+          showToast("❌ Không thể khởi tạo dữ liệu Server. Server chưa được tạo hoàn tất.");
+          return false;
+        }
       }
 
       // Đóng modal và chuyển ngay sang server mới
@@ -5583,17 +5945,32 @@
         return;
       }
 
-      const oldName = sv.name;
-      sv.name = trimmed;
-      try {
-        localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
-      } catch (e) {}
-
       if (firebaseDb) {
         try {
-          firebaseDb.ref("boss_timeline_servers_list").set(serverList).catch(e => console.warn(e));
-        } catch (e) {}
+          const listRef = firebaseDb.ref("boss_timeline_servers_list");
+          if (typeof listRef.transaction === "function") {
+            const result = await listRef.transaction(current => {
+              const latest = Array.isArray(current) ? current.slice() : serverList.slice();
+              if (latest.some(item => item.id !== serverId && String(item.name || "").toLowerCase() === trimmed.toLowerCase())) return;
+              return latest.map(item => item.id === serverId ? { ...item, name: trimmed } : item);
+            });
+            if (!result.committed) {
+              showToast("❌ Tên Server vừa được Admin khác sử dụng.");
+              return false;
+            }
+            serverList = result.snapshot.val() || [];
+          } else {
+            sv.name = trimmed;
+          }
+        } catch (e) {
+          console.warn(e);
+          showToast("❌ Không thể đồng bộ tên Server.");
+          return false;
+        }
+      } else {
+        sv.name = trimmed;
       }
+      try { localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList)); } catch (e) {}
 
       renderServerListUI();
       showToast(`✅ Đã đổi tên máy chủ thành: "${trimmed}"`);
@@ -5626,16 +6003,25 @@
         showToast("❌ Không thể xóa máy chủ mặc định (Server 1)!");
         return;
       }
-      serverList = serverList.filter(s => s.id !== serverId);
-      try {
-        localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));
-      } catch (e) {}
-
       if (firebaseDb) {
         try {
-          firebaseDb.ref("boss_timeline_servers_list").set(serverList).catch(e => console.warn(e));
-        } catch (e) {}
+          const listRef = firebaseDb.ref("boss_timeline_servers_list");
+          if (typeof listRef.transaction === "function") {
+            const result = await listRef.transaction(current => (Array.isArray(current) ? current : serverList).filter(item => item.id !== serverId));
+            if (!result.committed) return false;
+            serverList = result.snapshot.val() || [];
+          } else {
+            serverList = serverList.filter(s => s.id !== serverId);
+          }
+        } catch (e) {
+          console.warn(e);
+          showToast("❌ Không thể đồng bộ việc xóa Server.");
+          return false;
+        }
+      } else {
+        serverList = serverList.filter(s => s.id !== serverId);
       }
+      try { localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList)); } catch (e) {}
 
       if (currentServerId === serverId) {
         await switchServer("s1");
@@ -9821,7 +10207,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.30.v20-consistent-boss-sync";
+    const CURRENT_APP_VERSION = "2026.10.09.v19-reviewed-sync-and-schedule";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();

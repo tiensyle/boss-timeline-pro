@@ -89,7 +89,7 @@ test("attendance screenshot OCR matches exact and slightly misread character nam
 });
 
 test("boss names are normalized to uppercase Vietnamese text", () => {
-  const ctx = load(["clamp", "makeId", "getBossTimerRevision", "normalizeBoss"], {
+  const ctx = load(["clamp", "makeId", "normalizeBoss"], {
     crypto: { randomUUID: () => "generated-id" }
   });
   const boss = ctx.normalizeBoss({ id: "dalia", name: "  Quý bà Dalia  ", map: "Bóng Ma Huyết Sắc", level: 85 });
@@ -117,14 +117,15 @@ test("maintenance reset uses the requested boss order and keeps unknown bosses s
   };
   const baseBosses = copy(state.bosses);
   const remoteBosses = [...copy(baseBosses), { id: "remote-add", name: "Remote addition" }];
-  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "sortBossesForMaintenance", "resetAllTimers"], {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "sortBossesForMaintenance", "touchBossRevision", "resetAllTimers"], {
     state,
     currentLang: "vi",
     bossSyncGeneration: 0,
     isAdmin: () => true,
     showConfirmModal: async () => true,
     getNow: () => 1000,
-    saveState: () => {},
+    saveState: async () => true,
+    CLIENT_ID: "test-client",
     render: () => {},
     showToast: () => {}
   });
@@ -139,6 +140,7 @@ test("maintenance reset uses the requested boss order and keeps unknown bosses s
     ...requestedOrder.map((_, index) => `rank-${index}`), "other-a", "other-b", "remote-add"
   ]);
   assert.ok(state.bosses.every(boss => boss.diedAt === null && boss.respawnsAt === null && boss.lastRespawnAt === 1000));
+  assert.ok(state.bosses.every(boss => boss.revision === 1 && boss.updatedBy === "test-client"));
 });
 
 test("ready bosses stay above bosses recorded dead while respawns remain time-ordered", () => {
@@ -265,7 +267,7 @@ test("stale edits do not resurrect deleted bosses, weeks or members", () => {
 });
 
 test("editing boss metadata preserves a concurrent timer and timer transitions stay atomic", () => {
-  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "getBossTimerRevision", "mergeBossStateChanges"]);
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"]);
   const base = { bosses: [{ id: "a", notes: "", diedAt: null, respawnsAt: null, lastRespawnAt: 100 }], history: [] };
   const local = copy(base);
   local.bosses[0].notes = "new note";
@@ -279,72 +281,351 @@ test("editing boss metadata preserves a concurrent timer and timer transitions s
   assert.equal(merged.bosses[0].lastRespawnAt, 300);
 });
 
-test("a stale cached respawn cannot overwrite a newer remote death", () => {
-  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "getBossTimerRevision", "mergeBossStateChanges"]);
-  const base = { bosses: [{ id: "a", diedAt: 100, respawnsAt: 200, lastRespawnAt: null, timerUpdatedAt: 100 }], history: [] };
-  const local = { bosses: [{ id: "a", diedAt: null, respawnsAt: null, lastRespawnAt: 200, timerUpdatedAt: 200 }], history: [] };
-  const remote = { bosses: [{ id: "a", diedAt: 300, respawnsAt: 400, lastRespawnAt: 200, timerUpdatedAt: 300 }], history: [] };
+test("per-boss revisions reject stale death, respawn and metadata overwrites", () => {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"]);
+  const base = {
+    bosses: [{ id: "a", notes: "old", diedAt: 100, respawnsAt: 200, lastRespawnAt: null, revision: 4 }],
+    history: [{ id: "old", bossId: "a", type: "death", time: 100 }]
+  };
+  const staleLocal = copy(base);
+  Object.assign(staleLocal.bosses[0], { notes: "offline edit", diedAt: 150, respawnsAt: 250, revision: 5 });
+  staleLocal.history.unshift({ id: "stale-death", bossId: "a", type: "death", time: 150 });
+  const remote = copy(base);
+  Object.assign(remote.bosses[0], { notes: "team edit", diedAt: null, respawnsAt: null, lastRespawnAt: 200, revision: 5 });
+  remote.history.unshift({ id: "confirmed-respawn", bossId: "a", type: "respawn", time: 200 });
 
-  const merged = ctx.mergeBossStateChanges(base, local, remote);
-  assert.equal(merged.bosses[0].diedAt, 300);
-  assert.equal(merged.bosses[0].respawnsAt, 400);
-  assert.equal(merged.bosses[0].timerUpdatedAt, 300);
+  const merged = copy(ctx.mergeBossStateChanges(base, staleLocal, remote));
+  assert.deepEqual(merged.bosses[0], remote.bosses[0]);
+  assert.deepEqual(merged.history.map(item => item.id).sort(), ["confirmed-respawn", "old"]);
 });
 
-test("boss timers stay paused until auth, remote state and server time are ready", () => {
-  const ctx = load(["canProcessBossTimers"], {
-    REALTIME_ENABLED: true, firebaseAuthReady: true, remoteStateReady: false, serverTimeReady: false
+test("history event IDs make the same automatic respawn idempotent across clients", () => {
+  const state = { history: [] };
+  const ctx = load(["historyItem", "pushHistory"], {
+    state, getNow: () => 500, isAdmin: () => true, currentAdminName: "Admin"
   });
-  assert.equal(ctx.canProcessBossTimers(), false);
-  ctx.remoteStateReady = true;
-  assert.equal(ctx.canProcessBossTimers(), false);
-  ctx.serverTimeReady = true;
-  assert.equal(ctx.canProcessBossTimers(), true);
-  ctx.firebaseAuthReady = false;
-  assert.equal(ctx.canProcessBossTimers(), false);
+  const boss = { id: "boss-a", name: "A", map: "Map" };
+  ctx.pushHistory("respawn", boss, 1000, "automatic");
+  ctx.pushHistory("respawn", boss, 1000, "automatic");
+  assert.equal(state.history.length, 1);
+  assert.equal(state.history[0].id, "history_respawn_boss-a_1000");
 });
 
-test("automatic respawn history uses one deterministic id across devices", () => {
-  const ctx = load(["historyItem"], {
-    getNow: () => 500, isAdmin: () => true, currentAdminName: "Admin"
+test("stale boss deletion is rejected when Firebase has a newer revision", () => {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"]);
+  const base = { bosses: [{ id: "a", revision: 2, notes: "old" }], history: [] };
+  const local = { bosses: [], history: [] };
+  const remote = { bosses: [{ id: "a", revision: 3, notes: "new" }], history: [] };
+  assert.deepEqual(copy(ctx.mergeBossStateChanges(base, local, remote)).bosses, remote.bosses);
+});
+
+test("editing a remotely deleted boss drops its unconfirmed history and reports conflict", () => {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"], { lastBossConflictIds: [] });
+  const base = { bosses: [{ id: "a", revision: 1, notes: "old" }], history: [{ id: "confirmed", bossId: "a" }] };
+  const local = { bosses: [{ id: "a", revision: 2, notes: "offline" }], history: [...base.history, { id: "draft", bossId: "a", type: "death" }] };
+  const merged = copy(ctx.mergeBossStateChanges(base, local, { bosses: [], history: base.history }));
+  assert.deepEqual(merged.bosses, []);
+  assert.deepEqual(merged.history.map(item => item.id), ["confirmed"]);
+  assert.deepEqual(copy(ctx.lastBossConflictIds), ["a"]);
+});
+
+test("listener conflicts retain and report the rejected offline operation once", () => {
+  let reports = 0;
+  const state = { bosses: [{ id: "a", revision: 2, diedAt: 111 }], history: [{ id: "draft", bossId: "a" }] };
+  const base = { bosses: [{ id: "a", revision: 1, diedAt: null }], history: [] };
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges", "applyRemoteState"], {
+    state, bossSyncBase: base, firebaseAuthReady: true, isAdmin: () => true, normalizeBoss: copy,
+    saveStateLocal: () => {}, render: () => {}, lastRemoteUpdatedAt: 0, lastRenderedGridKey: "",
+    lastAppliedBossVersion: 0, lastBossConflictIds: [], lastReportedBossConflictKey: "",
+    reportRejectedBossOperations: () => { reports++; }
   });
-  const boss = { id: "a", name: "A", map: "Map" };
-  assert.equal(ctx.historyItem("respawn", boss, 500, "automatic").id, "history_auto_a_500");
-  assert.equal(ctx.historyItem("respawn", boss, 500, "automatic").id, "history_auto_a_500");
-  assert.notEqual(ctx.historyItem("respawn", boss, 500, "manual").id, "history_auto_a_500");
+  const remote = [{ id: "a", revision: 2, diedAt: 777 }];
+  ctx.applyRemoteState(remote, [], null, "other", base, 2);
+  ctx.applyRemoteState(remote, [], null, "other", ctx.bossSyncBase, 2);
+  assert.equal(ctx.state.bosses[0].diedAt, 777);
+  assert.equal(reports, 1);
+});
+
+test("custom death waits for Firebase before success or Discord delivery", async () => {
+  let finishSave;
+  let discordCalls = 0;
+  const boss = { id: "a", name: "A", spawnMode: "interval", respawnMinutes: 30, revision: 4 };
+  const state = { bosses: [boss], history: [] };
+  const toasts = [];
+  const ctx = load(["confirmOffsetDeath"], {
+    state, currentLang: "vi", _offsetBossId: "a", _offsetBossRevision: 4,
+    isAdmin: () => true, getOffsetDiedAt: () => 1000,
+    touchBossRevision: item => { item.revision++; },
+    pushHistory: () => {}, lastLocalEditTime: 0,
+    closeOffsetModal: () => {}, render: () => {},
+    formatFullDateTime: () => "time", showToast: message => toasts.push(message),
+    saveState: () => new Promise(resolve => { finishSave = resolve; }),
+    sendDiscordKillAlert: () => { discordCalls++; },
+    isBossRevisionCurrent: (id, revision) => state.bosses.some(item => item.id === id && item.revision === revision)
+  });
+
+  const pending = ctx.confirmOffsetDeath();
+  assert.equal(boss.revision, 5);
+  assert.equal(discordCalls, 0);
+  assert.match(toasts.at(-1), /Đang lưu/);
+  finishSave(true);
+  await pending;
+  assert.equal(discordCalls, 1);
+  assert.match(toasts.at(-1), /đồng bộ/);
+});
+
+test("stale custom death form is stopped before changing state", async () => {
+  let saves = 0;
+  const boss = { id: "a", name: "A", revision: 5, diedAt: null, respawnsAt: null };
+  const ctx = load(["confirmOffsetDeath"], {
+    state: { bosses: [boss], history: [] }, currentLang: "vi",
+    _offsetBossId: "a", _offsetBossRevision: 4,
+    isAdmin: () => true, closeOffsetModal: () => {}, render: () => {}, showToast: () => {},
+    saveState: () => { saves++; }
+  });
+  await ctx.confirmOffsetDeath();
+  assert.equal(saves, 0);
+  assert.equal(boss.diedAt, null);
+  assert.equal(boss.revision, 5);
+});
+
+test("consecutive death notes notify Discord only for the latest confirmed revision", async () => {
+  const boss = { id: "a", name: "A", spawnMode: "interval", respawnMinutes: 30, revision: 0 };
+  const state = { bosses: [boss], history: [] };
+  const resolvers = [];
+  const discordTimes = [];
+  const ctx = load(["killBoss"], {
+    state, currentLang: "vi", isAdmin: () => true,
+    getNow: () => 0, touchBossRevision: item => { item.revision++; }, pushHistory: () => {},
+    lastLocalEditTime: 0, lastRenderedGridKey: "", render: () => {}, showToast: () => {},
+    saveState: () => new Promise(resolve => resolvers.push(resolve)),
+    isBossRevisionCurrent: (id, revision) => state.bosses.some(item => item.id === id && item.revision === revision),
+    sendDiscordKillAlert: (_boss, diedAt) => discordTimes.push(diedAt)
+  });
+  const first = ctx.killBoss("a", 1000);
+  const second = ctx.killBoss("a", 2000);
+  resolvers[0](true);
+  await first;
+  assert.deepEqual(discordTimes, []);
+  resolvers[1](true);
+  await second;
+  assert.deepEqual(discordTimes, [2000]);
+});
+
+test("maintenance reset aborts when revisions change while confirmation is open", async () => {
+  let confirm;
+  let saves = 0;
+  const state = { bosses: [{ id: "a", revision: 1, diedAt: 100, respawnsAt: 200 }], history: [] };
+  const ctx = load(["resetAllTimers"], {
+    state, currentLang: "vi", bossSyncGeneration: 1, isAdmin: () => true,
+    showConfirmModal: () => new Promise(resolve => { confirm = resolve; }),
+    showToast: () => {}, saveState: () => { saves++; }, render: () => {}
+  });
+  const reset = ctx.resetAllTimers();
+  state.bosses[0].revision = 2;
+  state.bosses[0].diedAt = 150;
+  confirm(true);
+  await reset;
+  assert.equal(saves, 0);
+  assert.equal(state.bosses[0].diedAt, 150);
 });
 
 function bossSyncContext(transaction) {
   const state = { bosses: [{ id: "a", name: "A", notes: "", diedAt: null, respawnsAt: null, lastRespawnAt: null }], history: [] };
-  return load(["cloneRealtimeValue", "mergeRealtimeChanges", "canProcessBossTimers", "getBossTimerRevision", "mergeBossStateChanges", "getBossRemoteData", "applyRemoteState", "saveState"], {
+  return load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges", "getBossRemoteData", "discardConflictedQueuedBossChanges", "getChangedBossIds", "enqueueBossSaveWaiter", "applyRemoteState", "saveState"], {
     state, bossSyncBase: copy(state), isAdmin: () => true, REALTIME_ENABLED: true,
-    firebaseAuthReady: true, serverTimeReady: true,
+    firebaseAuthReady: true,
     stateDbRef: { transaction }, normalizeBoss: copy, getNow: () => 1000000,
     saveStateLocal: () => {}, render: () => {}, setRealtimeStatus: () => {},
     lastLocalEditTime: 0, lastRemoteUpdatedAt: 0, lastRenderedGridKey: "",
     remoteStateReady: true, remoteSaveInFlight: false, pendingRemoteSave: false,
-    bossSyncGeneration: 1, bossDeferredRemoteData: null, CLIENT_ID: "test-client"
+    bossSyncGeneration: 1, bossDeferredRemoteData: null, CLIENT_ID: "test-client", lastBossConflictIds: [],
+    pendingBossSaveWaiters: [], activeBossSaveWaiters: new Set(), broadcastConfirmedBossState: () => {},
+    reportRejectedBossOperations: () => {}, lastAppliedBossVersion: 0,
+    activeBossTransactionLocal: null, lastReportedBossConflictKey: ""
   });
 }
 
-test("realtime status waits for connection, remote data and server time", () => {
+test("saveState reports a rejected stale boss operation as conflict", async () => {
+  let remote;
+  const ctx = bossSyncContext(update => {
+    remote = update(remote);
+    return Promise.resolve({ committed: true, snapshot: { val: () => remote } });
+  });
+  ctx.bossSyncBase.bosses[0].revision = 1;
+  ctx.state.bosses[0].revision = 2;
+  ctx.state.bosses[0].diedAt = 100;
+  remote = {
+    data: { bosses: [{ ...copy(ctx.bossSyncBase.bosses[0]), revision: 2, lastRespawnAt: 200 }], history: [], version: 2 },
+    version: 2
+  };
+  assert.equal(await ctx.saveState(), "conflict");
+  assert.equal(ctx.state.bosses[0].diedAt, null);
+  assert.equal(ctx.state.bosses[0].lastRespawnAt, 200);
+});
+
+test("a conflict cancels later queued edits created from the same stale boss", async () => {
+  let finish;
+  let calls = 0;
+  const ctx = bossSyncContext(update => {
+    calls++;
+    const next = update(remote);
+    remote = next;
+    return new Promise(resolve => { finish = () => resolve({ committed: true, snapshot: { val: () => remote } }); });
+  });
+  ctx.bossSyncBase.bosses[0].revision = 1;
+  ctx.state.bosses[0].revision = 2;
+  ctx.state.bosses[0].diedAt = 111;
+  let remote = {
+    data: { bosses: [{ ...copy(ctx.bossSyncBase.bosses[0]), revision: 2, diedAt: 777 }], history: [], version: 2 },
+    version: 2
+  };
+  const first = ctx.saveState();
+  ctx.state.bosses[0].revision = 3;
+  ctx.state.bosses[0].diedAt = 222;
+  const second = ctx.saveState();
+  finish();
+  assert.equal(await first, "conflict");
+  assert.equal(await second, "conflict");
+  assert.equal(calls, 1);
+  assert.equal(ctx.state.bosses[0].diedAt, 777);
+  assert.equal(ctx.state.bosses[0].revision, 2);
+});
+
+test("a queued edit for boss B succeeds independently when boss A conflicts", async () => {
+  let finish;
+  let calls = 0;
+  const ctx = bossSyncContext(update => {
+    calls++;
+    remote = update(remote);
+    if (calls === 1) return new Promise(resolve => { finish = () => resolve({ committed: true, snapshot: { val: () => remote } }); });
+    return Promise.resolve({ committed: true, snapshot: { val: () => remote } });
+  });
+  const base = { bosses: [{ id: "a", revision: 1 }, { id: "b", revision: 1, notes: "base" }], history: [] };
+  ctx.state = copy(base); ctx.bossSyncBase = copy(base);
+  let remote = { data: { bosses: [{ id: "a", revision: 2, diedAt: 777 }, copy(base.bosses[1])], history: [], version: 2 }, version: 2 };
+  Object.assign(ctx.state.bosses[0], { revision: 2, diedAt: 111 });
+  const saveA = ctx.saveState();
+  Object.assign(ctx.state.bosses[1], { revision: 2, notes: "my B" });
+  const saveB = ctx.saveState();
+  finish();
+  assert.equal(await saveA, "conflict");
+  assert.equal(await saveB, true);
+  assert.equal(remote.data.bosses.find(b => b.id === "b").notes, "my B");
+});
+
+test("partial maintenance conflict aborts reset and removes ALL BOSSES history", () => {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"], { lastBossConflictIds: [] });
+  const base = { bosses: [{ id: "a", revision: 1, diedAt: 1 }, { id: "b", revision: 1, diedAt: 1 }], history: [] };
+  const local = copy(base);
+  local.bosses.forEach(b => Object.assign(b, { revision: 2, diedAt: null, lastRespawnAt: 3 }));
+  local.history.push({ id: "reset", bossId: "all", type: "respawn", time: 3 });
+  const remote = copy(base); remote.bosses[1] = { id: "b", revision: 2, diedAt: 7 };
+  const merged = copy(ctx.mergeBossStateChanges(base, local, remote));
+  assert.deepEqual(merged, remote);
+  assert.deepEqual(copy(ctx.lastBossConflictIds).sort(), ["a", "b"]);
+});
+
+test("automatic respawn notifies only after Firebase accepts the transition", async () => {
+  const make = outcome => {
+    const order = [];
+    const boss = { id: "a", spawnMode: "interval", diedAt: 100, respawnsAt: 200, revision: 1 };
+    const ctx = load(["autoResolveRespawns"], {
+      isAdmin: () => true, autoRespawnSaveInFlight: false, getNow: () => 500,
+      state: { bosses: [boss] }, activeSoundNotified: {}, notifyBossAlert: () => order.push("notify"),
+      performRespawn: item => { item.diedAt = null; item.respawnsAt = null; item.revision++; },
+      saveState: async () => { order.push("save"); return outcome; }, currentLang: "vi", showToast: () => order.push("toast")
+    });
+    return { ctx, order };
+  };
+  const conflict = make("conflict"); await conflict.ctx.autoResolveRespawns();
+  assert.deepEqual(conflict.order, ["save"]);
+  const success = make(true); await success.ctx.autoResolveRespawns();
+  assert.deepEqual(success.order, ["save", "notify", "toast"]);
+});
+
+test("older BroadcastChannel snapshots cannot roll back a newer Firebase version", () => {
+  const state = { bosses: [], history: [] };
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges", "applyRemoteState"], {
+    state, bossSyncBase: { bosses: [], history: [] }, firebaseAuthReady: true,
+    isAdmin: () => false, normalizeBoss: copy, saveStateLocal: () => {}, render: () => {},
+    lastRemoteUpdatedAt: 0, lastRenderedGridKey: "", lastAppliedBossVersion: 0
+  });
+  assert.equal(ctx.applyRemoteState([{ id: "a", revision: 6, diedAt: 600 }], [], null, "tab", ctx.bossSyncBase, 6), true);
+  assert.equal(ctx.applyRemoteState([{ id: "a", revision: 5, diedAt: 500 }], [], null, "tab", ctx.bossSyncBase, 5), false);
+  assert.equal(ctx.state.bosses[0].revision, 6);
+  assert.equal(ctx.state.bosses[0].diedAt, 600);
+});
+
+test("a no-change save resolves waiters queued before Firebase became ready", async () => {
+  let transactions = 0;
+  const ctx = bossSyncContext(() => { transactions++; });
+  ctx.remoteStateReady = false;
+  const waiting = ctx.saveState();
+  ctx.remoteStateReady = true;
+  assert.equal(await ctx.saveState(), true);
+  assert.equal(await waiting, true);
+  assert.equal(transactions, 0);
+  assert.equal(ctx.pendingBossSaveWaiters.length, 0);
+  assert.equal(ctx.pendingRemoteSave, false);
+});
+
+test("member tabs neither auto-respawn bosses nor broadcast unconfirmed revisions", () => {
+  const boss = { id: "a", spawnMode: "interval", diedAt: 100, respawnsAt: 200, revision: 4 };
+  let saves = 0;
+  const ctx = load(["autoResolveRespawns"], {
+    state: { bosses: [boss], history: [] }, isAdmin: () => false,
+    getNow: () => 1000, saveState: () => { saves++; }, saveStateLocal: () => { saves++; }
+  });
+  ctx.autoResolveRespawns();
+  assert.equal(boss.diedAt, 100);
+  assert.equal(boss.respawnsAt, 200);
+  assert.equal(boss.revision, 4);
+  assert.equal(saves, 0);
+});
+
+test("BroadcastChannel rejects member or legacy messages without a Firebase version", () => {
+  let applied = 0;
+  const ctx = load(["handleBossBroadcastMessage"], {
+    CLIENT_ID: "this", currentServerId: "s1", bossSyncBase: {},
+    applyRemoteState: () => { applied++; return true; }, showToast: () => {}
+  });
+  assert.equal(ctx.handleBossBroadcastMessage({ _clientId: "member", serverId: "s1", bosses: [{ id: "a" }] }), false);
+  assert.equal(ctx.handleBossBroadcastMessage({ _clientId: "member", serverId: "s1", version: 0, bosses: [{ id: "a" }] }), false);
+  assert.equal(ctx.handleBossBroadcastMessage({ _clientId: "admin", serverId: "s1", version: 7, bosses: [{ id: "a" }] }), true);
+  assert.equal(applied, 1);
+});
+
+test("rejected offline operations are retained for review and shown to the admin", () => {
+  const saved = new Map();
+  const dialogs = [];
+  const ctx = load(["reportRejectedBossOperations"], {
+    getNow: () => 9000, currentServerId: "s1", STORAGE_KEY: "state",
+    localStorage: { setItem: (key, value) => saved.set(key, value) },
+    console: { warn() {} }, showToast: () => {}, escapeHtml: String,
+    formatFullDateTime: value => String(value), showConfirmModal: options => dialogs.push(options)
+  });
+  ctx.reportRejectedBossOperations(["a"], { bosses: [{ id: "a", name: "Boss A", revision: 3, diedAt: 4500 }] });
+  const stored = JSON.parse(saved.get("state.rejectedOperations"));
+  assert.equal(stored[0].diedAt, 4500);
+  assert.equal(stored[0].rejectedAt, 9000);
+  assert.match(dialogs[0].message, /4500/);
+});
+
+test("role and server changes retain the current Firebase connection status", () => {
   const callbacks = new Map();
   const statuses = [];
-  const ctx = load(["canProcessBossTimers", "refreshBossSyncStatus", "initRealtimeSync"], {
+  const ctx = load(["initRealtimeSync"], {
     REALTIME_ENABLED: true,
     stateDbRef: { child: () => ({ on() {}, off() {} }) },
     firebaseDb: { ref: path => ({ on: (_event, callback) => callbacks.set(path, callback) }) },
     activeStateRef: null, activeDiscordConfigRef: null, discordConfigDbRef: null,
     connectedRefBound: false, firebaseRealtimeConnected: false, bossSyncGeneration: 1,
-    firebaseAuthReady: true, remoteStateReady: true,
-    isAdmin: () => false, setRealtimeStatus: type => statuses.push(type),
-    serverTimeReady: false, pendingRemoteSave: false, render: () => {}
+    isAdmin: () => false, setRealtimeStatus: type => statuses.push(type)
   });
   ctx.initRealtimeSync();
   assert.equal(statuses.at(-1), "connecting");
   callbacks.get(".info/connected")({ val: () => true });
-  assert.equal(statuses.at(-1), "connecting");
-  callbacks.get(".info/serverTimeOffset")({ val: () => 25 });
   assert.equal(statuses.at(-1), "online");
   ctx.initRealtimeSync();
   ctx.bossSyncGeneration++;
@@ -369,16 +650,22 @@ test("edits made while a Firebase save is pending survive the acknowledgement", 
     return Promise.resolve({ committed: true, snapshot: { val: () => remote } });
   });
   remote = { data: copy(ctx.state), version: 1 };
+  const broadcasts = [];
+  ctx.broadcastConfirmedBossState = value => broadcasts.push(copy(value));
   ctx.state.bosses[0].name = "First edit";
   const save = ctx.saveState();
   ctx.state.bosses[0].notes = "Second edit";
-  await ctx.saveState();
+  const secondSave = ctx.saveState();
   resolveFirst();
   await save;
+  await secondSave;
   await setImmediate();
   assert.equal(calls, 2);
   assert.equal(ctx.state.bosses[0].notes, "Second edit");
   assert.equal(remote.bosses_map.a.notes, "Second edit");
+  assert.equal(broadcasts[0].bosses[0].name, "First edit");
+  assert.equal(broadcasts[0].bosses[0].notes, "");
+  assert.equal(broadcasts[1].bosses[0].notes, "Second edit");
   assert.deepEqual(Object.keys(remote.data).sort(), ["_clientId", "bosses", "history", "updated_at", "version"]);
 });
 
@@ -395,7 +682,7 @@ test("failed boss save keeps the retry flag and server switches ignore stale ack
   ctx.bossSyncGeneration++;
   ctx.state = { bosses: [{ id: "other", name: "Other server" }], history: [] };
   finish();
-  await pending;
+  assert.equal(await pending, false);
   assert.equal(ctx.state.bosses[0].id, "other");
 });
 
@@ -450,8 +737,8 @@ test("schedule keeps a confirmed earlier spawn and also forecasts the actual nex
   const now = new Date(2026, 9, 30, 20, 0).getTime();
   const oldSpawn = new Date(2026, 9, 30, 13, 52).getTime();
   const diedAt = new Date(2026, 9, 30, 19, 55).getTime();
-  const respawnsAt = new Date(2026, 10, 1, 19, 55).getTime();
-  const boss = { id: "duplican", spawnMode: "interval", respawnMinutes: 2880, lastRespawnAt: oldSpawn, diedAt, respawnsAt };
+  const respawnsAt = new Date(2026, 9, 31, 1, 55).getTime();
+  const boss = { id: "dalia", spawnMode: "interval", respawnMinutes: 360, lastRespawnAt: oldSpawn, diedAt, respawnsAt };
   const state = { bosses: [boss], history: [{ type: "respawn", bossId: boss.id, time: oldSpawn }] };
   const ctx = load(["getTargetDateForFilter", "getBossScheduleEventTimes"], { state });
 
