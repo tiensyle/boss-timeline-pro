@@ -278,6 +278,7 @@
     let alertsDbRef = null;
     let attendanceDbRef = null;
     let remoteStateReady = false;
+    let serverTimeReady = !REALTIME_ENABLED;
     let remoteSaveInFlight = false;
     let pendingRemoteSave = false;
     let lastRemoteUpdatedAt = 0;
@@ -585,6 +586,7 @@
           // Luôn áp dụng bản Firebase đã nhận trong lúc khôi phục đăng nhập trước khi
           // cho phép lưu, tránh dữ liệu cũ trên máy mới ghi đè ghi chú/giờ của máy khác.
           if (typeof applyDeferredBossRemoteAfterAuth === "function") applyDeferredBossRemoteAfterAuth();
+          if (typeof refreshBossSyncStatus === "function") refreshBossSyncStatus();
           // Writes that were queued while Auth restored can now be retried safely.
           if (typeof saveState === "function" && remoteStateReady) saveState();
           if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady) {
@@ -1665,6 +1667,19 @@
       return Date.now() + serverTimeOffset;
     }
 
+    function canProcessBossTimers() {
+      return !REALTIME_ENABLED || (firebaseAuthReady && remoteStateReady && serverTimeReady);
+    }
+
+    function getBossTimerRevision(boss) {
+      if (!boss) return 0;
+      return Math.max(
+        Number(boss.timerUpdatedAt) || 0,
+        Number(boss.diedAt) || 0,
+        Number(boss.lastRespawnAt) || 0
+      );
+    }
+
     let lastLocalEditTime = 0;
 
     function loadBossSyncBase() {
@@ -1687,14 +1702,20 @@
 
     function mergeBossStateChanges(base, local, remote) {
       const merged = mergeRealtimeChanges(base, local, remote);
-      const timerFields = ["diedAt", "respawnsAt", "lastRespawnAt"];
+      const timerFields = ["diedAt", "respawnsAt", "lastRespawnAt", "timerUpdatedAt"];
       const before = new Map((base?.bosses || []).map(boss => [boss.id, boss]));
+      const remoteBosses = new Map((remote?.bosses || []).map(boss => [boss.id, boss]));
       for (const boss of local.bosses) {
         const previous = before.get(boss.id);
         const target = merged.bosses.find(item => item.id === boss.id);
         if (previous && target && timerFields.some(key => previous[key] !== boss[key])) {
-          // A death/respawn is one state transition, not three independent field edits.
-          timerFields.forEach(key => { target[key] = boss[key] ?? null; });
+          // A death/respawn is one atomic transition. A newer transition received
+          // from Firebase must beat a stale cached transition from this browser.
+          const remoteBoss = remoteBosses.get(boss.id);
+          const winner = remoteBoss && getBossTimerRevision(remoteBoss) > getBossTimerRevision(boss)
+            ? remoteBoss
+            : boss;
+          timerFields.forEach(key => { target[key] = winner[key] ?? null; });
         }
       }
       return merged;
@@ -1706,7 +1727,7 @@
       saveStateLocal(true);
       if (!isAdmin() || !REALTIME_ENABLED || !stateDbRef) return;
 
-      if (remoteSaveInFlight || !remoteStateReady) {
+      if (remoteSaveInFlight || !canProcessBossTimers()) {
         pendingRemoteSave = true;
         return;
       }
@@ -1770,6 +1791,16 @@
         type === "online" ? "Realtime" : type === "connecting" ? "Đang kết nối…" : "Offline";
     }
 
+    function refreshBossSyncStatus() {
+      if (!REALTIME_ENABLED) {
+        setRealtimeStatus("offline", "Chưa cấu hình Firebase — kiểm tra firebase-config.js");
+      } else if (firebaseRealtimeConnected && canProcessBossTimers()) {
+        setRealtimeStatus("online", "Đã nhận dữ liệu và giờ chuẩn Firebase — đồng bộ tức thì cho cả team");
+      } else {
+        setRealtimeStatus("connecting", "Đang nhận dữ liệu boss và giờ chuẩn từ Firebase…");
+      }
+    }
+
     function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId, localBase = bossSyncBase) {
       if (!Array.isArray(incomingBosses)) return;
       // Auth restoration must finish before choosing whether to preserve unsent admin edits.
@@ -1820,19 +1851,21 @@
         activeDiscordConfigRef = null;
       }
 
-      setRealtimeStatus(firebaseRealtimeConnected ? "online" : "connecting", firebaseRealtimeConnected
-        ? "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team"
-        : "Đang kết nối Google Firebase Realtime…");
+      refreshBossSyncStatus();
 
       // Giam sat ket noi Firebase connection state (chi can gan 1 lan)
       if (!connectedRefBound && firebaseDb) {
         firebaseDb.ref(".info/serverTimeOffset").on("value", (snap) => {
           serverTimeOffset = Number(snap.val()) || 0;
+          serverTimeReady = true;
+          refreshBossSyncStatus();
+          if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
+          if (canProcessBossTimers()) render();
         });
         firebaseDb.ref(".info/connected").on("value", (snap) => {
           firebaseRealtimeConnected = snap.val() === true;
           if (firebaseRealtimeConnected) {
-            setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
+            refreshBossSyncStatus();
             if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
             if (isAdmin() && attendanceRemoteStateReady && attendancePendingRemoteSave) pushAttendanceToFirebase();
           } else {
@@ -1852,6 +1885,7 @@
         const data = snapshot.val();
         const val = data ? { data, last_editor: data._clientId, updated_at: data.updated_at, version: data.version } : null;
         remoteStateReady = true;
+        refreshBossSyncStatus();
         if (!firebaseAuthReady) {
           // Snapshot đầu tiên thường đến trước khi Firebase Auth xác nhận quyền Admin.
           // Giữ lại để áp dụng ngay sau đăng nhập thay vì âm thầm bỏ qua.
@@ -1963,6 +1997,7 @@
         diedAt: diedAtVal,
         respawnsAt: respawnsAtVal,
         lastRespawnAt: Number(boss.lastRespawnAt) || null,
+        timerUpdatedAt: getBossTimerRevision(boss) || null,
         avatar: ["ember", "frost", "void", "stone", "storm"].includes(boss.avatar) ? boss.avatar : "ember",
         notes: String(boss.notes || "").slice(0, 160)
       };
@@ -2206,7 +2241,9 @@
 
     function historyItem(type, boss, time = getNow(), source = null) {
       return {
-        id: "history_" + Math.random().toString(36).slice(2, 9),
+        id: source === "automatic"
+          ? `history_auto_${boss.id}_${time}`
+          : "history_" + Math.random().toString(36).slice(2, 9),
         type,
         bossId: boss.id,
         bossName: boss.name,
@@ -2231,11 +2268,13 @@
       boss.lastRespawnAt = time;
       boss.diedAt = null;
       boss.respawnsAt = null;
+      boss.timerUpdatedAt = time;
       pushHistory("respawn", boss, time, source);
       return true;
     }
 
     function autoResolveRespawns() {
+      if (!canProcessBossTimers()) return;
       const now = getNow();
       let changed = false;
 
@@ -2343,22 +2382,24 @@
         const aRespawning = Number.isFinite(aTime) && aTime > now;
         const bRespawning = Number.isFinite(bTime) && bTime > now;
 
-        // Boss đang sống/chưa ghi nhận chết luôn ở trên cùng để Admin dễ thao tác.
-        // Sau đó mới đến boss đang hồi sinh, xếp theo thời gian gần nhất.
-        if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
-        if (aRespawning && aTime !== bTime) return aTime - bTime;
-
-        // Với các boss cùng trạng thái, tiếp tục áp dụng lựa chọn sắp xếp theo cấp.
-        if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
-        if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);
-
-        // Trong nhóm boss đang sống, ưu tiên các cấp phổ biến 60–80.
+        // Theo yêu cầu vận hành, các cấp 60/65/70/75/80 luôn được ưu tiên
+        // trước những cấp khác trong chế độ sắp xếp mặc định.
         if (levelMode !== "level-asc" && levelMode !== "level-desc") {
           const priorityLevels = new Set([60, 65, 70, 75, 80]);
           const aPriority = priorityLevels.has(Number(a.level));
           const bPriority = priorityLevels.has(Number(b.level));
           if (aPriority !== bPriority) return aPriority ? -1 : 1;
         }
+
+        // Boss đang sống/chưa ghi nhận chết luôn ở trên cùng để Admin dễ thao tác.
+        // Sau đó mới đến boss đang hồi sinh, xếp theo thời gian gần nhất.
+        if (aRespawning !== bRespawning) return aRespawning ? 1 : -1;
+
+        // Với các boss cùng trạng thái, tiếp tục áp dụng lựa chọn sắp xếp theo cấp.
+        if (levelMode === "level-asc") return (a.level || 80) - (b.level || 80);
+        if (levelMode === "level-desc") return (b.level || 80) - (a.level || 80);
+
+        if (aRespawning && aTime !== bTime) return aTime - bTime;
         return 0;
       });
     }
@@ -3571,6 +3612,7 @@
 
       const now = diedAt;
       boss.diedAt = now;
+      boss.timerUpdatedAt = now;
       if (boss.spawnMode === "fixed") {
         boss.respawnsAt = getNextFixedSpawnTime(boss, now);
       } else {
@@ -9779,7 +9821,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.09.v19-reviewed-sync-and-schedule";
+    const CURRENT_APP_VERSION = "2026.10.30.v20-consistent-boss-sync";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();

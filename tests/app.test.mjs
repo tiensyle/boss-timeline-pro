@@ -89,7 +89,7 @@ test("attendance screenshot OCR matches exact and slightly misread character nam
 });
 
 test("boss names are normalized to uppercase Vietnamese text", () => {
-  const ctx = load(["clamp", "makeId", "normalizeBoss"], {
+  const ctx = load(["clamp", "makeId", "getBossTimerRevision", "normalizeBoss"], {
     crypto: { randomUUID: () => "generated-id" }
   });
   const boss = ctx.normalizeBoss({ id: "dalia", name: "  Quý bà Dalia  ", map: "Bóng Ma Huyết Sắc", level: 85 });
@@ -265,7 +265,7 @@ test("stale edits do not resurrect deleted bosses, weeks or members", () => {
 });
 
 test("editing boss metadata preserves a concurrent timer and timer transitions stay atomic", () => {
-  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"]);
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "getBossTimerRevision", "mergeBossStateChanges"]);
   const base = { bosses: [{ id: "a", notes: "", diedAt: null, respawnsAt: null, lastRespawnAt: 100 }], history: [] };
   const local = copy(base);
   local.bosses[0].notes = "new note";
@@ -279,11 +279,46 @@ test("editing boss metadata preserves a concurrent timer and timer transitions s
   assert.equal(merged.bosses[0].lastRespawnAt, 300);
 });
 
+test("a stale cached respawn cannot overwrite a newer remote death", () => {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "getBossTimerRevision", "mergeBossStateChanges"]);
+  const base = { bosses: [{ id: "a", diedAt: 100, respawnsAt: 200, lastRespawnAt: null, timerUpdatedAt: 100 }], history: [] };
+  const local = { bosses: [{ id: "a", diedAt: null, respawnsAt: null, lastRespawnAt: 200, timerUpdatedAt: 200 }], history: [] };
+  const remote = { bosses: [{ id: "a", diedAt: 300, respawnsAt: 400, lastRespawnAt: 200, timerUpdatedAt: 300 }], history: [] };
+
+  const merged = ctx.mergeBossStateChanges(base, local, remote);
+  assert.equal(merged.bosses[0].diedAt, 300);
+  assert.equal(merged.bosses[0].respawnsAt, 400);
+  assert.equal(merged.bosses[0].timerUpdatedAt, 300);
+});
+
+test("boss timers stay paused until auth, remote state and server time are ready", () => {
+  const ctx = load(["canProcessBossTimers"], {
+    REALTIME_ENABLED: true, firebaseAuthReady: true, remoteStateReady: false, serverTimeReady: false
+  });
+  assert.equal(ctx.canProcessBossTimers(), false);
+  ctx.remoteStateReady = true;
+  assert.equal(ctx.canProcessBossTimers(), false);
+  ctx.serverTimeReady = true;
+  assert.equal(ctx.canProcessBossTimers(), true);
+  ctx.firebaseAuthReady = false;
+  assert.equal(ctx.canProcessBossTimers(), false);
+});
+
+test("automatic respawn history uses one deterministic id across devices", () => {
+  const ctx = load(["historyItem"], {
+    getNow: () => 500, isAdmin: () => true, currentAdminName: "Admin"
+  });
+  const boss = { id: "a", name: "A", map: "Map" };
+  assert.equal(ctx.historyItem("respawn", boss, 500, "automatic").id, "history_auto_a_500");
+  assert.equal(ctx.historyItem("respawn", boss, 500, "automatic").id, "history_auto_a_500");
+  assert.notEqual(ctx.historyItem("respawn", boss, 500, "manual").id, "history_auto_a_500");
+});
+
 function bossSyncContext(transaction) {
   const state = { bosses: [{ id: "a", name: "A", notes: "", diedAt: null, respawnsAt: null, lastRespawnAt: null }], history: [] };
-  return load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges", "getBossRemoteData", "applyRemoteState", "saveState"], {
+  return load(["cloneRealtimeValue", "mergeRealtimeChanges", "canProcessBossTimers", "getBossTimerRevision", "mergeBossStateChanges", "getBossRemoteData", "applyRemoteState", "saveState"], {
     state, bossSyncBase: copy(state), isAdmin: () => true, REALTIME_ENABLED: true,
-    firebaseAuthReady: true,
+    firebaseAuthReady: true, serverTimeReady: true,
     stateDbRef: { transaction }, normalizeBoss: copy, getNow: () => 1000000,
     saveStateLocal: () => {}, render: () => {}, setRealtimeStatus: () => {},
     lastLocalEditTime: 0, lastRemoteUpdatedAt: 0, lastRenderedGridKey: "",
@@ -292,20 +327,24 @@ function bossSyncContext(transaction) {
   });
 }
 
-test("role and server changes retain the current Firebase connection status", () => {
+test("realtime status waits for connection, remote data and server time", () => {
   const callbacks = new Map();
   const statuses = [];
-  const ctx = load(["initRealtimeSync"], {
+  const ctx = load(["canProcessBossTimers", "refreshBossSyncStatus", "initRealtimeSync"], {
     REALTIME_ENABLED: true,
     stateDbRef: { child: () => ({ on() {}, off() {} }) },
     firebaseDb: { ref: path => ({ on: (_event, callback) => callbacks.set(path, callback) }) },
     activeStateRef: null, activeDiscordConfigRef: null, discordConfigDbRef: null,
     connectedRefBound: false, firebaseRealtimeConnected: false, bossSyncGeneration: 1,
-    isAdmin: () => false, setRealtimeStatus: type => statuses.push(type)
+    firebaseAuthReady: true, remoteStateReady: true,
+    isAdmin: () => false, setRealtimeStatus: type => statuses.push(type),
+    serverTimeReady: false, pendingRemoteSave: false, render: () => {}
   });
   ctx.initRealtimeSync();
   assert.equal(statuses.at(-1), "connecting");
   callbacks.get(".info/connected")({ val: () => true });
+  assert.equal(statuses.at(-1), "connecting");
+  callbacks.get(".info/serverTimeOffset")({ val: () => 25 });
   assert.equal(statuses.at(-1), "online");
   ctx.initRealtimeSync();
   ctx.bossSyncGeneration++;
