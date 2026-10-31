@@ -459,7 +459,8 @@ function bossSyncContext(transaction) {
     bossSyncGeneration: 1, bossDeferredRemoteData: null, CLIENT_ID: "test-client", lastBossConflictIds: [],
     pendingBossSaveWaiters: [], activeBossSaveWaiters: new Set(), broadcastConfirmedBossState: () => {},
     reportRejectedBossOperations: () => {}, lastAppliedBossVersion: 0,
-    activeBossTransactionLocal: null, lastReportedBossConflictKey: ""
+    activeBossTransactionLocal: null, lastReportedBossConflictKey: "",
+    firebaseRealtimeConnected: false, showToast: () => {}
   });
 }
 

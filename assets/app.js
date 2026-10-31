@@ -932,7 +932,7 @@
             if (sentAt && claimTime - sentAt < ttlMs) return;
             if (current?.state === "pending" && claimTime - current.claimedAt < 600000) return;
             return { owner, state: "pending", claimedAt: claimTime };
-          }, undefined, false);
+          });
           if (!result.committed) {
             const current = result.snapshot.val();
             alreadySent = typeof current === "number" || current?.state === "sent";
@@ -1934,7 +1934,7 @@
         }, undefined, false);
         const timerFn = typeof setTimeout !== "undefined" ? setTimeout : (typeof globalThis !== "undefined" && globalThis.setTimeout ? globalThis.setTimeout : null);
         const result = timerFn
-          ? await Promise.race([txPromise, new Promise((_, reject) => timerFn(() => reject(new Error("Timeout khi kết nối Firebase (8s)")), 8000))])
+          ? await Promise.race([txPromise, new Promise((_, reject) => timerFn(() => reject(new Error("Timeout khi kết nối Firebase (15s)")), 15000))])
           : await txPromise;
         if (generation !== bossSyncGeneration) return false;
         const confirmed = result.snapshot.val();
@@ -1962,7 +1962,12 @@
         broadcastConfirmedBossState(confirmedRemote);
       } catch (error) {
         console.error("Firebase save error:", error);
-        setRealtimeStatus("offline", "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
+        const errMsg = error?.message || "Không thể đồng bộ";
+        setRealtimeStatus(firebaseRealtimeConnected ? "online" : "offline",
+          firebaseRealtimeConnected ? "Lưu Firebase tạm thời bị trễ: " + errMsg : "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
+        if (typeof showToast === "function") {
+          showToast("⚠️ Chưa thể lưu lên Firebase: " + errMsg);
+        }
       } finally {
         if (generation === bossSyncGeneration) {
           remoteSaveInFlight = false;
