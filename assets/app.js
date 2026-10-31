@@ -2055,6 +2055,17 @@
       lastRenderedGridKey = ""; // Bat buoc render lai giao dien moi
       saveStateLocal(false); // Luu vao cache nhung KHONG broadcast nguoc lai de triet tieu loop
       render();
+      // The connection callback can run before the first server snapshot and mark
+      // a stale local cache as unsynced. Re-evaluate after applying the authoritative
+      // snapshot so the badge does not remain stuck when both states now match.
+      if (typeof firebaseRealtimeConnected !== "undefined" && firebaseRealtimeConnected
+        && typeof setRealtimeStatus === "function") {
+        const appliedLocal = { bosses: state.bosses.map(normalizeBoss), history: state.history.slice(0, 30) };
+        const stillUnsynced = JSON.stringify(appliedLocal) !== JSON.stringify(bossSyncBase);
+        setRealtimeStatus(stillUnsynced ? "unsynced" : "online", stillUnsynced
+          ? "Đã kết nối Firebase nhưng còn thay đổi chưa đồng bộ"
+          : "Đã nhận và áp dụng dữ liệu mới nhất từ Firebase");
+      }
       if (snapshotConflictIds.length) {
         const conflictKey = `${numericVersion}:${snapshotConflictIds.sort().join(",")}:${snapshotConflictIds.map(id => attemptedState.bosses.find(b => b.id === id)?.revision || 0).join(",")}`;
         if (conflictKey !== lastReportedBossConflictKey) {
@@ -10336,7 +10347,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.31.v20-unsynced-write-status";
+    const CURRENT_APP_VERSION = "2026.10.31.v21-snapshot-sync-status";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
