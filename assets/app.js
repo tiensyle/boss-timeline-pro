@@ -287,10 +287,16 @@
     let lastReportedBossConflictKey = "";
     let lastRemoteUpdatedAt = 0;
     let lastAppliedBossVersion = 0;
+    const BOSS_SYNC_PROTOCOL = 2;
     const CLIENT_ID = "client_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 
     function cloneRealtimeValue(value) {
       return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+    }
+
+    function makeBossSyncEpoch() {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+      return `epoch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
     }
 
     // Apply only the local difference to the latest server value, including deletion by ID.
@@ -1922,10 +1928,22 @@
           transactionConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
           merged.history = merged.history.sort((a, b) => b.time - a.time).slice(0, 30);
           const updatedAt = new Date(getNow()).toISOString();
-          const version = (Number(current?.version) || 0) + 1;
+          const currentData = current?.data || {};
+          const version = (Number(currentData.version) || Number(current?.version) || 0) + 1;
+          const syncEpoch = typeof currentData.syncEpoch === "string" && currentData.syncEpoch
+            ? currentData.syncEpoch
+            : makeBossSyncEpoch();
           return {
             ...current,
-            data: { _clientId: CLIENT_ID, bosses: merged.bosses, history: merged.history, updated_at: updatedAt, version },
+            data: {
+              _clientId: CLIENT_ID,
+              bosses: merged.bosses,
+              history: merged.history,
+              syncProtocol: BOSS_SYNC_PROTOCOL,
+              syncEpoch,
+              updated_at: updatedAt,
+              version
+            },
             bosses_map: Object.fromEntries(merged.bosses.map(boss => [boss.id, boss])),
             last_editor: CLIENT_ID,
             updated_at: updatedAt,
@@ -5960,7 +5978,7 @@
               while (latest.some(item => item.id === candidate)) candidate = "s" + (++candidateNumber);
               newServerObj.id = candidate;
               if (latest.some(item => String(item.name || "").toLowerCase() === trimmed.toLowerCase())) return;
-              return [...latest, { ...newServerObj }];
+              return makeServerListEnvelope(current, [...latest, { ...newServerObj }]);
             });
             if (!result.committed) {
               showToast("❌ Không thể tạo Server vì tên vừa được Admin khác sử dụng.");
@@ -6015,7 +6033,15 @@
           const bMap = {};
           newBosses.forEach(b => { bMap[b.id] = b; });
           const seed = {
-            data: { _clientId: CLIENT_ID, bosses: newBosses, history: [], updated_at: new Date(getNow()).toISOString(), version: 1 },
+            data: {
+              _clientId: CLIENT_ID,
+              bosses: newBosses,
+              history: [],
+              syncProtocol: BOSS_SYNC_PROTOCOL,
+              syncEpoch: makeBossSyncEpoch(),
+              updated_at: new Date(getNow()).toISOString(),
+              version: 1
+            },
             bosses_map: bMap,
             last_editor: CLIENT_ID,
             updated_at: new Date(getNow()).toISOString(),
@@ -6026,10 +6052,11 @@
           console.warn("Firebase server initialization error:", e);
           try {
             const rollback = await firebaseDb.ref("boss_timeline_servers_list").transaction(current => {
-              const latest = Array.isArray(current) ? current : [];
-              return latest.filter(item => !(item?.id === newId && item?.name === newServerObj.name));
+              const latest = normalizeServerList(current);
+              const next = latest.filter(item => !(item?.id === newId && item?.name === newServerObj.name));
+              return makeServerListEnvelope(current, next);
             });
-            if (rollback.committed) serverList = rollback.snapshot.val() || [];
+            if (rollback.committed) serverList = normalizeServerList(rollback.snapshot.val());
           } catch (rollbackError) {
             console.warn("Firebase server list rollback error:", rollbackError);
           }
@@ -6076,7 +6103,7 @@
               const parsedCurrent = normalizeServerList(current);
               const latest = parsedCurrent.length ? parsedCurrent : serverList.slice();
               if (latest.some(item => item.id !== serverId && String(item.name || "").toLowerCase() === trimmed.toLowerCase())) return;
-              return latest.map(item => item.id === serverId ? { ...item, name: trimmed } : item);
+              return makeServerListEnvelope(current, latest.map(item => item.id === serverId ? { ...item, name: trimmed } : item));
             });
             if (!result.committed) {
               showToast("❌ Tên Server vừa được Admin khác sử dụng.");
@@ -6134,7 +6161,8 @@
           if (typeof listRef.transaction === "function") {
             const result = await listRef.transaction(current => {
               const currentList = normalizeServerList(current);
-              return (currentList.length ? currentList : serverList).filter(item => item.id !== serverId);
+              const latest = currentList.length ? currentList : serverList;
+              return makeServerListEnvelope(current, latest.filter(item => item.id !== serverId));
             });
             if (!result.committed) return false;
             serverList = normalizeServerList(result.snapshot.val());
@@ -6169,6 +6197,11 @@
         return Object.values(val).filter(item => item && typeof item === "object" && item.id);
       }
       return [];
+    }
+
+    function makeServerListEnvelope(current, list) {
+      const items = Object.fromEntries((list || []).filter(item => item?.id).map(item => [item.id, { ...item }]));
+      return { version: (Number(current?.version) || 0) + 1, items };
     }
 
     function initServerListSync() {
@@ -10347,7 +10380,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.31.v21-snapshot-sync-status";
+    const CURRENT_APP_VERSION = "2026.10.31.v22-firebase-sync-protocol-2";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
