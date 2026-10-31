@@ -1943,7 +1943,7 @@
       let transactionConflictIds = [];
       let confirmedRemote = null;
       try {
-        const result = await saveRef.transaction(current => {
+        const transact = () => saveRef.transaction(current => {
           if (!current?.data || (current.data.syncEpoch || null) !== baseEpoch
             || (Number(current.data.version || current.version) || 0) < baseVersion) return;
           const merged = mergeBossStateChanges(base, local, getBossRemoteData(current));
@@ -1960,8 +1960,22 @@
             version
           };
         }, undefined, false);
+        let result = await transact();
         if (generation !== bossSyncGeneration) return false;
-        const confirmed = result.snapshot.val();
+        let confirmed = result.snapshot.val();
+        if (!confirmed?.data) {
+          // A transaction can start with null when only /data is cached. An aborted
+          // local snapshot is not evidence that the server database was deleted.
+          const refreshed = (await saveRef.once("value")).val();
+          if (generation !== bossSyncGeneration) return false;
+          if (!refreshed?.data) { handleMissingBossData(); return false; }
+          // Reading the complete transaction path primes the SDK cache. Retry only
+          // this deliberate edit; epoch/version/revision guards still apply.
+          result = await transact();
+          if (generation !== bossSyncGeneration) return false;
+          confirmed = result.snapshot.val();
+          if (!confirmed?.data) confirmed = refreshed;
+        }
         if (confirmed) {
           const remote = getBossRemoteData(confirmed);
           confirmedRemote = { ...cloneRealtimeValue(remote), updated_at: confirmed.updated_at, version: Number(confirmed.version) || 0 };
@@ -1973,7 +1987,11 @@
           }
         }
         if (!confirmed?.data || (deferredBossSnapshotPending && !bossDeferredRemoteData)) { handleMissingBossData(); return false; }
-        if (!result.committed) return false;
+        if (!result.committed) {
+          setRealtimeStatus("online", "Dữ liệu Boss vẫn còn trên Firebase; thao tác chưa được lưu. Hãy thử lại.");
+          showToast("⚠️ Chưa lưu được thao tác. Đã tải lại dữ liệu Boss từ Firebase.");
+          return false;
+        }
         saved = true;
         const conflictIds = transactionConflictIds;
         setRealtimeStatus("online", conflictIds.length
@@ -10151,7 +10169,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.31.v22-schedule-history";
+    const CURRENT_APP_VERSION = "2026.10.31.v23-transaction-cache";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
