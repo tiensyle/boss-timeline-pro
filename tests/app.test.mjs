@@ -639,7 +639,8 @@ test("role and server changes retain the current Firebase connection status", ()
     firebaseDb: { ref: path => ({ on: (_event, callback) => callbacks.set(path, callback) }) },
     activeStateRef: null, activeDiscordConfigRef: null, discordConfigDbRef: null,
     connectedRefBound: false, firebaseRealtimeConnected: false, bossSyncGeneration: 1,
-    isAdmin: () => false, setRealtimeStatus: type => statuses.push(type)
+    isAdmin: () => false, hasUnsyncedBossChanges: () => false,
+    setRealtimeStatus: type => statuses.push(type)
   });
   ctx.initRealtimeSync();
   assert.equal(statuses.at(-1), "connecting");
@@ -690,10 +691,15 @@ test("edits made while a Firebase save is pending survive the acknowledgement", 
 test("failed boss save keeps the retry flag and server switches ignore stale acknowledgements", async () => {
   const ctx = bossSyncContext(() => Promise.reject(new Error("offline")));
   ctx.console = { error() {} };
+  const statuses = [];
+  ctx.firebaseRealtimeConnected = true;
+  ctx.setRealtimeStatus = (type, title) => statuses.push({ type, title });
   ctx.state.bosses[0].notes = "unsent";
   await ctx.saveState();
   assert.equal(ctx.pendingRemoteSave, true);
   assert.equal(ctx.state.bosses[0].notes, "unsent");
+  assert.equal(statuses.at(-1).type, "unsynced");
+  assert.match(statuses.at(-1).title, /chưa được Firebase chấp nhận/);
   let finish;
   ctx.stateDbRef.transaction = update => new Promise(resolve => { finish = () => resolve({ committed: true, snapshot: { val: () => update(null) } }); });
   const pending = ctx.saveState();
@@ -702,6 +708,16 @@ test("failed boss save keeps the retry flag and server switches ignore stale ack
   finish();
   assert.equal(await pending, false);
   assert.equal(ctx.state.bosses[0].id, "other");
+});
+
+test("realtime badge distinguishes a connected socket from confirmed synchronization", () => {
+  const text = { textContent: "" };
+  const badge = { dataset: {}, title: "", querySelector: () => text };
+  const ctx = load(["setRealtimeStatus"], { document: { getElementById: () => badge } });
+  ctx.setRealtimeStatus("unsynced", "Firebase write was rejected");
+  assert.equal(badge.dataset.status, "unsynced");
+  assert.equal(text.textContent, "Chưa đồng bộ");
+  assert.equal(badge.title, "Firebase write was rejected");
 });
 
 test("auth restoration cannot discard offline admin edits before permissions are known", () => {

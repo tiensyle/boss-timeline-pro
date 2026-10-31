@@ -2772,6 +2772,7 @@
     }
     .realtime-status-dot { width:7px; height:7px; border-radius:50%; background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.12); }
     .realtime-status[data-status="online"] .realtime-status-dot { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.12); }
+    .realtime-status[data-status="unsynced"] .realtime-status-dot { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.16); }
     .realtime-status[data-status="offline"] .realtime-status-dot { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.12); }
 
     /* Fixed Schedule Slot Manager */

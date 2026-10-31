@@ -1963,8 +1963,12 @@
       } catch (error) {
         console.error("Firebase save error:", error);
         const errMsg = error?.message || "Không thể đồng bộ";
-        setRealtimeStatus(firebaseRealtimeConnected ? "online" : "offline",
-          firebaseRealtimeConnected ? "Lưu Firebase tạm thời bị trễ: " + errMsg : "Không thể đồng bộ — đang dùng dữ liệu cục bộ");
+        // A live Firebase socket only means the browser is connected. It does not
+        // mean this write was accepted. Keep the UI visibly unsynced until a later
+        // transaction confirms the local changes.
+        setRealtimeStatus("unsynced", firebaseRealtimeConnected
+          ? "Có thay đổi chưa được Firebase chấp nhận: " + errMsg
+          : "Không thể đồng bộ — thay đổi đang được giữ trên trình duyệt");
         if (typeof showToast === "function") {
           showToast("⚠️ Chưa thể lưu lên Firebase: " + errMsg);
         }
@@ -2013,7 +2017,18 @@
       el.dataset.status = type;
       el.title = title || "";
       el.querySelector(".realtime-status-text").textContent =
-        type === "online" ? "Đã đồng bộ" : type === "saving" ? "Đang lưu…" : type === "connecting" ? "Đang kết nối…" : "Offline";
+        type === "online" ? "Đã đồng bộ"
+          : type === "saving" ? "Đang lưu…"
+          : type === "unsynced" ? "Chưa đồng bộ"
+          : type === "connecting" ? "Đang kết nối…"
+          : "Offline";
+    }
+
+    function hasUnsyncedBossChanges() {
+      if (pendingRemoteSave || remoteSaveInFlight) return true;
+      if (!bossSyncBase || !state || !Array.isArray(state.bosses)) return false;
+      const local = { bosses: state.bosses.map(normalizeBoss), history: state.history.slice(0, 30) };
+      return JSON.stringify(bossSyncBase) !== JSON.stringify(local);
     }
 
     function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId, localBase = bossSyncBase, remoteVersion = 0) {
@@ -2079,8 +2094,8 @@
         activeDiscordConfigRef = null;
       }
 
-      setRealtimeStatus(firebaseRealtimeConnected ? "online" : "connecting", firebaseRealtimeConnected
-        ? "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team"
+      setRealtimeStatus(firebaseRealtimeConnected ? (hasUnsyncedBossChanges() ? "unsynced" : "online") : "connecting", firebaseRealtimeConnected
+        ? (hasUnsyncedBossChanges() ? "Đã kết nối Firebase nhưng còn thay đổi chưa đồng bộ" : "Đã kết nối Firebase Realtime — dữ liệu đã đồng bộ")
         : "Đang kết nối Google Firebase Realtime…");
 
       // Giam sat ket noi Firebase connection state (chi can gan 1 lan)
@@ -2091,7 +2106,10 @@
         firebaseDb.ref(".info/connected").on("value", (snap) => {
           firebaseRealtimeConnected = snap.val() === true;
           if (firebaseRealtimeConnected) {
-            setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
+            const unsynced = hasUnsyncedBossChanges();
+            setRealtimeStatus(unsynced ? "unsynced" : "online", unsynced
+              ? "Đã kết nối Firebase nhưng còn thay đổi chưa đồng bộ"
+              : "Đã kết nối Firebase Realtime — dữ liệu đã đồng bộ");
             if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
             if (isAdmin() && attendanceRemoteStateReady && attendancePendingRemoteSave) pushAttendanceToFirebase();
           } else {
@@ -10318,7 +10336,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.09.v19-reviewed-sync-and-schedule";
+    const CURRENT_APP_VERSION = "2026.10.31.v20-unsynced-write-status";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
