@@ -279,6 +279,7 @@
     let attendanceDbRef = null;
     let remoteStateReady = false;
     let remoteSaveInFlight = false;
+    let lastRemoteSaveStartTime = 0;
     let pendingRemoteSave = false;
     let pendingBossSaveWaiters = [];
     const activeBossSaveWaiters = new Set();
@@ -591,7 +592,11 @@
           // cho phép lưu, tránh dữ liệu cũ trên máy mới ghi đè ghi chú/giờ của máy khác.
           if (typeof applyDeferredBossRemoteAfterAuth === "function") applyDeferredBossRemoteAfterAuth();
           // Writes that were queued while Auth restored can now be retried safely.
-          if (typeof saveState === "function" && remoteStateReady && pendingRemoteSave) saveState();
+          const hasUnsyncedAuthBosses = isAdmin() && bossSyncBase && state.bosses.some(b => {
+            const rb = (bossSyncBase.bosses || []).find(item => item.id === b.id);
+            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || b.notes !== rb.notes || b.name !== rb.name;
+          });
+          if (typeof saveState === "function" && (pendingRemoteSave || hasUnsyncedAuthBosses)) saveState();
           if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady && attendancePendingRemoteSave) {
             attendanceRemotePermissionDenied = false;
             pushAttendanceToFirebase();
@@ -1879,6 +1884,10 @@
       saveStateLocal(false);
       if (!isAdmin() || !REALTIME_ENABLED || !stateDbRef) return false;
 
+      if (remoteSaveInFlight && Date.now() - lastRemoteSaveStartTime > 8000) {
+        console.warn("[saveState] Clearing stuck remoteSaveInFlight lock (> 8s)");
+        remoteSaveInFlight = false;
+      }
       if (remoteSaveInFlight || !remoteStateReady) {
         pendingRemoteSave = true;
         return enqueueBossSaveWaiter(getChangedBossIds(activeBossTransactionLocal || bossSyncBase, state));
@@ -1897,6 +1906,7 @@
       }
       const saveRef = stateDbRef;
       const generation = bossSyncGeneration;
+      lastRemoteSaveStartTime = Date.now();
       remoteSaveInFlight = true;
       pendingRemoteSave = false;
       bossDeferredRemoteData = null;
@@ -1906,7 +1916,7 @@
       let transactionConflictIds = [];
       let confirmedRemote = null;
       try {
-        const result = await saveRef.transaction(current => {
+        const txPromise = saveRef.transaction(current => {
           if (seedOnly && current?.data) return;
           const merged = current ? mergeBossStateChanges(base, local, getBossRemoteData(current)) : cloneRealtimeValue(local);
           transactionConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
@@ -1922,6 +1932,10 @@
             version
           };
         }, undefined, false);
+        const timerFn = typeof setTimeout !== "undefined" ? setTimeout : (typeof globalThis !== "undefined" && globalThis.setTimeout ? globalThis.setTimeout : null);
+        const result = timerFn
+          ? await Promise.race([txPromise, new Promise((_, reject) => timerFn(() => reject(new Error("Timeout khi kết nối Firebase (8s)")), 8000))])
+          : await txPromise;
         if (generation !== bossSyncGeneration) return false;
         const confirmed = result.snapshot.val();
         if (confirmed) {
@@ -2015,7 +2029,7 @@
         history: Array.isArray(incomingHistory) ? incomingHistory.slice(0, 30) : []
       };
       const attemptedState = cloneRealtimeValue(state);
-      state = isAdmin() ? mergeBossStateChanges(localBase || state, state, remote) : remote;
+      state = isAdmin() ? mergeBossStateChanges(localBase, state, remote) : remote;
       const snapshotConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
       bossSyncBase = cloneRealtimeValue(remote);
       lastRenderedGridKey = ""; // Bat buoc render lai giao dien moi
@@ -2105,9 +2119,17 @@
         if (val) {
           const senderId = val.last_editor || val.data?._clientId;
           const remote = getBossRemoteData(val);
+          const hasUnsyncedBossesBefore = isAdmin() && state.bosses.some(b => {
+            const rb = remote.bosses.find(item => item.id === b.id);
+            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || b.notes !== rb.notes || b.name !== rb.name;
+          });
           applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId, bossSyncBase, val.version || val.data?.version);
           if (senderId !== CLIENT_ID) showToast("🔄 Team vừa cập nhật Boss Timeline.");
-          if (isAdmin() && pendingRemoteSave) saveState();
+          const hasUnsyncedBosses = hasUnsyncedBossesBefore || (isAdmin() && state.bosses.some(b => {
+            const rb = remote.bosses.find(item => item.id === b.id);
+            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || b.notes !== rb.notes || b.name !== rb.name;
+          }));
+          if (isAdmin() && (pendingRemoteSave || hasUnsyncedBosses)) saveState();
         } else if (!val) {
           if (isAdmin() && !bossFirebaseSeedAttempted) {
             bossFirebaseSeedAttempted = true;
