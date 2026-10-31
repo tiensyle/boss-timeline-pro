@@ -42,6 +42,17 @@ try {
   assert.equal(await page.locator("#attCombatPowerBtn").isVisible(), false);
   assert.equal(await page.locator("#attRoleBonusBtn").isVisible(), false);
   checks.push("Guest attendance access is read-only");
+  await page.evaluate(() => {
+    const midnight = new BossDate(getNow()); midnight.setHours(0,0,0,0);
+    const start = midnight.getTime();
+    state = {bosses:[normalizeBoss({id:"morning-history",name:"Morning Spawn",spawnMode:"interval",respawnMinutes:600,
+      lastRespawnAt:start+(1*3600+54*60+24)*1000,diedAt:start+(11*3600+56*60)*1000,respawnsAt:start+(21*3600+56*60)*1000})],history:[]};
+    scheduleDayFilter="today";renderTodayScheduleTable();
+  });
+  assert.ok((await page.locator('#todayScheduleBody tr').first().textContent()).includes('01:54:24'));
+  assert.equal(await page.locator('#todayScheduleBody tr').count(),2);
+  checks.push("Daily schedule keeps a recorded morning spawn after its history entry is truncated");
+  await page.evaluate(()=>{scheduleDayFilter="all";});
 
   await page.evaluate(() => {
     firebaseAuth = { currentUser: { uid: "offline-test-only", displayName: "Test admin", getIdToken: async () => "offline-test-token" } };

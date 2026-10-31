@@ -3307,17 +3307,21 @@
       } else {
         const intervalMs = Math.max(1, Number(boss.respawnMinutes) || 30) * 60000;
         const lastRespawnAt = boss.lastRespawnAt == null ? NaN : Number(boss.lastRespawnAt);
-        const hasRecordedSpawn = Number.isFinite(lastRespawnAt) && Array.isArray(state.history)
-          && state.history.some(event => event.type === "respawn"
-            && (event.bossId === "all" || event.bossId === boss.id)
-            && Number(event.time) === lastRespawnAt);
-        if (hasRecordedSpawn && lastRespawnAt >= start.getTime() && lastRespawnAt < end.getTime()) {
+        // The confirmed Firebase lastRespawnAt remains valid after its history
+        // event falls outside the rolling history window. History enriches the
+        // report; it must not be a prerequisite for showing that recorded time.
+        if (Number.isFinite(lastRespawnAt) && lastRespawnAt >= start.getTime() && lastRespawnAt < end.getTime()) {
           times.add(lastRespawnAt);
+        }
+        for (const event of state.history || []) {
+          const time = Number(event?.time);
+          if (event?.type === "respawn" && (event.bossId === boss.id || event.bossId === "all")
+            && Number.isFinite(time) && time >= start.getTime() && time < end.getTime()) times.add(time);
         }
         const baseTime = boss.diedAt ? boss.diedAt + intervalMs
           : (boss.respawnsAt || (boss.lastRespawnAt ? boss.lastRespawnAt + intervalMs : null));
         // An untracked interval boss has no reliable anchor for a forecast.
-        if (!Number.isFinite(baseTime) || !Number.isFinite(intervalMs)) return [];
+        if (!Number.isFinite(baseTime) || !Number.isFinite(intervalMs)) return [...times].sort((a,b) => a-b);
         const first = baseTime + Math.max(0, Math.ceil((start.getTime() - baseTime) / intervalMs)) * intervalMs;
         for (let time = first; time < end.getTime(); time += intervalMs) {
           times.add(time);
@@ -10147,7 +10151,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.31.v21-firebase-authority";
+    const CURRENT_APP_VERSION = "2026.10.31.v22-schedule-history";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
