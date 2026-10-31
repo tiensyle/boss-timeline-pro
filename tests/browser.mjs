@@ -1,3 +1,4 @@
+import { offlineFirebaseScript } from "./offline-firebase.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdir, readFile } from "node:fs/promises";
@@ -17,12 +18,15 @@ const checks = [];
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {}) });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: "Asia/Bangkok", acceptDownloads: true });
+  await context.addInitScript(offlineFirebaseScript);
   const page = await context.newPage();
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   // No test can write to a real Firebase project or send a real Discord message.
   await context.route("**/*", route => {
     const request = route.request();
+    if (request.url().endsWith("/firebase-config.js")) return route.fulfill({contentType:"application/javascript",body:'window.BOSS_TIMELINE_FIREBASE={databaseURL:"https://firebase.invalid"};'});
+    if (request.url().includes("gstatic.com/firebasejs")) return route.fulfill({contentType:"application/javascript",body:""});
     if (/firebaseio|firebasedatabase|identitytoolkit|securetoken|discord\.com/.test(request.url())) return route.abort();
     if (request.url().includes("/api/discord")) return route.fulfill({ status: 200, contentType: "application/json", body: '{"success":true}' });
     return route.continue();
@@ -113,7 +117,7 @@ try {
   await page.locator("#bossLevel").fill("90");
   await page.locator("#bossRespawn").fill("1800");
   await page.locator('#bossForm button[type="submit"]').click();
-  await page.waitForFunction(() => state.bosses.some(b => b.name === "TEMPORARY BOSS"));
+  await page.waitForFunction(() => state.bosses.some(b => b.name === "TEMPORARY BOSS"),null,{timeout:3000}).catch(async error => { console.log(await page.evaluate(()=>({bosses:state.bosses,ready:canEditBossState(false),base:bossSyncBase,epoch:bossRemoteEpoch,version:lastAppliedBossVersion,toast:elements.toast.textContent,errors:document.querySelector("#bossForm :invalid")?.id})));throw error;});
   const addEvidence = await page.evaluate(() => ({ bosses: state.bosses, invalid: [...document.querySelectorAll("#bossForm :invalid")].map(input => ({ id: input.id, message: input.validationMessage })), name: document.getElementById("bossName").value, modal: document.getElementById("bossModal").className }));
   assert.ok(addEvidence.bosses.some(b => b.name === "TEMPORARY BOSS" && b.respawnMinutes === 1800), JSON.stringify({ addEvidence, errors }));
   const temporaryBossId = await page.evaluate(() => state.bosses.find(b => b.name === "TEMPORARY BOSS").id);

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createCronDailyHandler } from "../api/cron-daily.js";
 
-function fixture({ discordOk = true, useFirebaseWebhook = false, stateOk = true, config = { enabled: true }, bosses = [], globalOnly = false, storedWebhook = "https://discord.com/api/webhooks/123/token" } = {}) {
+function fixture({ discordOk = true, useFirebaseWebhook = false, stateOk = true, config = { enabled: true }, bosses = [], globalOnly = false, storedWebhook = "https://discord.com/api/webhooks/123/token", registry = [{id:"s1",name:"One"}] } = {}) {
   const locks = new Map();
   const versions = new Map();
   let sends = 0;
@@ -12,7 +12,7 @@ function fixture({ discordOk = true, useFirebaseWebhook = false, stateOk = true,
   const fetchImpl = async (url, options = {}) => {
     requestedUrls.push(url);
     if (url.includes("discord_config")) return Response.json(config);
-    if (url.includes("boss_timeline_servers_list")) return Response.json([{ id: "s1", name: "One" }]);
+    if (url.includes("boss_timeline_servers_list")) return Response.json(registry);
     if (url.includes("boss_timeline_webhook_urls")) return Response.json({ url: storedWebhook });
     if (url.includes("boss_timeline_state/data")) return stateAvailable
       ? Response.json({ bosses, history: [] })
@@ -140,4 +140,11 @@ test("long cron report includes every event in a CSV attachment",async()=>{
 test("cron reports delivery failures as failures",async()=>{
  const api=fixture({discordOk:false});const result=await api.run();
  assert.equal(result.code,502);assert.equal(result.body.success,false);
+});
+
+
+test("cron reads the versioned server registry and never invents servers for an empty database",async()=>{
+ const migrated=fixture({registry:{version:2,items:{s1:{id:"s1",name:"One"}}}});await migrated.run();assert.equal(migrated.sends,1);
+ const empty=fixture({registry:null});const result=await empty.run();assert.equal(result.code,503);assert.equal(empty.sends,0);
+ assert.ok(!empty.requestedUrls.some(url=>url.includes('cron_runs')));
 });
