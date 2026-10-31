@@ -16,10 +16,10 @@
 - Tài khoản đăng nhập được xác thực bằng Firebase Authentication.
 - Admin phụ chỉ hoạt động khi có bản ghi đang bật trong `admin_access/{uid}`; khi quyền bị thu hồi, phiên quản trị trên web bị thoát ngay.
 - Nút **Sao Lưu** trong bảng Chấm Công & Lương tải xuống một tệp JSON chứa dữ liệu Boss, máy chủ và chấm công. Tệp sao lưu không chứa mật khẩu hay Discord webhook.
-- Dữ liệu cũ trong `localStorage` chỉ được dùng làm bản dự phòng tương thích; dữ liệu trực tuyến nằm trong Firebase Realtime Database.
+- Firebase là nguồn duy nhất của trạng thái TIME BOSS. Cache Chrome không được dùng làm dữ liệu trực tuyến hoặc làm cơ sở ghi; bản cũ được giữ ở khóa `.recovery` để trích xuất phục hồi có chủ đích.
 - Lịch Boss công khai được đọc từ `.../state/data` (Server 1: `boss_timeline_state/data`). Không đọc cả nhánh cha có dữ liệu chấm công cũ.
 - Global Attendance nằm tại `boss_timeline_attendance_global`, được đọc công khai cho toàn Guild (Thành viên/Khách ở chế độ chỉ xem); chỉ Admin đã được cấp quyền mới được chỉnh sửa điểm danh, thêm tuần và điều chỉnh quỹ thưởng. Chế độ Thành viên không hiển thị các nút thao tác quản trị.
-- Lần đầu Admin mở phiên bản mới, nếu nhánh mới chưa có dữ liệu, ứng dụng chuyển toàn bộ bảng cũ tại `boss_timeline_state/attendance_global` sang nhánh mới bằng transaction chỉ khởi tạo khi trống. Dữ liệu cũ vẫn được giữ ở nhánh đã khóa quyền đọc công khai.
+- Nhánh dữ liệu trống không được tự khởi tạo từ cache hoặc tự chuyển dữ liệu cũ, kể cả Attendance. Nếu cần chuyển/khôi phục, phải kiểm tra bản sao và thực hiện riêng; dữ liệu cũ vẫn được giữ nguyên để phục hồi.
 - Các chỉnh sửa đồng thời được gộp theo từng trường và ID. Hai Admin sửa cùng một trường thì lần ghi cuối thắng; thao tác xóa không bị phục hồi bởi bản chỉnh sửa cũ.
 - Tuần mới giữ thành viên, server, hệ số thập phân và các tuần trước; chỉ điểm danh của tuần mới được bỏ chọn. Có thể chọn giữ hoặc xóa cột hoạt động cho tuần mới.
 - Tính năng **Thưởng Vị Trí / Chức Danh** (`🎖️ Thưởng VT`): Admin có thể cài đặt tỷ lệ % thưởng trích trước từ tổng quỹ (DIAS & USDT) cho các chức danh (Bang Chủ, Phó Bang, Thư Ký, Top cống hiến...). Phần quỹ còn lại được chia đều theo điểm danh cho thành viên đạt điều kiện. Thuật toán phân bổ bảo toàn chính xác 100% quỹ (không lệch xu/cent). Có hỗ trợ ghi đè % thưởng riêng cho từng thành viên.
@@ -63,7 +63,7 @@ Trước khi sử dụng bản mới trên dữ liệu thật:
 
 1. Sao lưu Boss và Attendance bằng phiên Admin hiện tại, rồi đóng các tab chạy mã cũ.
 2. Publish nội dung `database.rules.json` trong Firebase Realtime Database Rules. Các nhánh chấm công cũ và mới sẽ được bảo vệ; Boss vẫn đọc công khai ở nhánh `data`.
-3. Đưa mã mới lên website và mở bằng Admin để chuyển dữ liệu Attendance tự động. Kiểm tra lại tuần, thành viên, server và quỹ thưởng trước khi chỉnh sửa tiếp.
+3. Đưa mã mới lên website. Khi Firebase trống, khôi phục dữ liệu bằng bản JSON đã kiểm tra qua Console; không chờ trình duyệt tự khởi tạo. Kiểm tra lại Boss, tuần, thành viên, server và quỹ thưởng trước khi chỉnh sửa tiếp.
 4. Kiểm tra miền được phép trong Firebase Authentication và gửi thử Discord sau khi đặt biến môi trường.
 
 Không chạy các bản cũ song song sau khi chuyển dữ liệu: bản cũ vẫn ghi vào nhánh Attendance cũ. Thay đổi file Rules local không tự cập nhật quyền của Firebase đang chạy.
@@ -100,3 +100,21 @@ Kiểm thử Rules trong Node kiểm tra các biểu thức cấp quyền và qu
 4. Xác minh CRON_SECRET và FIREBASE_DATABASE_AUTH, cài đặt Discord trên từng server. Kiểm tra trước ở môi trường thử nghiệm; bộ test Rules trong dự án chưa thay thế Firebase Emulator.
 
 Chạy kiểm thử: npm test, npm run check, npm run test:browser. Trong môi trường hạn chế tạo tiến trình con, có thể dùng node --test --test-isolation=none tests/*.test.mjs.
+
+## TIME BOSS lấy Firebase làm nguồn chính — bản v21
+
+- Mở web, đăng nhập Admin, kết nối lại hoặc chuyển máy không tạo lần ghi Boss nào. Không dùng BroadcastChannel làm nguồn dữ liệu; mọi tab theo dõi Firebase trực tiếp.
+- Nếu Firebase hoặc danh sách Server trống, giao diện hiện thông báo và không hiển thị boss mẫu/cache như dữ liệu đang dùng. Không tự seed, không tự phát lại thao tác lỗi; chỉ cho sửa sau khi đã nhận snapshot và đang kết nối.
+- Snapshot Firebase thay thế trạng thái cục bộ. Các thao tác trong cùng phiên đang lưu được quản lý riêng; cache cũ không được gộp vào snapshot mới. Ghi thất bại sẽ trở lại bản Firebase đã xác nhận.
+- Transaction không tạo lại nhánh data đã bị xóa. So sánh theo từng boss với bản gốc đã đọc: nếu boss trên Firebase đã đổi, giữ nguyên bản Firebase và báo xung đột. Sửa các boss khác nhau đồng thời vẫn được gộp. Lịch sử gộp bằng ID; sự kiện legacy có ID suy ra ổn định, thao tác xóa lịch sử không xóa sự kiện mới chưa từng đọc.
+- Snapshot ghi mới chứa syncProtocol:2, syncEpoch và version. Rules từ chối bản ghi không tăng version, đổi epoch tùy tiện hoặc bản web cũ thiếu giao thức. s1 không được tự khởi tạo từ nhánh rỗng qua quyền client. Server mới chỉ được khởi tạo sau thao tác Tạo Server và đăng ký thành công.
+- Registry Server ghi mới có dạng {version,items:{[serverId]:server}}. Giao diện và Cron vẫn đọc được mảng cũ; lần chỉnh sửa có chủ đích đầu tiên chuyển sang registry có phiên bản bằng transaction. Không có thao tác tự chuyển khi chỉ mở web.
+
+### Áp dụng
+
+1. Giữ bản sao dữ liệu còn trên trình duyệt trước khi mở bản mới; việc sửa mã không khôi phục dữ liệu Firebase đã xóa.
+2. Đóng các tab cũ, triển khai mã web/API mới và publish database.rules.json trong tab Rules, không xóa các mục trong tab Data. Chưa publish thì lớp bảo vệ phía Firebase chưa có hiệu lực.
+3. Nếu database đang null: dùng bản sao JSON đã kiểm tra để khôi phục có chủ đích bằng Console. Không dùng database.rules.json làm tệp dữ liệu. Nếu có nhu cầu tạo hệ thống trống mới, thao tác Tạo Server khởi tạo server mới rỗng; không dùng cache cũ.
+4. Mở cùng Server trên hai máy, chờ Đã đồng bộ rồi kiểm tra giờ chết, trạng thái và lịch sử.
+
+Kiểm tra bổ sung: npm run test:firebase-authority. Bài kiểm tra mở hai phiên Admin với Firebase giả lập riêng, có trường hợp database trống, đăng nhập lại và reload hai máy nhưng không ghi dữ liệu tự động. Kiểm tra Rules tại Node đánh giá biểu thức thật, chưa thay thế Firebase Emulator hoặc kiểm tra dự án thật.
