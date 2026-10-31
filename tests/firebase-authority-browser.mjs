@@ -15,14 +15,16 @@ const pages=[];
 const notify=async paths=>{await Promise.all(pages.map(page=>page.evaluate(paths=>window.__emitDatabase?.(paths),paths).catch(()=>{})))};
 const mockSdk=`(() => {
  const listeners=new Map();
+ const completePaths=new Set();
  const snapshot=value=>({val:()=>structuredClone(value),exists:()=>value!==null});
  function ref(path='') {path=path.replace(/^\\/+|\\/+$/g,'');return {
   child:key=>ref(path+'/'+key),
   on(event,callback){if(!listeners.has(path))listeners.set(path,new Set());listeners.get(path).add(callback);window.__dbRead(path).then(value=>{if(listeners.get(path)?.has(callback))callback(snapshot(value))});},
   off(){listeners.delete(path)},
-  once:async()=>snapshot(await window.__dbRead(path)),
+  once:async()=>{const value=await window.__dbRead(path);completePaths.add(path);return snapshot(value)},
   async transaction(update,_completion,applyLocally){
    if(applyLocally!==false) throw Error('Transactions must disable optimistic Firebase listener events');
+   if(path==='boss_timeline_state'&&!completePaths.has(path)){const next=update(null);if(next===undefined)return {committed:false,snapshot:snapshot(null)};throw Error('Must not seed from a cold transaction cache');}
    for(let attempt=0;attempt<20;attempt++){
     const current=await window.__dbRead(path);const next=update(structuredClone(current));
     if(next===undefined)return {committed:false,snapshot:snapshot(current)};
@@ -72,6 +74,8 @@ try {
  const death=now-600000;
  assert.equal(await a.evaluate(time=>killBoss('a',time),death),undefined);
  await b.waitForFunction(time=>state.bosses.find(b=>b.id==='a').diedAt===time,death);
+ assert.equal(await a.evaluate(()=>bossSnapshotApplied&&state.bosses.length===2),true);
+ checks.push('A cold parent transaction cache cannot hide existing Bosses; the deliberate death is confirmed after a full-path read');
  assert.deepEqual(await a.evaluate(()=>state.history),await b.evaluate(()=>state.history));
  checks.push('Death timer and event history propagate between independent Admin sessions');
  await Promise.all([a.evaluate(async()=>{state.bosses.find(b=>b.id==='a').notes='Edited A';touchBossRevision(state.bosses.find(b=>b.id==='a'));return saveState();}),b.evaluate(async()=>{state.bosses.find(b=>b.id==='b').notes='Edited B';touchBossRevision(state.bosses.find(b=>b.id==='b'));return saveState();})]);

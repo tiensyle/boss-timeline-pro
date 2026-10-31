@@ -1323,6 +1323,7 @@ test("Chrome state and syncBase are never used as the starting Firebase write ba
 test("empty Firebase blocks both normal saves and all legacy seed requests",async()=>{
   let writes=0;
   const ctx=bossSyncContext(update=>{writes++;const value=update(null);assert.equal(value,undefined);return Promise.resolve({committed:false,snapshot:{val:()=>null}});});
+  ctx.stateDbRef.once=async()=>({val:()=>null});
   ctx.state.bosses[0].notes="stale cached edit";
   assert.equal(await ctx.saveState(true),false);
   assert.equal(writes,0);
@@ -1443,4 +1444,44 @@ test("an actual spawn is retained without a forecast anchor and next midnight is
   {bossId:'a',type:'respawn',time:start},{bossId:'a',type:'respawn',time:end}
  ]}});
  assert.deepEqual(copy(ctx.getBossScheduleEventTimes({id:'a',spawnMode:'interval',respawnMinutes:60},start+1000,'today')),[start]);
+});
+
+
+test("cold transaction cache is read before retrying a deliberate Boss edit",async()=>{
+  let warm=false,calls=0,remote;
+  const ctx=bossSyncContext(update=>{
+    calls++;const next=update(warm?remote:null);
+    if(next===undefined)return Promise.resolve({committed:false,snapshot:{val:()=>warm?remote:null}});
+    remote=next;return Promise.resolve({committed:true,snapshot:{val:()=>remote}});
+  });
+  remote={data:{...copy(ctx.bossSyncBase),version:1},version:1};
+  ctx.stateDbRef.once=async()=>{warm=true;return {val:()=>remote}};
+  ctx.state.bosses[0].notes="deliberate edit";
+  assert.equal(await ctx.saveState(),true);
+  assert.equal(calls,2);
+  assert.equal(remote.data.bosses[0].notes,"deliberate edit");
+  assert.equal(ctx.state.bosses.length,1);
+  assert.equal(ctx.bossSnapshotApplied,true);
+});
+
+test("cold-cache refresh still rejects a replaced database epoch",async()=>{
+  let warm=false,remote;
+  const ctx=bossSyncContext(update=>{assert.equal(update(warm?remote:null),undefined);return Promise.resolve({committed:false,snapshot:{val:()=>warm?remote:null}})});
+  remote={data:{...copy(ctx.bossSyncBase),version:10,syncEpoch:"replacement-epoch"},version:10};
+  ctx.stateDbRef.once=async()=>{warm=true;return {val:()=>remote}};
+  ctx.state.bosses[0].notes="stale edit";
+  assert.equal(await ctx.saveState(),false);
+  assert.equal(ctx.state.bosses.length,1);
+  assert.equal(ctx.state.bosses[0].notes,"");
+  assert.equal(remote.data.bosses[0].notes,"");
+});
+
+test("failed cold-cache read keeps confirmed Bosses without claiming deletion",async()=>{
+  const ctx=bossSyncContext(()=>Promise.resolve({committed:false,snapshot:{val:()=>null}}));
+  ctx.stateDbRef.once=async()=>{throw Error("permission_denied")};
+  ctx.state.bosses[0].notes="unsaved edit";
+  assert.equal(await ctx.saveState(),false);
+  assert.equal(ctx.state.bosses.length,1);
+  assert.equal(ctx.state.bosses[0].notes,"");
+  assert.equal(ctx.bossSnapshotApplied,true);
 });
