@@ -1,4 +1,3 @@
-import { offlineFirebaseScript } from "./offline-firebase.mjs";
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createDevServer} from '../tools/dev-server.mjs';
@@ -11,13 +10,7 @@ try {
  const results=[];
  for(const timezoneId of ['Asia/Bangkok','Asia/Singapore','America/New_York']){
   const context=await browser.newContext({timezoneId});
-  await context.addInitScript(offlineFirebaseScript);
-  await context.route('**/*',route=> {
-   const url=route.request().url();
-   if(url.endsWith('/firebase-config.js'))return route.fulfill({contentType:'application/javascript',body:'window.BOSS_TIMELINE_FIREBASE={databaseURL:"https://firebase.invalid"};'});
-   if(url.includes('gstatic.com/firebasejs'))return route.fulfill({contentType:'application/javascript',body:''});
-   return /firebaseio|firebasedatabase|identitytoolkit|securetoken|discord\.com/.test(url)?route.abort():route.continue();
-  });
+  await context.route('**/*',route=> /firebaseio|firebasedatabase|identitytoolkit|securetoken|discord\.com/.test(route.request().url())?route.abort():route.continue());
   const page=await context.newPage();await page.goto(`http://127.0.0.1:${server.address().port}`,{waitUntil:'networkidle'});
   const result=await page.evaluate(async()=>{
    const now=Date.now();
@@ -25,7 +18,7 @@ try {
    state={bosses:[stale],history:[]};bossSyncBase=cloneRealtimeValue(state);
    firebaseAuth={currentUser:{uid:'test',displayName:'Test'}};currentUserIsAdmin=true;firebaseAuthReady=true;
    bossSnapshotApplied=false;firebaseRealtimeConnected=true;
-   currentRole='admin';
+   setRole('admin','Test');
    await autoResolveRespawns();
    const unchanged=state.bosses[0].diedAt===stale.diedAt&&state.bosses[0].respawnsAt===stale.respawnsAt;
    const remote=normalizeBoss({...stale,diedAt:now-60000,respawnsAt:now+3600000});

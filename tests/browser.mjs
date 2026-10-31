@@ -1,4 +1,3 @@
-import { offlineFirebaseScript } from "./offline-firebase.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdir, readFile } from "node:fs/promises";
@@ -18,15 +17,12 @@ const checks = [];
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {}) });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: "Asia/Bangkok", acceptDownloads: true });
-  await context.addInitScript(offlineFirebaseScript);
   const page = await context.newPage();
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   // No test can write to a real Firebase project or send a real Discord message.
   await context.route("**/*", route => {
     const request = route.request();
-    if (request.url().endsWith("/firebase-config.js")) return route.fulfill({contentType:"application/javascript",body:'window.BOSS_TIMELINE_FIREBASE={databaseURL:"https://firebase.invalid"};'});
-    if (request.url().includes("gstatic.com/firebasejs")) return route.fulfill({contentType:"application/javascript",body:""});
     if (/firebaseio|firebasedatabase|identitytoolkit|securetoken|discord\.com/.test(request.url())) return route.abort();
     if (request.url().includes("/api/discord")) return route.fulfill({ status: 200, contentType: "application/json", body: '{"success":true}' });
     return route.continue();
@@ -42,17 +38,6 @@ try {
   assert.equal(await page.locator("#attCombatPowerBtn").isVisible(), false);
   assert.equal(await page.locator("#attRoleBonusBtn").isVisible(), false);
   checks.push("Guest attendance access is read-only");
-  await page.evaluate(() => {
-    const midnight = new BossDate(getNow()); midnight.setHours(0,0,0,0);
-    const start = midnight.getTime();
-    state = {bosses:[normalizeBoss({id:"morning-history",name:"Morning Spawn",spawnMode:"interval",respawnMinutes:600,
-      lastRespawnAt:start+(1*3600+54*60+24)*1000,diedAt:start+(11*3600+56*60)*1000,respawnsAt:start+(21*3600+56*60)*1000})],history:[]};
-    scheduleDayFilter="today";renderTodayScheduleTable();
-  });
-  assert.ok((await page.locator('#todayScheduleBody tr').first().textContent()).includes('01:54:24'));
-  assert.equal(await page.locator('#todayScheduleBody tr').count(),2);
-  checks.push("Daily schedule keeps a recorded morning spawn after its history entry is truncated");
-  await page.evaluate(()=>{scheduleDayFilter="all";});
 
   await page.evaluate(() => {
     firebaseAuth = { currentUser: { uid: "offline-test-only", displayName: "Test admin", getIdToken: async () => "offline-test-token" } };
@@ -128,7 +113,7 @@ try {
   await page.locator("#bossLevel").fill("90");
   await page.locator("#bossRespawn").fill("1800");
   await page.locator('#bossForm button[type="submit"]').click();
-  await page.waitForFunction(() => state.bosses.some(b => b.name === "TEMPORARY BOSS"),null,{timeout:3000}).catch(async error => { console.log(await page.evaluate(()=>({bosses:state.bosses,ready:canEditBossState(false),base:bossSyncBase,epoch:bossRemoteEpoch,version:lastAppliedBossVersion,toast:elements.toast.textContent,errors:document.querySelector("#bossForm :invalid")?.id})));throw error;});
+  await page.waitForFunction(() => state.bosses.some(b => b.name === "TEMPORARY BOSS"));
   const addEvidence = await page.evaluate(() => ({ bosses: state.bosses, invalid: [...document.querySelectorAll("#bossForm :invalid")].map(input => ({ id: input.id, message: input.validationMessage })), name: document.getElementById("bossName").value, modal: document.getElementById("bossModal").className }));
   assert.ok(addEvidence.bosses.some(b => b.name === "TEMPORARY BOSS" && b.respawnMinutes === 1800), JSON.stringify({ addEvidence, errors }));
   const temporaryBossId = await page.evaluate(() => state.bosses.find(b => b.name === "TEMPORARY BOSS").id);

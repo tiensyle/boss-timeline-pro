@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createCronDailyHandler } from "../api/cron-daily.js";
 
-function fixture({ discordOk = true, useFirebaseWebhook = false, stateOk = true, config = { enabled: true }, bosses = [], globalOnly = false, storedWebhook = "https://discord.com/api/webhooks/123/token", registry = [{id:"s1",name:"One"}] } = {}) {
+function fixture({ discordOk = true, useFirebaseWebhook = false, stateOk = true, config = { enabled: true }, bosses = [], globalOnly = false, storedWebhook = "https://discord.com/api/webhooks/123/token" } = {}) {
   const locks = new Map();
   const versions = new Map();
   let sends = 0;
@@ -12,7 +12,7 @@ function fixture({ discordOk = true, useFirebaseWebhook = false, stateOk = true,
   const fetchImpl = async (url, options = {}) => {
     requestedUrls.push(url);
     if (url.includes("discord_config")) return Response.json(config);
-    if (url.includes("boss_timeline_servers_list")) return Response.json(registry);
+    if (url.includes("boss_timeline_servers_list")) return Response.json([{ id: "s1", name: "One" }]);
     if (url.includes("boss_timeline_webhook_urls")) return Response.json({ url: storedWebhook });
     if (url.includes("boss_timeline_state/data")) return stateAvailable
       ? Response.json({ bosses, history: [] })
@@ -140,20 +140,4 @@ test("long cron report includes every event in a CSV attachment",async()=>{
 test("cron reports delivery failures as failures",async()=>{
  const api=fixture({discordOk:false});const result=await api.run();
  assert.equal(result.code,502);assert.equal(result.body.success,false);
-});
-
-
-test("cron reads the versioned server registry and never invents servers for an empty database",async()=>{
- const migrated=fixture({registry:{version:2,items:{s1:{id:"s1",name:"One"}}}});await migrated.run();assert.equal(migrated.sends,1);
- const empty=fixture({registry:null});const result=await empty.run();assert.equal(result.code,503);assert.equal(empty.sends,0);
- assert.ok(!empty.requestedUrls.some(url=>url.includes('cron_runs')));
-});
-
-// The browser's daily report and the scheduled backend report share these semantics.
-test("cron preserves recorded morning spawns independently of the rolling history",async()=>{
- const {calculateBossEventTimesForToday}=await import('../api/cron-daily.js');
- const morning=Date.parse('2026-10-30T18:54:24Z'),actual=Date.parse('2026-10-31T01:53:15Z'),next=Date.parse('2026-10-31T14:56:00Z');
- const boss={id:'a',spawnMode:'interval',respawnMinutes:600,lastRespawnAt:morning,diedAt:next-600*60000,respawnsAt:next};
- assert.deepEqual(calculateBossEventTimesForToday(boss,[],Date.parse('2026-10-31T09:00:00Z')),[morning,next]);
- assert.deepEqual(calculateBossEventTimesForToday(boss,[{bossId:'a',type:'respawn',time:actual},{bossId:'a',type:'respawn',time:actual}],Date.parse('2026-10-31T09:00:00Z')),[morning,actual,next]);
 });

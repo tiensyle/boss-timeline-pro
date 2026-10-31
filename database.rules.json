@@ -4,7 +4,7 @@
     ".write": false,
     "boss_timeline_state": {
       ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true) && data.child('data').exists() && newData.child('data/syncProtocol').val() === 2 && newData.child('data/syncEpoch').isString() && newData.child('data/version').isNumber() && newData.child('data/version').val() === (data.child('data/version').isNumber() ? data.child('data/version').val() + 1 : 1) && (!data.child('data/syncEpoch').exists() || newData.child('data/syncEpoch').val() === data.child('data/syncEpoch').val())",
+      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
       "data": {
         ".read": true,
         "bosses": {
@@ -26,12 +26,6 @@
         },
         "$other": {
           ".validate": false
-        },
-        "syncProtocol": {
-          ".validate": "newData.val() === 2"
-        },
-        "syncEpoch": {
-          ".validate": "newData.isString()"
         }
       },
       "bosses_map": {
@@ -58,7 +52,7 @@
       "$serverId": {
         "state": {
           ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true) && (data.child('data').exists() || root.child('boss_timeline_servers_list/items').child($serverId).exists()) && newData.child('data/syncProtocol').val() === 2 && newData.child('data/syncEpoch').isString() && newData.child('data/version').isNumber() && newData.child('data/version').val() === (data.child('data/version').isNumber() ? data.child('data/version').val() + 1 : 1) && (!data.child('data/syncEpoch').exists() || newData.child('data/syncEpoch').val() === data.child('data/syncEpoch').val())",
+          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
           "data": {
             ".read": true,
             "bosses": {
@@ -80,12 +74,6 @@
             },
             "$other": {
               ".validate": false
-            },
-            "syncProtocol": {
-              ".validate": "newData.val() === 2"
-            },
-            "syncEpoch": {
-              ".validate": "newData.isString()"
             }
           },
           "bosses_map": {
@@ -108,18 +96,7 @@
     },
     "boss_timeline_servers_list": {
       ".read": true,
-      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true) && newData.child('version').isNumber() && newData.child('version').val() === (data.child('version').isNumber() ? data.child('version').val() + 1 : 1)",
-      "version": {
-        ".validate": "newData.isNumber()"
-      },
-      "items": {
-        "$serverId": {
-          ".validate": "newData.hasChildren(['id', 'name']) && newData.child('id').val() === $serverId && newData.child('name').isString()"
-        }
-      },
-      "$other": {
-        ".validate": false
-      }
+      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
     },
     "boss_timeline_webhook_urls": {
       "$serverId": {

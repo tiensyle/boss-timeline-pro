@@ -13,14 +13,7 @@ function load(names, globals = {}) {
   const dateContext = vm.createContext({ Date });
   vm.runInContext(dateSource, dateContext);
   globals = { BossDate: dateContext.createBossDateClass(), bossSnapshotApplied: true, firebaseRealtimeConnected: true, firebaseAuthReady: true, remoteSaveInFlight: false, ...globals };
-  globals = { bossRemoteEpoch: null, deferredBossSnapshotPending: false, serverListReady: true, remoteStateReady: true,
-    lastAppliedBossVersion: 0, crypto: { randomUUID: () => "test-epoch" },
-    serverList: [{id:"s1",name:"One"}], currentServerId:"s1", REALTIME_ENABLED:true, ...globals };
   const ctx = vm.createContext({ console, Date, ...globals });
-  for (const helper of ["cloneRealtimeValue", "mergeBossHistory", "readServerListSnapshot", "makeServerListSnapshot", "canEditBossState", "canEditServerList", "handleMissingBossData"]) {
-    const match = new RegExp("^    (?:async )?function " + helper + "\\(", "m").exec(source);
-    vm.runInContext(source.slice(match.index, source.indexOf("\n    }", match.index) + 6), ctx);
-  }
   for (const name of names) {
     const match = new RegExp(`^    (?:async )?function ${name}\\(`, 'm').exec(source);
     assert.ok(match, `Missing ${name}`);
