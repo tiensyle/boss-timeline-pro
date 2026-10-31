@@ -176,7 +176,7 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
       if (Array.isArray(raw)) {
         serversList = raw.filter(Boolean);
       } else if (raw && typeof raw === "object") {
-        serversList = Object.values(raw).filter(Boolean);
+        serversList = Object.values(raw.items || raw).filter(server => server && typeof server.id === "string");
       }
     }
   } catch (_) {
@@ -185,7 +185,7 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
 
   // Nếu Firebase không có danh sách → chỉ xử lý s1 mặc định
   if (serversList.length === 0) {
-    serversList = [{ id: "s1", name: "Server 10", icon: "🌐" }];
+    return res.status(503).json({ success: false, error: "Firebase server registry is empty; restore data explicitly." });
   }
 
   // ─── Bước 2: Với mỗi server, đọc boss state → gửi Discord ────────────────
@@ -257,6 +257,7 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
       const stateRes = await fetchImpl(statePath, { signal: AbortSignal.timeout(15000) });
       if (stateRes.ok) {
         const stateData = await stateRes.json();
+        if (!stateData || typeof stateData !== "object") throw new Error("Firebase boss data is empty; restore it explicitly before sending reports.");
         bosses = Array.isArray(stateData?.bosses) ? stateData.bosses : [];
         history = Array.isArray(stateData?.history) ? stateData.history : [];
       } else {

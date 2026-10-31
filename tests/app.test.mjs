@@ -13,7 +13,14 @@ function load(names, globals = {}) {
   const dateContext = vm.createContext({ Date });
   vm.runInContext(dateSource, dateContext);
   globals = { BossDate: dateContext.createBossDateClass(), bossSnapshotApplied: true, firebaseRealtimeConnected: true, firebaseAuthReady: true, remoteSaveInFlight: false, ...globals };
+  globals = { bossRemoteEpoch: null, deferredBossSnapshotPending: false, serverListReady: true, remoteStateReady: true,
+    lastAppliedBossVersion: 0, crypto: { randomUUID: () => "test-epoch" },
+    serverList: [{id:"s1",name:"One"}], currentServerId:"s1", REALTIME_ENABLED:true, ...globals };
   const context = vm.createContext({ console, Date, ...globals });
+  for (const helper of ["cloneRealtimeValue", "mergeBossHistory", "readServerListSnapshot", "makeServerListSnapshot", "canEditBossState", "canEditServerList", "handleMissingBossData"]) {
+    const match = new RegExp("^    (?:async )?function " + helper + "\\(", "m").exec(source);
+    vm.runInContext(source.slice(match.index, source.indexOf("\n    }", match.index) + 6), context);
+  }
   for (const name of names) {
     const match = new RegExp(`^    (?:async )?function ${name}\\(`, "m").exec(source);
     assert.ok(match, `Missing function ${name}`);
@@ -80,7 +87,7 @@ test("Firebase reads preserve the ordered boss array instead of map key order", 
   const ctx = load(["getBossRemoteData"], { normalizeBoss: boss => boss });
 
   assert.deepEqual(copy(ctx.getBossRemoteData({ data: { bosses: ordered, history: [] }, bosses_map: map }).bosses), ordered);
-  assert.deepEqual(copy(ctx.getBossRemoteData({ bosses_map: map, data: { history: [] } }).bosses), [ordered[0], ordered[1]]);
+  assert.deepEqual(copy(ctx.getBossRemoteData({ bosses_map: map, data: { history: [] } }).bosses), []);
   assert.deepEqual(copy(ctx.getBossRemoteData({ data: { bosses: [], history: [] }, bosses_map: map }).bosses), []);
 });
 
@@ -288,19 +295,19 @@ test("stale edits do not resurrect deleted bosses, weeks or members", () => {
   assert.deepEqual(copy(ctx.mergeRealtimeChanges(base, [base[1]], [...base, { id: "c" }])), [base[1], { id: "c" }]);
 });
 
-test("editing boss metadata preserves a concurrent timer and timer transitions stay atomic", () => {
+test("concurrent edits of the same boss preserve the complete Firebase boss", () => {
   const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"]);
   const base = { bosses: [{ id: "a", notes: "", diedAt: null, respawnsAt: null, lastRespawnAt: 100 }], history: [] };
   const local = copy(base);
   local.bosses[0].notes = "new note";
   const remote = copy(base);
   Object.assign(remote.bosses[0], { diedAt: 200, respawnsAt: 500 });
-  assert.deepEqual(copy(ctx.mergeBossStateChanges(base, local, remote)).bosses[0], { ...remote.bosses[0], notes: "new note" });
+  assert.deepEqual(copy(ctx.mergeBossStateChanges(base, local, remote)).bosses[0], remote.bosses[0]);
   Object.assign(local.bosses[0], { diedAt: null, respawnsAt: null, lastRespawnAt: 300 });
   const merged = ctx.mergeBossStateChanges(base, local, remote);
-  assert.equal(merged.bosses[0].diedAt, null);
-  assert.equal(merged.bosses[0].respawnsAt, null);
-  assert.equal(merged.bosses[0].lastRespawnAt, 300);
+  assert.equal(merged.bosses[0].diedAt, 200);
+  assert.equal(merged.bosses[0].respawnsAt, 500);
+  assert.equal(merged.bosses[0].lastRespawnAt, 100);
 });
 
 test("per-boss revisions reject stale death, respawn and metadata overwrites", () => {
@@ -351,7 +358,7 @@ test("editing a remotely deleted boss drops its unconfirmed history and reports 
   assert.deepEqual(copy(ctx.lastBossConflictIds), ["a"]);
 });
 
-test("listener conflicts retain and report the rejected offline operation once", () => {
+test("Firebase listener replaces offline cached drafts without uploading them", () => {
   let reports = 0;
   const state = { bosses: [{ id: "a", revision: 2, diedAt: 111 }], history: [{ id: "draft", bossId: "a" }] };
   const base = { bosses: [{ id: "a", revision: 1, diedAt: null }], history: [] };
@@ -365,7 +372,7 @@ test("listener conflicts retain and report the rejected offline operation once",
   ctx.applyRemoteState(remote, [], null, "other", base, 2);
   ctx.applyRemoteState(remote, [], null, "other", ctx.bossSyncBase, 2);
   assert.equal(ctx.state.bosses[0].diedAt, 777);
-  assert.equal(reports, 1);
+  assert.equal(reports, 0);
 });
 
 test("custom death waits for Firebase before success or Discord delivery", async () => {
@@ -579,14 +586,14 @@ test("older BroadcastChannel snapshots cannot roll back a newer Firebase version
   assert.equal(ctx.state.bosses[0].diedAt, 600);
 });
 
-test("a no-change save resolves waiters queued before Firebase became ready", async () => {
+test("edits attempted before Firebase readiness are rejected without queuing", async () => {
   let transactions = 0;
   const ctx = bossSyncContext(() => { transactions++; });
   ctx.remoteStateReady = false;
   const waiting = ctx.saveState();
   ctx.remoteStateReady = true;
   assert.equal(await ctx.saveState(), true);
-  assert.equal(await waiting, true);
+  assert.equal(await waiting, false);
   assert.equal(transactions, 0);
   assert.equal(ctx.pendingBossSaveWaiters.length, 0);
   assert.equal(ctx.pendingRemoteSave, false);
@@ -606,7 +613,7 @@ test("member tabs neither auto-respawn bosses nor broadcast unconfirmed revision
   assert.equal(saves, 0);
 });
 
-test("BroadcastChannel rejects member or legacy messages without a Firebase version", () => {
+test("BroadcastChannel cannot supply authority even when it claims a Firebase version", () => {
   let applied = 0;
   const ctx = load(["handleBossBroadcastMessage"], {
     CLIENT_ID: "this", currentServerId: "s1", bossSyncBase: {},
@@ -614,8 +621,8 @@ test("BroadcastChannel rejects member or legacy messages without a Firebase vers
   });
   assert.equal(ctx.handleBossBroadcastMessage({ _clientId: "member", serverId: "s1", bosses: [{ id: "a" }] }), false);
   assert.equal(ctx.handleBossBroadcastMessage({ _clientId: "member", serverId: "s1", version: 0, bosses: [{ id: "a" }] }), false);
-  assert.equal(ctx.handleBossBroadcastMessage({ _clientId: "admin", serverId: "s1", version: 7, bosses: [{ id: "a" }] }), true);
-  assert.equal(applied, 1);
+  assert.equal(ctx.handleBossBroadcastMessage({ _clientId: "admin", serverId: "s1", version: 7, bosses: [{ id: "a" }] }), false);
+  assert.equal(applied, 0);
 });
 
 test("rejected offline operations are retained for review and shown to the admin", () => {
@@ -688,18 +695,19 @@ test("edits made while a Firebase save is pending survive the acknowledgement", 
   assert.equal(broadcasts[0].bosses[0].name, "First edit");
   assert.equal(broadcasts[0].bosses[0].notes, "");
   assert.equal(broadcasts[1].bosses[0].notes, "Second edit");
-  assert.deepEqual(Object.keys(remote.data).sort(), ["_clientId", "bosses", "history", "updated_at", "version"]);
+  assert.deepEqual(Object.keys(remote.data).sort(), ["_clientId", "bosses", "history", "syncEpoch", "syncProtocol", "updated_at", "version"]);
 });
 
-test("failed boss save keeps the retry flag and server switches ignore stale acknowledgements", async () => {
+test("failed saves roll back without retry and server switches ignore stale acknowledgements", async () => {
   const ctx = bossSyncContext(() => Promise.reject(new Error("offline")));
   ctx.console = { error() {} };
   ctx.state.bosses[0].notes = "unsent";
   await ctx.saveState();
-  assert.equal(ctx.pendingRemoteSave, true);
-  assert.equal(ctx.state.bosses[0].notes, "unsent");
+  assert.equal(ctx.pendingRemoteSave, false);
+  assert.equal(ctx.state.bosses[0].notes, "");
   let finish;
   ctx.stateDbRef.transaction = update => new Promise(resolve => { finish = () => resolve({ committed: true, snapshot: { val: () => update(null) } }); });
+  ctx.state.bosses[0].notes = "new explicit attempt";
   const pending = ctx.saveState();
   ctx.bossSyncGeneration++;
   ctx.state = { bosses: [{ id: "other", name: "Other server" }], history: [] };
@@ -708,7 +716,7 @@ test("failed boss save keeps the retry flag and server switches ignore stale ack
   assert.equal(ctx.state.bosses[0].id, "other");
 });
 
-test("auth restoration cannot discard offline admin edits before permissions are known", () => {
+test("auth completion adopts Firebase and does not merge offline admin edits", () => {
   const ctx = bossSyncContext(() => {});
   ctx.state.bosses[0].notes = "Offline note";
   const remote = copy(ctx.bossSyncBase);
@@ -720,7 +728,7 @@ test("auth restoration cannot discard offline admin edits before permissions are
   assert.equal(ctx.bossSyncBase.bosses[0].respawnsAt, null);
   ctx.firebaseAuthReady = true;
   ctx.applyRemoteState(remote.bosses, remote.history);
-  assert.equal(ctx.state.bosses[0].notes, "Offline note");
+  assert.equal(ctx.state.bosses[0].notes, "");
   assert.equal(ctx.state.bosses[0].respawnsAt, 200);
 });
 
@@ -1150,7 +1158,7 @@ test("attendance deletion stays in the week that was confirmed even if the activ
   assert.equal(state.weeks[1].members.length, 1);
 });
 
-test("boss-only legacy data can initialize the public data branch without overwriting it with samples", async () => {
+test("legacy map-only data cannot auto-initialize the public data branch", async () => {
   let remote = { bosses_map: { real: { id: "real", name: "Real boss", diedAt: null, respawnsAt: null, lastRespawnAt: null } }, version: 1 };
   const ctx = bossSyncContext(update => {
     const next = update(remote);
@@ -1158,8 +1166,8 @@ test("boss-only legacy data can initialize the public data branch without overwr
     return Promise.resolve({ committed: next !== undefined, snapshot: { val: () => remote } });
   });
   await ctx.saveState(true);
-  assert.equal(remote.data.bosses.length, 1);
-  assert.equal(remote.data.bosses[0].id, "real");
+  assert.equal(remote.data, undefined);
+  assert.equal(remote.bosses_map.real.id, "real");
 });
 
 test("large daily schedules use a complete CSV attachment instead of an oversized canvas", async () => {
@@ -1301,4 +1309,108 @@ test("boss schedule and displayed times are identical across computer timezones"
     assert.equal(new Set(results).size,1);
     assert.ok(results[0].includes("18:00"));
   } finally { if(old===undefined) delete process.env.TZ; else process.env.TZ=old; }
+});
+
+test("Chrome state and syncBase are never used as the starting Firebase write base",()=>{
+  const values=new Map([["boss.s1",JSON.stringify({bosses:[{id:"old",diedAt:100}],history:[]})]]);
+  const ctx=load(["loadState","loadBossSyncBase"],{STORAGE_KEY:"boss.s1",currentServerId:"s1",
+    localStorage:{getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value)}});
+  assert.deepEqual(copy(ctx.loadState()),{bosses:[],history:[]});
+  assert.deepEqual(copy(ctx.loadBossSyncBase()),{bosses:[],history:[]});
+  assert.equal(JSON.parse(values.get("boss.s1.recovery")).bosses[0].id,"old");
+});
+
+test("empty Firebase blocks both normal saves and all legacy seed requests",async()=>{
+  let writes=0;
+  const ctx=bossSyncContext(update=>{writes++;const value=update(null);assert.equal(value,undefined);return Promise.resolve({committed:false,snapshot:{val:()=>null}});});
+  ctx.state.bosses[0].notes="stale cached edit";
+  assert.equal(await ctx.saveState(true),false);
+  assert.equal(writes,0);
+  assert.equal(await ctx.saveState(),false);
+  assert.equal(writes,1);
+  assert.deepEqual(copy(ctx.state),{bosses:[],history:[]});
+  assert.equal(ctx.pendingRemoteSave,false);
+  assert.equal(ctx.bossSnapshotApplied,false);
+});
+
+test("a deletion deferred during a save remains authoritative after acknowledgement",async()=>{
+  let finish;
+  const ctx=bossSyncContext(update=>{
+    const confirmed=update({data:copy(ctx.bossSyncBase),version:0});
+    return new Promise(resolve=>{finish=()=>resolve({committed:true,snapshot:{val:()=>confirmed}});});
+  });
+  ctx.state.bosses[0].notes="edit";
+  const saving=ctx.saveState();
+  ctx.deferredBossSnapshotPending=true;ctx.bossDeferredRemoteData=null;
+  finish();
+  assert.equal(await saving,false);
+  assert.equal(ctx.bossSnapshotApplied,false);
+  assert.deepEqual(copy(ctx.state.bosses),[]);
+});
+
+test("a restore epoch change rejects an older machine write even if versions coincide",async()=>{
+  const remote={data:{bosses:[{id:"a",name:"Restored"}],history:[],version:5,syncEpoch:"restored"},version:5};
+  let writeAttempt;
+  const ctx=bossSyncContext(update=>{writeAttempt=update(copy(remote));return Promise.resolve({committed:false,snapshot:{val:()=>remote}});});
+  ctx.bossRemoteEpoch="before-restore";ctx.lastAppliedBossVersion=5;
+  ctx.state.bosses[0].notes="outdated";
+  assert.equal(await ctx.saveState(),false);
+  assert.equal(writeAttempt,undefined);
+  assert.equal(ctx.state.bosses[0].name,"Restored");
+  assert.equal(ctx.bossRemoteEpoch,"restored");
+});
+
+test("legacy history without IDs merges concurrent additions and clear preserves new events",()=>{
+  const ctx=load(["mergeBossHistory"]);
+  const old={bossId:"a",type:"death",time:1};
+  const mine={id:"mine",bossId:"b",type:"death",time:2};
+  const theirs={id:"theirs",bossId:"c",type:"death",time:3};
+  const result=copy(ctx.mergeBossHistory([old],[mine,old],[theirs,old]));
+  assert.deepEqual(result.map(event=>event.time),[3,2,1]);
+  assert.equal(new Set(result.map(event=>event.id)).size,3);
+  assert.deepEqual(copy(ctx.mergeBossHistory([old],[],[theirs,old])).map(event=>event.id),["theirs"]);
+});
+
+test("a stale legacy delete cannot remove a boss edited without a revision increment",()=>{
+  const ctx=load(["mergeRealtimeChanges","mergeBossStateChanges"],{lastBossConflictIds:[]});
+  const base={bosses:[{id:"a",revision:0,notes:"old"}],history:[]};
+  const remote={bosses:[{id:"a",revision:0,notes:"new"}],history:[]};
+  const result=ctx.mergeBossStateChanges(base,{bosses:[],history:[]},remote);
+  assert.equal(result.bosses[0].notes,"new");assert.deepEqual(copy(ctx.lastBossConflictIds),["a"]);
+});
+
+test("server list deletion clears cached servers and does not seed anything",()=>{
+  let callback;let writes=0;let detached=0;
+  const ctx=load(["initServerListSync"],{
+    firebaseDb:{ref:()=>({on:(_event,fn)=>{callback=fn},set:()=>{writes++},transaction:()=>{writes++}})},
+    serverList:[{id:"s1",name:"Old"}],localStorage:{setItem(){}},STORAGE_SERVERS_KEY:"servers",
+    renderServerListUI(){},updateServerSwitcherButton(){},renderAttendanceTable(){},bossSyncGeneration:1,
+    activeStateRef:{off:()=>{detached++}},activeBossSaveWaiters:new Set(),pendingBossSaveWaiters:[],render(){},setRealtimeStatus(){}
+  });
+  ctx.initServerListSync();callback({val:()=>null});
+  assert.deepEqual(copy(ctx.serverList),[]);assert.equal(writes,0);assert.equal(detached,1);
+  assert.equal(ctx.serverListReady,true);
+});
+
+test("empty snapshots before auth complete remain queued as an explicit deletion",()=>{
+  const ctx=load(["applyDeferredBossRemoteAfterAuth"],{
+    firebaseAuthReady:true,deferredBossSnapshotPending:true,bossDeferredRemoteData:null,
+    state:{bosses:[{id:"old"}],history:[]},bossSyncBase:{bosses:[{id:"old"}],history:[]},
+    activeBossSaveWaiters:new Set(),pendingBossSaveWaiters:[],setRealtimeStatus(){},render(){},lastRenderedGridKey:""
+  });
+  assert.equal(ctx.applyDeferredBossRemoteAfterAuth(),true);
+  assert.deepEqual(copy(ctx.state.bosses),[]);assert.equal(ctx.remoteStateReady,false);
+});
+
+test("server rename uses the live registry, preserves other admins additions, and rejects stale renames",async()=>{
+  let registry={version:3,items:{s1:{id:"s1",name:"One"},s2:{id:"s2",name:"Two"},s3:{id:"s3",name:"New"}}};
+  const ctx=load(["renameServer"],{isAdmin:()=>true,serverList:[{id:"s1",name:"One"},{id:"s2",name:"Two"}],
+    firebaseDb:{ref:()=>({transaction:async update=>{const next=update(registry);if(next)registry=copy(next);return {committed:Boolean(next),snapshot:{val:()=>copy(registry)}};}})},
+    renderServerListUI(){},updateServerSwitcherButton(){},renderAttendanceTable(){},showToast(){}
+  });
+  assert.equal(await ctx.renameServer("s2","Renamed"),true);
+  assert.equal(registry.items.s3.name,"New");assert.equal(registry.version,4);
+  registry.items.s2.name="Changed elsewhere";
+  assert.equal(await ctx.renameServer("s2","Old request"),false);
+  assert.equal(registry.items.s2.name,"Changed elsewhere");
 });

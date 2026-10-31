@@ -27,6 +27,6 @@ test("server creation waits for Firebase state initialization before reporting s
   const start = appSource.indexOf("async function createNewServer");
   const end = appSource.indexOf("async function renameServer", start);
   const createServerSource = appSource.slice(start, end);
-  assert.match(createServerSource, /await firebaseDb\.ref\(paths\.statePath\)\.set\(seed\)/);
+  assert.match(createServerSource, /await firebaseDb\.ref\(paths\.statePath\)\.transaction\(/);
   assert.match(createServerSource, /Không thể khởi tạo dữ liệu Server/);
 });
