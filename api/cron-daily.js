@@ -50,7 +50,7 @@ function getVnDateParts(timestamp) {
   };
 }
 
-function calculateBossEventTimesForToday(boss, history, nowTimestamp) {
+export function calculateBossEventTimesForToday(boss, history, nowTimestamp) {
   const vnNow = getVnDateParts(nowTimestamp);
   const startOfDayUtc = Date.UTC(vnNow.year, vnNow.month, vnNow.date) - 7 * 3600 * 1000;
   const endOfDayUtc = startOfDayUtc + 24 * 3600 * 1000;
@@ -74,12 +74,15 @@ function calculateBossEventTimesForToday(boss, history, nowTimestamp) {
     }
   } else {
     const intervalMs = Math.max(1, Number(boss.respawnMinutes) || 30) * 60000;
-    const lastRespawnAt = Number(boss.lastRespawnAt);
-    const hasRecordedSpawn = Number.isFinite(lastRespawnAt) && Array.isArray(history)
-      && history.some(ev => ev.type === "respawn" && (ev.bossId === "all" || ev.bossId === boss.id) && Number(ev.time) === lastRespawnAt);
-
-    if (hasRecordedSpawn && lastRespawnAt >= startOfDayUtc && lastRespawnAt < endOfDayUtc) {
+    const lastRespawnAt = boss.lastRespawnAt == null ? NaN : Number(boss.lastRespawnAt);
+    // Use the confirmed spawn anchor independently of the rolling history window.
+    if (Number.isFinite(lastRespawnAt) && lastRespawnAt >= startOfDayUtc && lastRespawnAt < endOfDayUtc) {
       times.add(lastRespawnAt);
+    }
+    for (const event of Array.isArray(history) ? history : []) {
+      const time = Number(event?.time);
+      if (event?.type === "respawn" && (event.bossId === boss.id || event.bossId === "all")
+        && Number.isFinite(time) && time >= startOfDayUtc && time < endOfDayUtc) times.add(time);
     }
 
     const baseTime = boss.diedAt ? boss.diedAt + intervalMs
