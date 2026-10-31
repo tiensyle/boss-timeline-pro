@@ -148,3 +148,12 @@ test("cron reads the versioned server registry and never invents servers for an 
  const empty=fixture({registry:null});const result=await empty.run();assert.equal(result.code,503);assert.equal(empty.sends,0);
  assert.ok(!empty.requestedUrls.some(url=>url.includes('cron_runs')));
 });
+
+// The browser's daily report and the scheduled backend report share these semantics.
+test("cron preserves recorded morning spawns independently of the rolling history",async()=>{
+ const {calculateBossEventTimesForToday}=await import('../api/cron-daily.js');
+ const morning=Date.parse('2026-10-30T18:54:24Z'),actual=Date.parse('2026-10-31T01:53:15Z'),next=Date.parse('2026-10-31T14:56:00Z');
+ const boss={id:'a',spawnMode:'interval',respawnMinutes:600,lastRespawnAt:morning,diedAt:next-600*60000,respawnsAt:next};
+ assert.deepEqual(calculateBossEventTimesForToday(boss,[],Date.parse('2026-10-31T09:00:00Z')),[morning,next]);
+ assert.deepEqual(calculateBossEventTimesForToday(boss,[{bossId:'a',type:'respawn',time:actual},{bossId:'a',type:'respawn',time:actual}],Date.parse('2026-10-31T09:00:00Z')),[morning,actual,next]);
+});

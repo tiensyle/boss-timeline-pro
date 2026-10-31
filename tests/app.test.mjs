@@ -1414,3 +1414,33 @@ test("server rename uses the live registry, preserves other admins additions, an
   assert.equal(await ctx.renameServer("s2","Old request"),false);
   assert.equal(registry.items.s2.name,"Changed elsewhere");
 });
+
+test("today report retains the Firebase morning spawn when the rolling history no longer contains it",()=>{
+ const now=Date.parse('2026-10-31T09:00:00Z');
+ const morning=Date.parse('2026-10-30T18:54:24Z');
+ const next=Date.parse('2026-10-31T14:56:00Z');
+ const boss={id:'a',spawnMode:'interval',respawnMinutes:600,lastRespawnAt:morning,diedAt:next-600*60000,respawnsAt:next};
+ const ctx=load(["getTargetDateForFilter","getBossScheduleEventTimes"],{state:{history:[]}});
+ assert.deepEqual(copy(ctx.getBossScheduleEventTimes(boss,now,'today')),[morning,next]);
+});
+
+test("today report keeps all retained actual spawns and does not backfill replaced forecasts",()=>{
+ const morning=Date.parse('2026-10-30T18:54:24Z'),actual=Date.parse('2026-10-31T01:53:15Z');
+ const next=Date.parse('2026-10-31T14:56:00Z');
+ const boss={id:'a',spawnMode:'interval',respawnMinutes:600,lastRespawnAt:morning,diedAt:next-600*60000,respawnsAt:next};
+ const ctx=load(["getTargetDateForFilter","getBossScheduleEventTimes"],{state:{history:[
+  {bossId:'a',type:'respawn',time:actual},{bossId:'a',type:'respawn',time:actual},
+  {bossId:'other',type:'respawn',time:actual+1},{bossId:'a',type:'death',time:actual+2}
+ ]}});
+ const times=copy(ctx.getBossScheduleEventTimes(boss,Date.parse('2026-10-31T09:00:00Z'),'today'));
+ assert.deepEqual(times,[morning,actual,next]);
+ assert.ok(!times.includes(morning+600*60000),'Do not invent the obsolete 11:54 forecast as an actual spawn');
+});
+
+test("an actual spawn is retained without a forecast anchor and next midnight is excluded",()=>{
+ const start=Date.parse('2026-10-30T17:00:00Z'),end=start+86400000;
+ const ctx=load(["getTargetDateForFilter","getBossScheduleEventTimes"],{state:{history:[
+  {bossId:'a',type:'respawn',time:start},{bossId:'a',type:'respawn',time:end}
+ ]}});
+ assert.deepEqual(copy(ctx.getBossScheduleEventTimes({id:'a',spawnMode:'interval',respawnMinutes:60},start+1000,'today')),[start]);
+});
