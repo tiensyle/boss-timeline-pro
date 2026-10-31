@@ -8,6 +8,11 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync(new URL('../assets/app.js', import.meta.url), 'utf8');
 const copy = value => JSON.parse(JSON.stringify(value));
 function load(names, globals = {}) {
+  const dateStart = source.indexOf("    function createBossDateClass() {");
+  const dateSource = source.slice(dateStart, source.indexOf("\n    }", dateStart) + 6);
+  const dateContext = vm.createContext({ Date });
+  vm.runInContext(dateSource, dateContext);
+  globals = { BossDate: dateContext.createBossDateClass(), bossSnapshotApplied: true, firebaseRealtimeConnected: true, firebaseAuthReady: true, remoteSaveInFlight: false, ...globals };
   const ctx = vm.createContext({ console, Date, ...globals });
   for (const name of names) {
     const match = new RegExp(`^    (?:async )?function ${name}\\(`, 'm').exec(source);

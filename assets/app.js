@@ -1,3 +1,30 @@
+    // All calendar operations use Vietnam time, independent of the computer timezone.
+    function createBossDateClass() {
+      const offset = 7 * 60 * 60 * 1000;
+      class GameDate extends Date {
+        constructor(...args) {
+          if (args.length > 1) super(Date.UTC(...args) - offset);
+          else if (typeof args[0] === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(args[0])) super(args[0] + "+07:00");
+          else if (args.length) super(args[0]);
+          else super();
+        }
+        getTimezoneOffset() { return -420; }
+        toLocaleString(locale, options = {}) { return super.toLocaleString(locale, { ...options, timeZone: "Asia/Ho_Chi_Minh" }); }
+        toLocaleDateString(locale, options = {}) { return super.toLocaleDateString(locale, { ...options, timeZone: "Asia/Ho_Chi_Minh" }); }
+        toLocaleTimeString(locale, options = {}) { return super.toLocaleTimeString(locale, { ...options, timeZone: "Asia/Ho_Chi_Minh" }); }
+      }
+      for (const part of ["FullYear", "Month", "Date", "Day", "Hours", "Minutes", "Seconds", "Milliseconds"]) {
+        GameDate.prototype["get" + part] = function () { return new Date(this.getTime() + offset)["getUTC" + part](); };
+        if (part !== "Day") GameDate.prototype["set" + part] = function (...values) {
+          const shifted = new Date(this.getTime() + offset);
+          shifted["setUTC" + part](...values);
+          return this.setTime(shifted.getTime() - offset);
+        };
+      }
+      return GameDate;
+    }
+    const BossDate = createBossDateClass();
+
     // Multi-Server Configuration
     const STORAGE_SERVERS_KEY = "bossTimelinePro.servers";
     const STORAGE_CURRENT_SERVER_KEY = "bossTimelinePro.currentServerId";
@@ -261,7 +288,7 @@
         if (t[key]) el.placeholder = t[key];
       });
       if (typeof updateScheduleDayTabs === "function") {
-        updateScheduleDayTabs(new Date());
+        updateScheduleDayTabs(new BossDate());
       }
     }
 
@@ -278,6 +305,7 @@
     let alertsDbRef = null;
     let attendanceDbRef = null;
     let remoteStateReady = false;
+    let bossSnapshotApplied = false;
     let remoteSaveInFlight = false;
     let pendingRemoteSave = false;
     let pendingBossSaveWaiters = [];
@@ -760,24 +788,17 @@
     const webhookUrlCache = {}; // { [serverId]: url }
 
 
-    function saveDiscordConfigLocal(cfg) {
-      const safeConfig = { ...cfg };
+    async function saveDiscordConfigLocal(cfg, serverId = currentServerId) {
+      const safeConfig = { ...defaultDiscordConfig, ...cfg };
       delete safeConfig.webhookUrl;
-      discordConfig = { ...defaultDiscordConfig, ...safeConfig };
-      try {
-        localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
-      } catch (e) {}
-      if (firebaseDb && isAdmin()) {
-        try {
-          const path = currentServerId === "s1"
-            ? "boss_timeline_discord_config"
-            : `boss_timeline_servers/${currentServerId}/discord_config`;
-          firebaseDb.ref(path).set(discordConfig);
-        } catch (e) {
-          console.warn("Firebase save discord config error:", e);
-        }
+      if (!firebaseDb || !isAdmin()) throw new Error("Cần kết nối Firebase và quyền Admin để lưu.");
+      const path = serverId === "s1" ? "boss_timeline_discord_config" : `boss_timeline_servers/${serverId}/discord_config`;
+      await firebaseDb.ref(path).set(safeConfig);
+      localStorage.setItem("bossTimelinePro.discordConfig_" + serverId, JSON.stringify(safeConfig));
+      if (serverId === currentServerId) {
+        discordConfig = safeConfig;
+        updateDiscordButtonUI();
       }
-      updateDiscordButtonUI();
     }
 
     /**
@@ -800,7 +821,7 @@
      * Đọc webhook URL từ Firebase về cache
      */
     async function loadWebhookUrl(svId) {
-      if (webhookUrlCache[svId] !== undefined) return webhookUrlCache[svId];
+      // Re-read so another admin or computer can update the selected webhook.
       if (!firebaseDb) return "";
       try {
         const snap = await firebaseDb.ref(`boss_timeline_webhook_urls/${svId}`).once("value");
@@ -977,7 +998,7 @@
         const soonLogoUrl = `${baseUrl}/assets/boss-logo-soon.png`;
         const spawnedLogoUrl = `${baseUrl}/assets/boss-logo-spawned.png`;
 
-        const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+        const spawnTimeStr = new BossDate(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
         const remainMs = Number(eventKey) - getNow();
         const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
 
@@ -1030,7 +1051,7 @@
               color: color,
               thumbnail: { url: thumbnailUrl },
               footer: { text: "Boss Timeline Pro • Live Alert System" },
-              timestamp: new Date().toISOString()
+              timestamp: new BossDate().toISOString()
             }
           ]
         };
@@ -1112,7 +1133,7 @@
             ctx.fillText(String(idx + 1), 36, y + 27);
 
             // Time & Date
-            const timeObj = new Date(item.eventTime);
+            const timeObj = new BossDate(item.eventTime);
             const timeStr = timeObj.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
             ctx.fillStyle = "#0c2461";
             ctx.font = "bold 13px Consolas, monospace";
@@ -1185,7 +1206,7 @@
           ctx.fillStyle = "#94a3b8";
           ctx.font = "11.5px -apple-system, BlinkMacSystemFont, sans-serif";
           ctx.fillText("Xuất tự động từ hệ thống Boss Timeline Pro", 24, height - 16);
-          const rightFoot = "Cập nhật lúc: " + new Date(now).toLocaleTimeString("vi-VN");
+          const rightFoot = "Cập nhật lúc: " + new BossDate(now).toLocaleTimeString("vi-VN");
           const rfWidth = ctx.measureText(rightFoot).width;
           ctx.fillText(rightFoot, width - 24 - rfWidth, height - 16);
 
@@ -1207,7 +1228,7 @@
     }
 
     async function deliverDiscordDailySchedule(now, forced, serverId) {
-      const nowDate = new Date(now);
+      const nowDate = new BossDate(now);
       const dateKey = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}-${String(nowDate.getDate()).padStart(2, "0")}`;
 
       // Thu thập danh sách boss ngày hôm nay
@@ -1231,7 +1252,7 @@
               description: "Hôm nay không có boss cố định nào theo lịch được thiết lập.",
               color: 3447003,
               footer: { text: "Boss Timeline Pro • Daily Schedule" },
-              timestamp: new Date().toISOString()
+              timestamp: new BossDate().toISOString()
             }
           ]
         };
@@ -1262,7 +1283,7 @@
             color: 3447003, // Blue #3498db
             image: imgBlob ? { url: `attachment://${fileName}` } : undefined,
             footer: { text: "Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày" },
-            timestamp: new Date().toISOString()
+            timestamp: new BossDate().toISOString()
           }
         ]
       };
@@ -1754,7 +1775,8 @@
         // the revision it last received. If both sides advanced, keep Firebase and
         // reject the stale local operation instead of silently overwriting it.
         if (previous && target && remoteBoss && Number.isFinite(baseRevision)
-          && localRevision > baseRevision && remoteRevision > baseRevision) {
+          && localRevision > baseRevision && (remoteRevision > baseRevision
+            || (remoteRevision === 0 && JSON.stringify(previous) !== JSON.stringify(remoteBoss)))) {
           Object.keys(target).forEach(key => delete target[key]);
           Object.assign(target, cloneRealtimeValue(remoteBoss));
           conflictIds.add(boss.id);
@@ -1911,7 +1933,7 @@
           const merged = current ? mergeBossStateChanges(base, local, getBossRemoteData(current)) : cloneRealtimeValue(local);
           transactionConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
           merged.history = merged.history.sort((a, b) => b.time - a.time).slice(0, 30);
-          const updatedAt = new Date(getNow()).toISOString();
+          const updatedAt = new BossDate(getNow()).toISOString();
           const version = (Number(current?.version) || 0) + 1;
           return {
             ...current,
@@ -2006,7 +2028,7 @@
       if (numericVersion) lastAppliedBossVersion = numericVersion;
 
       if (updatedAt) {
-        const remoteTime = new Date(updatedAt).getTime();
+        const remoteTime = new BossDate(updatedAt).getTime();
         lastRemoteUpdatedAt = remoteTime || getNow();
       }
 
@@ -2016,6 +2038,7 @@
       };
       const attemptedState = cloneRealtimeValue(state);
       state = isAdmin() ? mergeBossStateChanges(localBase || state, state, remote) : remote;
+      bossSnapshotApplied = true;
       const snapshotConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
       bossSyncBase = cloneRealtimeValue(remote);
       lastRenderedGridKey = ""; // Bat buoc render lai giao dien moi
@@ -2046,6 +2069,7 @@
     let firebaseRealtimeConnected = false;
 
     function initRealtimeSync() {
+      bossSnapshotApplied = false;
       if (!REALTIME_ENABLED || !stateDbRef) {
         setRealtimeStatus("offline", "Chưa cấu hình Firebase — kiểm tra firebase-config.js");
         return;
@@ -2060,7 +2084,7 @@
         activeDiscordConfigRef = null;
       }
 
-      setRealtimeStatus(firebaseRealtimeConnected ? "online" : "connecting", firebaseRealtimeConnected
+      setRealtimeStatus("connecting", firebaseRealtimeConnected
         ? "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team"
         : "Đang kết nối Google Firebase Realtime…");
 
@@ -2072,7 +2096,7 @@
         firebaseDb.ref(".info/connected").on("value", (snap) => {
           firebaseRealtimeConnected = snap.val() === true;
           if (firebaseRealtimeConnected) {
-            setRealtimeStatus("online", "Đã kết nối Firebase Realtime — đồng bộ tức thì cho cả team");
+            setRealtimeStatus(bossSnapshotApplied ? "online" : "connecting", bossSnapshotApplied ? "Đã nhận dữ liệu Boss từ Firebase" : "Đang chờ dữ liệu Boss mới nhất…");
             if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
             if (isAdmin() && attendanceRemoteStateReady && attendancePendingRemoteSave) pushAttendanceToFirebase();
           } else {
@@ -2108,6 +2132,7 @@
           applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId, bossSyncBase, val.version || val.data?.version);
           if (senderId !== CLIENT_ID) showToast("🔄 Team vừa cập nhật Boss Timeline.");
           if (isAdmin()) saveState();
+          if (!remoteSaveInFlight && firebaseRealtimeConnected) setRealtimeStatus("online", "Đã nhận dữ liệu Boss từ Firebase");
         } else if (!val) {
           if (isAdmin() && !bossFirebaseSeedAttempted) {
             bossFirebaseSeedAttempted = true;
@@ -2218,7 +2243,7 @@
         : [{ day: "all", time: boss.fixedTime || "18:00" }];
 
       const candidates = [];
-      const nowDate = new Date(now);
+      const nowDate = new BossDate(now);
 
       schedules.forEach(slot => {
         const parts = (slot.time || "18:00").split(":").map(Number);
@@ -2228,7 +2253,7 @@
         const targetDays = slot.day === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(slot.day)];
 
         for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
-          const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + dayOffset, h, m, 0, 0);
+          const d = new BossDate(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + dayOffset, h, m, 0, 0);
           if (targetDays.includes(d.getDay()) && d.getTime() > now) {
             candidates.push(d.getTime());
             break;
@@ -2247,7 +2272,7 @@
         : [{ day: "all", time: boss.fixedTime || "18:00" }];
 
       const candidates = [];
-      const nowDate = new Date(now);
+      const nowDate = new BossDate(now);
 
       schedules.forEach(slot => {
         const parts = (slot.time || "18:00").split(":").map(Number);
@@ -2257,7 +2282,7 @@
         const targetDays = slot.day === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(slot.day)];
 
         for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
-          const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - dayOffset, h, m, 0, 0);
+          const d = new BossDate(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - dayOffset, h, m, 0, 0);
           if (targetDays.includes(d.getDay()) && d.getTime() <= now) {
             candidates.push(d.getTime());
             break;
@@ -2369,7 +2394,7 @@
     }
 
     function formatClock(time) {
-      return new Date(time).toLocaleTimeString("vi-VN", {
+      return new BossDate(time).toLocaleTimeString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit"
@@ -2378,7 +2403,7 @@
 
     function formatShortDate(time) {
       if (!time) return currentLang === "en" ? "None" : "Chưa có";
-      return new Date(time).toLocaleString("vi-VN", {
+      return new BossDate(time).toLocaleString("vi-VN", {
         day: "2-digit",
         month: "2-digit",
         hour: "2-digit",
@@ -2388,7 +2413,7 @@
 
     function formatTimeOnly(time) {
       if (!time) return "--:--";
-      return new Date(time).toLocaleTimeString("vi-VN", {
+      return new BossDate(time).toLocaleTimeString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit"
       });
@@ -2415,11 +2440,11 @@
 
     function formatSmartRespawnDate(time, now = getNow()) {
       if (!time) return "--:--";
-      const target = new Date(time);
-      const nowDate = new Date(now);
+      const target = new BossDate(time);
+      const nowDate = new BossDate(now);
 
-      const targetDateOnly = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-      const nowDateOnly = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+      const targetDateOnly = new BossDate(target.getFullYear(), target.getMonth(), target.getDate());
+      const nowDateOnly = new BossDate(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
 
       const diffDays = Math.round((targetDateOnly - nowDateOnly) / (24 * 60 * 60 * 1000));
       const timeStr = target.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -2498,7 +2523,7 @@
     async function autoResolveRespawns() {
       // Members render countdown/status from confirmed Firebase timers only. They
       // must never create transitions, revisions, history, or broadcasts locally.
-      if (!isAdmin() || autoRespawnSaveInFlight) return;
+      if (!isAdmin() || autoRespawnSaveInFlight || !firebaseAuthReady || !bossSnapshotApplied || !firebaseRealtimeConnected || remoteSaveInFlight) return;
       const now = getNow();
       let changed = false;
       const confirmedCandidates = [];
@@ -3163,8 +3188,8 @@
       }).join("");
     }
 
-    function getTargetDateForFilter(nowDate = new Date(), dayFilter = scheduleDayFilter) {
-      const targetDate = new Date(nowDate);
+    function getTargetDateForFilter(nowDate = new BossDate(), dayFilter = scheduleDayFilter) {
+      const targetDate = new BossDate(nowDate);
       if (dayFilter === "all" || dayFilter === "today") {
         return targetDate;
       }
@@ -3175,7 +3200,7 @@
       return targetDate;
     }
 
-    function updateScheduleDayTabs(now = new Date()) {
+    function updateScheduleDayTabs(now = new BossDate()) {
       const isEn = currentLang === "en";
       const dayNames = isEn
         ? { "all": "All (7 Days)", "today": "Today", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 0: "Sun" }
@@ -3200,15 +3225,15 @@
       });
     }
 
-    function getTodayScheduleSubtitle(now = new Date(), dayFilter = scheduleDayFilter) {
+    function getTodayScheduleSubtitle(now = new BossDate(), dayFilter = scheduleDayFilter) {
       const isEn = currentLang === "en";
       const days = isEn
         ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
         : ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
       if (dayFilter === "all") {
-        const startD = new Date(now);
-        const endD = new Date(now);
+        const startD = new BossDate(now);
+        const endD = new BossDate(now);
         endD.setDate(now.getDate() + 6);
         const startStr = `${String(startD.getDate()).padStart(2, "0")}/${String(startD.getMonth() + 1).padStart(2, "0")}`;
         const endStr = `${String(endD.getDate()).padStart(2, "0")}/${String(endD.getMonth() + 1).padStart(2, "0")}`;
@@ -3228,10 +3253,10 @@
     let scheduleDayFilter = "all";
 
     function getBossScheduleEventTimes(boss, now, dayFilter) {
-      const nowDate = new Date(now);
+      const nowDate = new BossDate(now);
       const targetDate = dayFilter === "all" ? nowDate : getTargetDateForFilter(nowDate, dayFilter);
-      const start = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-      const end = new Date(start);
+      const start = new BossDate(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const end = new BossDate(start);
       end.setDate(end.getDate() + (dayFilter === "all" ? 7 : 1));
       const times = new Set();
 
@@ -3239,12 +3264,12 @@
         const schedules = Array.isArray(boss.fixedSchedules) && boss.fixedSchedules.length > 0
           ? boss.fixedSchedules
           : [{ day: "all", time: boss.fixedTime || "18:00" }];
-        for (const date = new Date(start); date < end; date.setDate(date.getDate() + 1)) {
+        for (const date = new BossDate(start); date < end; date.setDate(date.getDate() + 1)) {
           for (const slot of schedules) {
             if (slot.day !== "all" && Number(slot.day) !== date.getDay()) continue;
             const [h, m] = (slot.time || "18:00").split(":").map(Number);
             if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) continue;
-            times.add(new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m).getTime());
+            times.add(new BossDate(date.getFullYear(), date.getMonth(), date.getDate(), h, m).getTime());
           }
         }
       } else {
@@ -3280,9 +3305,9 @@
 
     function renderTodayScheduleTable(now = getNow()) {
       if (!elements.todayScheduleBody) return;
-      updateScheduleDayTabs(new Date(now));
+      updateScheduleDayTabs(new BossDate(now));
       if (elements.todayScheduleSubtitle) {
-        elements.todayScheduleSubtitle.textContent = getTodayScheduleSubtitle(new Date(now));
+        elements.todayScheduleSubtitle.textContent = getTodayScheduleSubtitle(new BossDate(now));
       }
 
       const items = getBossScheduleItems(now, scheduleDayFilter);
@@ -3402,7 +3427,7 @@
         return;
       }
 
-      const today = new Date();
+      const today = new BossDate();
       const todayDow = today.getDay(); // 0=Sun, 1=Mon, ...
       const weeklyKey = weeklyBosses.map(b => `${b.id}:${(b.weekDays||[]).join(",")}:${b.fixedTime}:${b.name}`).join(";") + "_" + currentLang + "_" + todayDow;
       if (weeklyKey === lastWeeklyScheduleKey) return;
@@ -3420,7 +3445,7 @@
       const dateForDow = {};
       dayOrder.forEach((dow) => {
         const diff = (dow - todayDow + 7) % 7;
-        const d = new Date(today);
+        const d = new BossDate(today);
         d.setDate(today.getDate() + diff);
         dateForDow[dow] = d;
       });
@@ -3480,14 +3505,14 @@
 
     function exportTodaySchedulePDF() {
       const now = getNow();
-      const nowDate = new Date(now);
+      const nowDate = new BossDate(now);
       const isEn = currentLang === "en";
       const clockStr = formatClock(now);
 
       let filterTitle = isEn ? "BOSS SCHEDULE & FORECAST REPORT (7 DAYS)" : "BÁO CÁO LỊCH BOSS & DỰ BÁO (7 NGÀY)";
       let filterSubDate = getTodayScheduleSubtitle(nowDate, scheduleDayFilter);
 
-      let targetDate = new Date(nowDate);
+      let targetDate = new BossDate(nowDate);
       let isSingleDay = false;
 
       if (scheduleDayFilter === "today") {
@@ -3782,7 +3807,7 @@
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const dateIso = dateToYMD(scheduleDayFilter === "all" ? now : getTargetDateForFilter(new Date(now), scheduleDayFilter));
+      const dateIso = dateToYMD(scheduleDayFilter === "all" ? now : getTargetDateForFilter(new BossDate(now), scheduleDayFilter));
       link.setAttribute("href", url);
       link.setAttribute("download", `lich_boss_${scheduleDayFilter}_${dateIso}.csv`);
       document.body.appendChild(link);
@@ -3903,7 +3928,7 @@
     let _offsetBossRevision = null;
 
     function dateToYMD(d) {
-      const date = new Date(d);
+      const date = new BossDate(d);
       const yyyy = date.getFullYear();
       const mm = String(date.getMonth() + 1).padStart(2, "0");
       const dd = String(date.getDate()).padStart(2, "0");
@@ -3911,14 +3936,14 @@
     }
 
     function format24hTime(d) {
-      const date = new Date(d);
+      const date = new BossDate(d);
       const h = String(date.getHours()).padStart(2, "0");
       const m = String(date.getMinutes()).padStart(2, "0");
       return `${h}:${m}`;
     }
 
     function formatFullDateTime(d, isEn = currentLang === "en") {
-      const date = new Date(d);
+      const date = new BossDate(d);
       if (isNaN(date.getTime())) return "--";
       const daysVi = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
       const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -3931,10 +3956,10 @@
     }
 
     function syncOffsetDateChipState(selectedYmd) {
-      const today = new Date();
+      const today = new BossDate();
       document.querySelectorAll("#offsetDateGrid .offset-date-chip").forEach(chip => {
         const offsetDays = Number(chip.dataset.dayOffset || 0);
-        const targetDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offsetDays);
+        const targetDate = new BossDate(today.getFullYear(), today.getMonth(), today.getDate() - offsetDays);
         const ymd = dateToYMD(targetDate);
         chip.classList.toggle("active-chip", ymd === selectedYmd);
       });
@@ -3991,7 +4016,7 @@
         chip.classList.toggle("active-chip", Number(chip.dataset.dayOffset) === 0);
       });
 
-      const now = new Date();
+      const now = new BossDate();
       const dateInput = document.getElementById("offsetCustomDateInput");
       if (dateInput) dateInput.value = dateToYMD(now);
 
@@ -4013,7 +4038,7 @@
       const dateInput = document.getElementById("offsetCustomDateInput");
       const timeInput = document.getElementById("offsetCustomTimeInput");
 
-      const now = new Date();
+      const now = new BossDate();
       let yyyy = now.getFullYear();
       let mm = now.getMonth();
       let dd = now.getDate();
@@ -4040,7 +4065,7 @@
         }
       }
 
-      const target = new Date(yyyy, mm, dd, h, m, s, 0);
+      const target = new BossDate(yyyy, mm, dd, h, m, s, 0);
       return target.getTime();
     }
 
@@ -4209,7 +4234,7 @@
         const chip = e.target.closest(".offset-preset-chip");
         if (!chip) return;
         _offsetMinutes = Number(chip.dataset.offset);
-        const targetD = new Date(getNow() - _offsetMinutes * 60 * 1000);
+        const targetD = new BossDate(getNow() - _offsetMinutes * 60 * 1000);
         
         if (offsetDateInput) {
           offsetDateInput.value = dateToYMD(targetD);
@@ -4227,8 +4252,8 @@
         const chip = e.target.closest(".offset-date-chip");
         if (!chip) return;
         const offsetDays = Number(chip.dataset.dayOffset || 0);
-        const today = new Date();
-        const targetDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offsetDays);
+        const today = new BossDate();
+        const targetDate = new BossDate(today.getFullYear(), today.getMonth(), today.getDate() - offsetDays);
         if (offsetDateInput) {
           offsetDateInput.value = dateToYMD(targetDate);
         }
@@ -4252,7 +4277,7 @@
 
       // Set now button
       document.getElementById("offsetSetNowBtn")?.addEventListener("click", () => {
-        const now = new Date();
+        const now = new BossDate();
         if (offsetDateInput) {
           offsetDateInput.value = dateToYMD(now);
           syncOffsetDateChipState(offsetDateInput.value);
@@ -5451,6 +5476,7 @@
       const nDaily = document.getElementById("discordNotifyDailySchedule");
       const webhookInput = document.getElementById("discordWebhookInput");
 
+      const settingsServerId = currentServerId;
       // Validate và lưu webhook URL nếu có nhập
       const webhookUrl = webhookInput ? webhookInput.value.trim() : "";
       const webhookPattern = /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/;
@@ -5462,7 +5488,7 @@
 
       // Lưu webhook URL lên Firebase (kể cả khi rỗng = xóa webhook)
       if (webhookUrl !== (webhookUrlCache[currentServerId] || "")) {
-        const saved = await saveWebhookUrl(currentServerId, webhookUrl);
+        const saved = await saveWebhookUrl(settingsServerId, webhookUrl);
         if (!saved) {
           showToast("❌ Không thể lưu Webhook URL lên Firebase. Kiểm tra quyền Admin.");
           return;
@@ -5481,7 +5507,12 @@
         notifyDailySchedule: nDaily ? nDaily.checked : true
       };
 
-      saveDiscordConfigLocal(newConfig);
+      try {
+        await saveDiscordConfigLocal(newConfig, settingsServerId);
+      } catch (error) {
+        showToast("❌ Chưa lưu được cấu hình Discord lên Firebase. Vui lòng thử lại.");
+        return;
+      }
       closeDiscordModal();
       showToast(newConfig.enabled ? "🤖 Đã lưu & kích hoạt Discord Bot thành công!" : "🤖 Đã lưu cấu hình Discord.");
     });
@@ -5556,10 +5587,10 @@
             fields: [
               { name: "👑 Trạng thái", value: "🟢 Đang hoạt động", inline: true },
               { name: "⚡ Tự động thông báo", value: "10m, 5m, 0m & Ghi nhận chết", inline: true },
-              { name: "🕒 Thời gian", value: new Date().toLocaleTimeString("vi-VN") + " - " + new Date().toLocaleDateString("vi-VN"), inline: false }
+              { name: "🕒 Thời gian", value: new BossDate().toLocaleTimeString("vi-VN") + " - " + new BossDate().toLocaleDateString("vi-VN"), inline: false }
             ],
             footer: { text: "Boss Timeline Pro • Discord Integration" },
-            timestamp: new Date().toISOString()
+            timestamp: new BossDate().toISOString()
           }
         ]
       };
@@ -5810,12 +5841,8 @@
       }
 
       // Tạo ID duy nhất (s2, s3, ...)
-      let nextNum = serverList.length + 1;
-      let newId = "s" + nextNum;
-      while (serverList.some(s => s.id === newId)) {
-        nextNum++;
-        newId = "s" + nextNum;
-      }
+      let newId = "s_" + crypto.randomUUID();
+      while (serverList.some(s => s.id === newId)) newId = "s_" + crypto.randomUUID();
 
       const icons = ["⚔️", "🛡️", "🔥", "⚡", "🌟", "👑", "🏹", "🔮", "🏰", "🐉"];
       const randomIcon = icons[(serverList.length) % icons.length];
@@ -5835,8 +5862,7 @@
             const result = await listRef.transaction(current => {
               const latest = Array.isArray(current) ? current.slice() : serverList.slice();
               let candidate = newId;
-              let candidateNumber = nextNum;
-              while (latest.some(item => item.id === candidate)) candidate = "s" + (++candidateNumber);
+              while (latest.some(item => item.id === candidate)) candidate = "s_" + crypto.randomUUID();
               newServerObj.id = candidate;
               if (latest.some(item => String(item.name || "").toLowerCase() === trimmed.toLowerCase())) return;
               return [...latest, { ...newServerObj }];
@@ -5893,10 +5919,10 @@
           const bMap = {};
           newBosses.forEach(b => { bMap[b.id] = b; });
           const seed = {
-            data: { _clientId: CLIENT_ID, bosses: newBosses, history: [], updated_at: new Date(getNow()).toISOString(), version: 1 },
+            data: { _clientId: CLIENT_ID, bosses: newBosses, history: [], updated_at: new BossDate(getNow()).toISOString(), version: 1 },
             bosses_map: bMap,
             last_editor: CLIENT_ID,
-            updated_at: new Date(getNow()).toISOString(),
+            updated_at: new BossDate(getNow()).toISOString(),
             version: 1
           };
           await firebaseDb.ref(paths.statePath).set(seed);
@@ -6451,9 +6477,9 @@
       const roleText = normalizeRoleText(member.role);
       if (!roleText) return 0;
 
-      const roleBonuses = (week && Array.isArray(week.roleBonuses) && week.roleBonuses.length > 0)
+      const roleBonuses = (week && Array.isArray(week.roleBonuses))
         ? week.roleBonuses
-        : (attendanceState?.roleBonuses && Array.isArray(attendanceState.roleBonuses) && attendanceState.roleBonuses.length > 0
+        : (attendanceState?.roleBonuses && Array.isArray(attendanceState.roleBonuses)
           ? attendanceState.roleBonuses
           : DEFAULT_ROLE_BONUSES);
 
@@ -6713,11 +6739,11 @@
       }
     }
 
-    function getSuggestedWeekRange(offsetWeeks = 0, referenceDate = new Date()) {
+    function getSuggestedWeekRange(offsetWeeks = 0, referenceDate = new BossDate()) {
       const daysUntilSaturday = (6 - referenceDate.getDay() + 7) % 7;
-      const saturday = new Date(referenceDate);
+      const saturday = new BossDate(referenceDate);
       saturday.setDate(referenceDate.getDate() + daysUntilSaturday + (offsetWeeks * 7));
-      const friday = new Date(saturday);
+      const friday = new BossDate(saturday);
       friday.setDate(saturday.getDate() + 6);
       
       const pad = n => String(n).padStart(2, '0');
@@ -7421,6 +7447,15 @@
         };
       });
 
+      const bonusWeights = membersCalc.map(m => m.bonusPercent);
+      const bonusPercentTotal = bonusWeights.reduce((sum, value) => sum + value, 0);
+      const bonusFraction = Math.min(100, bonusPercentTotal) / 100;
+      const bonusDiasAlloc = allocateLargestRemainder(bonusWeights, Math.round(diasPool * bonusFraction));
+      const bonusCentAlloc = allocateLargestRemainder(bonusWeights, Math.round(Math.round(usdtPool * 100) * bonusFraction));
+      membersCalc.forEach((member, index) => {
+        member.roleBonusDias = member.dias = bonusDiasAlloc[index] || 0;
+        member.roleBonusUsdt = member.usdt = (bonusCentAlloc[index] || 0) / 100;
+      });
       let totalRoleBonusDias = 0;
       let totalRoleBonusUsdtCents = 0;
       membersCalc.forEach(m => {
@@ -7473,6 +7508,8 @@
         usdtPool,
         totalRoleBonusDias,
         totalRoleBonusUsdt: totalRoleBonusUsdtCents / 100,
+        bonusPercentTotal,
+        bonusScaled: bonusPercentTotal > 100,
         diasRate,
         usdtRate,
         activitiesCount: activities.length,
@@ -7615,7 +7652,8 @@
       const diasRateEl = document.getElementById("attDiasRateText");
       if (diasRateEl) diasRateEl.textContent = calc.diasRate.toFixed(2);
       const diasAllocationEl = document.getElementById("attDiasAllocationText");
-      if (diasAllocationEl) diasAllocationEl.textContent = `${scopeName}: ${calc.diasPool.toLocaleString("vi-VN")} DIAS được phân bổ`;
+      if (diasAllocationEl) diasAllocationEl.title = calc.bonusScaled ? "Tổng thưởng chức danh vượt 100%; đã giảm theo tỷ lệ để không vượt quỹ." : "";
+      if (diasAllocationEl) diasAllocationEl.textContent = `${scopeName}: ${calc.diasPool.toLocaleString("vi-VN")} DIAS được phân bổ${calc.bonusScaled ? " · ⚠ Thưởng chức danh vượt 100%, đã chia theo tỷ lệ" : ""}`;
 
       const usdtInput = document.getElementById("attUsdtPoolInput");
       if (usdtInput && document.activeElement !== usdtInput) {
@@ -8882,9 +8920,9 @@
       if (errEl) errEl.style.display = "none";
 
       const currWeek = getActiveWeek();
-      const currentBonuses = (currWeek && Array.isArray(currWeek.roleBonuses) && currWeek.roleBonuses.length > 0)
+      const currentBonuses = (currWeek && Array.isArray(currWeek.roleBonuses))
         ? currWeek.roleBonuses
-        : (attendanceState?.roleBonuses && Array.isArray(attendanceState.roleBonuses) && attendanceState.roleBonuses.length > 0
+        : (attendanceState?.roleBonuses && Array.isArray(attendanceState.roleBonuses)
           ? attendanceState.roleBonuses
           : DEFAULT_ROLE_BONUSES);
 
@@ -8974,10 +9012,11 @@
       }
 
       const currWeek = getActiveWeek();
-      currWeek.roleBonuses = updated;
-      if (attendanceState) {
-        attendanceState.roleBonuses = updated;
+      // Freeze legacy settings on other weeks before editing this week.
+      for (const week of attendanceState.weeks || []) {
+        if (!Array.isArray(week.roleBonuses)) week.roleBonuses = cloneRealtimeValue(attendanceState.roleBonuses ?? DEFAULT_ROLE_BONUSES);
       }
+      currWeek.roleBonuses = updated;
 
       saveAttendanceState(attendanceState, true);
       closeAttendanceRoleBonusModal();
@@ -9502,7 +9541,7 @@
         if (editIdInput) editIdInput.value = "";
         // Pre-fill current day
         const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-        const d = new Date();
+        const d = new BossDate();
         const dateStr = `${days[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
         if (dateInput) dateInput.value = dateStr;
         if (nameInput) nameInput.value = "";
@@ -9723,7 +9762,7 @@
           format: "boss-timeline-pro-backup",
           schemaVersion: 1,
           appVersion: CURRENT_APP_VERSION,
-          exportedAt: new Date().toISOString(),
+          exportedAt: new BossDate().toISOString(),
           servers: cloneRealtimeValue(serverList || []),
           bossStates,
           attendance: attendanceBackup
@@ -9731,7 +9770,7 @@
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const stamp = new BossDate().toISOString().replace(/[:.]/g, "-");
         link.href = url;
         link.download = `boss-timeline-backup-${stamp}.json`;
         document.body.appendChild(link);
@@ -10208,7 +10247,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.09.v19-reviewed-sync-and-schedule";
+    const CURRENT_APP_VERSION = "2026.10.31.v20-cross-device-sync";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();

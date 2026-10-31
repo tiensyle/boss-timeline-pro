@@ -8,6 +8,11 @@ const source = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8"
 const copy = value => JSON.parse(JSON.stringify(value));
 
 function load(names, globals = {}) {
+  const dateStart = source.indexOf("    function createBossDateClass() {");
+  const dateSource = source.slice(dateStart, source.indexOf("\n    }", dateStart) + 6);
+  const dateContext = vm.createContext({ Date });
+  vm.runInContext(dateSource, dateContext);
+  globals = { BossDate: dateContext.createBossDateClass(), bossSnapshotApplied: true, firebaseRealtimeConnected: true, firebaseAuthReady: true, remoteSaveInFlight: false, ...globals };
   const context = vm.createContext({ console, Date, ...globals });
   for (const name of names) {
     const match = new RegExp(`^    (?:async )?function ${name}\\(`, "m").exec(source);
@@ -629,7 +634,7 @@ test("rejected offline operations are retained for review and shown to the admin
   assert.match(dialogs[0].message, /4500/);
 });
 
-test("role and server changes retain the current Firebase connection status", () => {
+test("connection alone must not claim boss data is synchronized", () => {
   const callbacks = new Map();
   const statuses = [];
   const ctx = load(["initRealtimeSync"], {
@@ -643,17 +648,17 @@ test("role and server changes retain the current Firebase connection status", ()
   ctx.initRealtimeSync();
   assert.equal(statuses.at(-1), "connecting");
   callbacks.get(".info/connected")({ val: () => true });
-  assert.equal(statuses.at(-1), "online");
+  assert.equal(statuses.at(-1), "connecting");
   ctx.initRealtimeSync();
   ctx.bossSyncGeneration++;
   ctx.initRealtimeSync();
-  assert.equal(statuses.at(-1), "online");
+  assert.equal(statuses.at(-1), "connecting");
   assert.equal(callbacks.size, 2);
   callbacks.get(".info/connected")({ val: () => false });
   ctx.initRealtimeSync();
   assert.equal(statuses.at(-1), "connecting");
   callbacks.get(".info/connected")({ val: () => true });
-  assert.equal(statuses.at(-1), "online");
+  assert.equal(statuses.at(-1), "connecting");
 });
 
 test("edits made while a Firebase save is pending survive the acknowledgement", async () => {
@@ -1227,4 +1232,73 @@ test("column filters combine name search, numeric range, eligibility and sorting
   const rows = [{ name: "Tiến A", combatPower: 120, eligible: true }, { name: "Tiến B", combatPower: 180, eligible: true }, { name: "Tiến C", combatPower: 150, eligible: false }, { name: "Other", combatPower: 160, eligible: true }];
   assert.deepEqual(copy(ctx.applyAttendanceColumnFilters(rows)).map(m => m.name), ["Tiến B", "Tiến A"]);
   assert.equal(rows[0].name, "Tiến A");
+});
+
+test("startup cannot auto-respawn stale cache before the confirmed snapshot", async () => {
+  let writes = 0;
+  const boss = { id: "b", spawnMode: "interval", diedAt: 1000, respawnsAt: 2000, revision: 0 };
+  const ctx = load(["autoResolveRespawns"], {
+    isAdmin: () => true, bossSnapshotApplied: false, autoRespawnSaveInFlight: false,
+    getNow: () => 10000, state: { bosses: [boss] }, saveState: () => { writes++; },
+    performRespawn: () => { throw Error("Stale cache must not mutate"); }
+  });
+  await ctx.autoResolveRespawns();
+  assert.equal(writes, 0);
+  assert.equal(boss.diedAt, 1000);
+  ctx.bossSnapshotApplied = true;
+  ctx.firebaseRealtimeConnected = false;
+  await ctx.autoResolveRespawns();
+  assert.equal(writes, 0);
+});
+
+test("legacy remote death cannot be overwritten by cached automatic revival", () => {
+  const ctx = load(["cloneRealtimeValue", "mergeRealtimeChanges", "mergeBossStateChanges"], { lastBossConflictIds: [] });
+  const base = { bosses: [{ id: "b", revision: 0, diedAt: 1000, respawnsAt: 2000 }], history: [] };
+  const local = { bosses: [{ id: "b", revision: 1, diedAt: null, respawnsAt: null }], history: [] };
+  const remote = { bosses: [{ id: "b", revision: 0, diedAt: 9000, respawnsAt: 20000 }], history: [] };
+  const result = ctx.mergeBossStateChanges(base, local, remote);
+  assert.equal(result.bosses[0].diedAt, 9000);
+  assert.equal(result.bosses[0].respawnsAt, 20000);
+  assert.deepEqual(copy(ctx.lastBossConflictIds), ["b"]);
+});
+
+test("bonus payouts never exceed either pool even above 100% or at rounding boundaries", () => {
+  const ctx = attendanceContext();
+  for (const [pool, percentages] of [[100, [60,60]], [1, [50,50]], [3,[33.33,33.33,33.34]]]) {
+    const result = ctx.calculateAttendanceData({ diasPool: pool, usdtPool: pool / 100,
+      activities: [{ id: "a", points: 1 }], members: percentages.map((p,i) => ({id:String(i),roleBonusPercent:p,multiplier:1,records:{a:true}})) });
+    assert.equal(result.membersCalc.reduce((sum,m)=>sum+m.dias,0),pool);
+    assert.equal(result.membersCalc.reduce((sum,m)=>sum+Math.round(m.usdt*100),0),pool);
+  }
+});
+
+test("empty weekly role bonuses disable defaults", () => {
+  const ctx = attendanceContext({ attendanceState: { roleBonuses: [{role:"Bang Chủ",percent:20}] } });
+  assert.equal(ctx.getMemberRoleBonusPercent({role:"Bang Chủ"},{roleBonuses:[]}),0);
+});
+
+test("Discord config rejection preserves the previous confirmed local configuration", async () => {
+  const cached=[];
+  const ctx=load(["saveDiscordConfigLocal"],{currentServerId:"s1",defaultDiscordConfig:{enabled:false},
+    discordConfig:{enabled:false},firebaseDb:{ref:()=>({set:async()=>{throw Error("denied")}})},
+    isAdmin:()=>true,localStorage:{setItem:(...args)=>cached.push(args)},updateDiscordButtonUI:()=>{}});
+  await assert.rejects(ctx.saveDiscordConfigLocal({enabled:true}),/denied/);
+  assert.equal(ctx.discordConfig.enabled,false);
+  assert.equal(cached.length,0);
+});
+
+test("boss schedule and displayed times are identical across computer timezones", () => {
+  const old=process.env.TZ;
+  try {
+    const results=[];
+    for(const zone of ["Asia/Bangkok","Asia/Singapore","UTC","America/New_York"]){
+      process.env.TZ=zone;
+      const ctx=load(["getNextFixedSpawnTime","formatTimeOnly","getTargetDateForFilter","getBossScheduleEventTimes"],{state:{history:[]}});
+      const boss={spawnMode:"fixed",fixedSchedules:[{day:"all",time:"18:00"}]};
+      const now=Date.parse("2026-10-31T10:00:00Z");
+      results.push(JSON.stringify([ctx.getNextFixedSpawnTime(boss,now),ctx.formatTimeOnly(now+3600000),copy(ctx.getBossScheduleEventTimes(boss,now,"today"))]));
+    }
+    assert.equal(new Set(results).size,1);
+    assert.ok(results[0].includes("18:00"));
+  } finally { if(old===undefined) delete process.env.TZ; else process.env.TZ=old; }
 });
