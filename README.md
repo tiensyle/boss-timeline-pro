@@ -118,3 +118,7 @@ Chạy kiểm thử: npm test, npm run check, npm run test:browser. Trong môi t
 4. Mở cùng Server trên hai máy, chờ Đã đồng bộ rồi kiểm tra giờ chết, trạng thái và lịch sử.
 
 Kiểm tra bổ sung: npm run test:firebase-authority. Bài kiểm tra mở hai phiên Admin với Firebase giả lập riêng, có trường hợp database trống, đăng nhập lại và reload hai máy nhưng không ghi dữ liệu tự động. Kiểm tra Rules tại Node đánh giá biểu thức thật, chưa thay thế Firebase Emulator hoặc kiểm tra dự án thật.
+
+## Báo cáo ngày giữ mốc đã xuất hiện — v22
+
+Lịch ngày giữ lastRespawnAt từ snapshot Firebase dù sự kiện tương ứng đã ra khỏi 30 dòng lịch sử gần nhất. Các lượt respawn thực tế còn trong lịch sử cũng được đưa vào, loại trùng theo timestamp. Thay đổi áp dụng cùng lúc cho web/CSV/PDF và Cron Discord, không sửa mốc chết/hồi sinh trong database. Các dự báo cũ đã bị thay bằng mốc chết mới không được tự dựng lại thành sự kiện thực tế.
