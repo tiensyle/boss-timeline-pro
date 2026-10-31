@@ -591,8 +591,8 @@
           // cho phép lưu, tránh dữ liệu cũ trên máy mới ghi đè ghi chú/giờ của máy khác.
           if (typeof applyDeferredBossRemoteAfterAuth === "function") applyDeferredBossRemoteAfterAuth();
           // Writes that were queued while Auth restored can now be retried safely.
-          if (typeof saveState === "function" && remoteStateReady) saveState();
-          if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady) {
+          if (typeof saveState === "function" && remoteStateReady && pendingRemoteSave) saveState();
+          if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady && attendancePendingRemoteSave) {
             attendanceRemotePermissionDenied = false;
             pushAttendanceToFirebase();
           }
@@ -2107,7 +2107,7 @@
           const remote = getBossRemoteData(val);
           applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId, bossSyncBase, val.version || val.data?.version);
           if (senderId !== CLIENT_ID) showToast("🔄 Team vừa cập nhật Boss Timeline.");
-          if (isAdmin()) saveState();
+          if (isAdmin() && pendingRemoteSave) saveState();
         } else if (!val) {
           if (isAdmin() && !bossFirebaseSeedAttempted) {
             bossFirebaseSeedAttempted = true;
@@ -2854,6 +2854,31 @@
         progressSpan.style.width = `${progress}%`;
       }
 
+      // Update Column 2 (Boss Name)
+      if (row.children[1]) {
+        const nameDiv = row.children[1].querySelector("div[style*='font-weight:800']");
+        if (nameDiv && nameDiv.textContent !== boss.name) nameDiv.textContent = boss.name;
+      }
+
+      // Update Column 3 (Level)
+      if (row.children[2]) {
+        const levelBadge = row.children[2].querySelector(".level-badge");
+        const expLevel = `Lv. ${boss.level || 80}`;
+        if (levelBadge && levelBadge.textContent !== expLevel) levelBadge.textContent = expLevel;
+      }
+
+      // Update Column 4 (Map)
+      if (row.children[3]) {
+        const mapStrong = row.children[3].querySelector("strong");
+        if (mapStrong && mapStrong.textContent !== boss.map) mapStrong.textContent = boss.map;
+      }
+
+      // Update Column 6 (Notes)
+      if (row.children[5]) {
+        const notesContent = boss.notes ? escapeHtml(boss.notes) : '<span class="notes-empty">—</span>';
+        if (row.children[5].innerHTML !== notesContent) row.children[5].innerHTML = notesContent;
+      }
+
       // Luôn đảm bảo nút bấm khớp 100% với trạng thái sống/chết (chống nhấp nháy hoặc kẹt nút)
       if (isAdmin()) {
         const actionPanel = row.querySelector(".compact-action-panel");
@@ -2911,8 +2936,8 @@
         return;
       }
 
-      // Structural key: thay đổi khi trạng thái chết/sống thay đổi hoặc thay đổi filter/role/view
-      const structKey = bosses.map((b) => `${b.id}:${b.diedAt || 0}:${b.respawnsAt || 0}:${getBossStatus(b, now)}`).join(",")
+      // Structural key: thay đổi khi trạng thái chết/sống thay đổi hoặc thay đổi filter/role/view/dữ liệu boss/ghi chú
+      const structKey = bosses.map((b) => `${b.id}:${b.revision || 0}:${b.diedAt || 0}:${b.respawnsAt || 0}:${getBossStatus(b, now)}:${b.notes || ''}:${b.name || ''}:${b.level || 0}`).join(",")
         + "|" + currentRole + "|" + currentLang + "|" + activeFilter + "|" + (activeLevelFilter || "all") + "|" + activeView;
 
       if (structKey !== lastRenderedGridKey) {
@@ -2980,6 +3005,37 @@
       const metaSpans = card.querySelectorAll(".boss-meta span");
       if (metaSpans[0] && metaSpans[0].textContent !== respawnTimeText) metaSpans[0].textContent = respawnTimeText;
       if (metaSpans[1] && metaSpans[1].textContent !== `${progress}%`) metaSpans[1].textContent = `${progress}%`;
+
+      const nameEl = card.querySelector(".boss-name");
+      if (nameEl) {
+        const expectedName = `${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${escapeHtml(boss.name)}`;
+        if (nameEl.innerHTML !== expectedName) nameEl.innerHTML = expectedName;
+      }
+
+      const mapEl = card.querySelector(".boss-map");
+      if (mapEl) {
+        const expectedMap = `${escapeHtml(boss.map)} · <span class="level-badge">Lv. ${boss.level || 80}</span>`;
+        if (mapEl.innerHTML !== expectedMap) mapEl.innerHTML = expectedMap;
+      }
+
+      let notesEl = card.querySelector(".boss-card-notes");
+      if (boss.notes) {
+        const expectedNotesHtml = `<span style="font-weight:700; color:var(--text);">📝 Ghi chú:</span> ${escapeHtml(boss.notes)}`;
+        if (notesEl) {
+          if (notesEl.innerHTML !== expectedNotesHtml) notesEl.innerHTML = expectedNotesHtml;
+        } else {
+          const timerPanel = card.querySelector(".timer-panel");
+          if (timerPanel) {
+            notesEl = document.createElement("div");
+            notesEl.className = "boss-card-notes";
+            notesEl.style.cssText = "margin-top:8px; padding:6px 10px; background:var(--surface-2); border-radius:6px; font-size:12px; color:var(--text-2); border-left:3px solid var(--cyan); word-break:break-word; line-height:1.4;";
+            notesEl.innerHTML = expectedNotesHtml;
+            timerPanel.insertAdjacentElement("afterend", notesEl);
+          }
+        }
+      } else if (notesEl) {
+        notesEl.remove();
+      }
 
       // Đồng bộ nút bấm tương ứng ngay lập tức khi boss chết/sống
       if (isAdmin()) {
@@ -3095,6 +3151,12 @@
               <span>${progress}%</span>
             </div>
           </div>
+
+          ${boss.notes ? `
+            <div class="boss-card-notes" style="margin-top:8px; padding:6px 10px; background:var(--surface-2); border-radius:6px; font-size:12px; color:var(--text-2); border-left:3px solid var(--cyan); word-break:break-word; line-height:1.4;">
+              <span style="font-weight:700; color:var(--text);">📝 Ghi chú:</span> ${escapeHtml(boss.notes)}
+            </div>
+          ` : ''}
 
           ${actionsHtml}
         </article>
@@ -5289,8 +5351,10 @@
           document.getElementById("attExportModal")?.classList.remove("open");
           syncModalScrollLock();
         }
-        if (document.getElementById("adminAccModal")?.classList.contains("open")) {
-          document.getElementById("adminAccModal")?.classList.remove("open");
+        if (document.getElementById("attOcrModal")?.classList.contains("open")) closeAttendanceOcrModal();
+        if (document.getElementById("attEvidenceModal")?.classList.contains("open")) closeAttendanceEvidenceModal();
+        if (document.getElementById("adminAccountModal")?.classList.contains("open")) {
+          document.getElementById("adminAccountModal")?.classList.remove("open");
           syncModalScrollLock();
         }
         if (elements.serverModal?.classList.contains("open")) closeServerModal();
@@ -5833,7 +5897,8 @@
           const listRef = firebaseDb.ref("boss_timeline_servers_list");
           if (typeof listRef.transaction === "function") {
             const result = await listRef.transaction(current => {
-              const latest = Array.isArray(current) ? current.slice() : serverList.slice();
+              const parsedCurrent = normalizeServerList(current);
+              const latest = parsedCurrent.length ? parsedCurrent : serverList.slice();
               let candidate = newId;
               let candidateNumber = nextNum;
               while (latest.some(item => item.id === candidate)) candidate = "s" + (++candidateNumber);
@@ -5845,7 +5910,8 @@
               showToast("❌ Không thể tạo Server vì tên vừa được Admin khác sử dụng.");
               return;
             }
-            serverList = result.snapshot.val() || [];
+            serverList = normalizeServerList(result.snapshot.val());
+            if (!serverList.length) serverList = [...DEFAULT_SERVERS];
             newId = newServerObj.id;
           } else {
             serverList.push(newServerObj);
@@ -5951,7 +6017,8 @@
           const listRef = firebaseDb.ref("boss_timeline_servers_list");
           if (typeof listRef.transaction === "function") {
             const result = await listRef.transaction(current => {
-              const latest = Array.isArray(current) ? current.slice() : serverList.slice();
+              const parsedCurrent = normalizeServerList(current);
+              const latest = parsedCurrent.length ? parsedCurrent : serverList.slice();
               if (latest.some(item => item.id !== serverId && String(item.name || "").toLowerCase() === trimmed.toLowerCase())) return;
               return latest.map(item => item.id === serverId ? { ...item, name: trimmed } : item);
             });
@@ -5959,7 +6026,8 @@
               showToast("❌ Tên Server vừa được Admin khác sử dụng.");
               return false;
             }
-            serverList = result.snapshot.val() || [];
+            serverList = normalizeServerList(result.snapshot.val());
+            if (!serverList.length) serverList = [...DEFAULT_SERVERS];
           } else {
             sv.name = trimmed;
           }
@@ -6008,9 +6076,13 @@
         try {
           const listRef = firebaseDb.ref("boss_timeline_servers_list");
           if (typeof listRef.transaction === "function") {
-            const result = await listRef.transaction(current => (Array.isArray(current) ? current : serverList).filter(item => item.id !== serverId));
+            const result = await listRef.transaction(current => {
+              const currentList = normalizeServerList(current);
+              return (currentList.length ? currentList : serverList).filter(item => item.id !== serverId);
+            });
             if (!result.committed) return false;
-            serverList = result.snapshot.val() || [];
+            serverList = normalizeServerList(result.snapshot.val());
+            if (!serverList.length) serverList = [...DEFAULT_SERVERS];
           } else {
             serverList = serverList.filter(s => s.id !== serverId);
           }
@@ -6032,14 +6104,25 @@
       showToast("🗑️ Đã xóa máy chủ thành công.");
     }
 
+    function normalizeServerList(val) {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.filter(item => item && item.id);
+      if (typeof val === "object") {
+        if (Array.isArray(val.items)) return val.items.filter(item => item && item.id);
+        if (val.items && typeof val.items === "object") return Object.values(val.items).filter(item => item && item.id);
+        return Object.values(val).filter(item => item && typeof item === "object" && item.id);
+      }
+      return [];
+    }
+
     function initServerListSync() {
       if (!REALTIME_ENABLED || !firebaseDb) return;
       try {
         firebaseDb.ref("boss_timeline_servers_list").on("value", (snap) => {
-          const remoteList = snap.val();
-          if (Array.isArray(remoteList) && remoteList.length > 0) {
-            const validList = remoteList.filter(server => server && server.id);
-            if (validList.length && JSON.stringify(serverList) !== JSON.stringify(validList)) {
+          const remoteRaw = snap.val();
+          const validList = normalizeServerList(remoteRaw);
+          if (validList.length > 0) {
+            if (JSON.stringify(serverList) !== JSON.stringify(validList)) {
               serverList = cloneRealtimeValue(validList);
               try {
                 localStorage.setItem(STORAGE_SERVERS_KEY, JSON.stringify(serverList));

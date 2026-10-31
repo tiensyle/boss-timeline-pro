@@ -3389,7 +3389,8 @@
     }
     .att-search-input {
       width: 100%;
-      height: 42px;
+      box-sizing: border-box;
+      height: var(--att-toolbar-control-height, 48px);
       padding: 0 14px 0 38px;
       border-radius: var(--radius);
       border: 1px solid var(--line-soft);
