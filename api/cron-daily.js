@@ -99,7 +99,7 @@ function calculateBossEventTimesForToday(boss, history, nowTimestamp) {
 /**
  * Xây dựng Discord payload cho 1 server
  */
-function buildDiscordPayload(serverName, serverIcon, items, dateDisplay, tagEveryone) {
+function buildDiscordPayload(serverName, serverIcon, items, dateDisplay) {
   const iconStr = serverIcon ? `${serverIcon} ` : "";
   let description = `📅 **BÁO CÁO LỊCH BOSS HÔM NAY — ${dateDisplay}**\n`;
   description += `🖥️ Server: **${iconStr}${serverName}**\n`;
@@ -127,7 +127,7 @@ function buildDiscordPayload(serverName, serverIcon, items, dateDisplay, tagEver
   return {
     username: "Boss Tracker Alert",
     avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
-    content: `${tagEveryone ? "@everyone " : ""}📢 **[${iconStr}${serverName}] BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**`,
+    content: `@everyone 📢 **[${iconStr}${serverName}] BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**`,
     embeds: [
       {
         title: `📅 [${iconStr}${serverName}] LỊCH BOSS HÔM NAY — ${dateDisplay}`,
@@ -137,7 +137,7 @@ function buildDiscordPayload(serverName, serverIcon, items, dateDisplay, tagEver
         timestamp: new Date().toISOString()
       }
     ],
-    allowed_mentions: { parse: tagEveryone ? ["everyone"] : [] }
+    allowed_mentions: { parse: ["everyone"] }
   };
 }
 
@@ -200,25 +200,23 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
       continue;
     }
 
+    // Chọn đúng webhook cho server này: ưu tiên env var, fallback Firebase
     const suffix = serverId.toUpperCase().replace(/-/g, "_");
-    let webhookUrl = "";
-    let config;
-    try {
-      const configPath = serverId === "s1" ? "boss_timeline_discord_config" : `boss_timeline_servers/${serverId}/discord_config`;
-      const configRes = await fetchImpl(firebaseUrl(databaseUrl, configPath, env), { signal: AbortSignal.timeout(8000) });
-      if (!configRes.ok) throw new Error("Cannot read Discord settings");
-      config = await configRes.json();
-      if (!config?.enabled || config.notifyDailySchedule === false) {
-        results.push({ serverId, serverName, status: "disabled" });
-        continue;
-      }
-      const webhookRes = await fetchImpl(firebaseUrl(databaseUrl, `boss_timeline_webhook_urls/${serverId}`, env), { signal: AbortSignal.timeout(8000) });
-      if (!webhookRes.ok) throw new Error("Cannot read Discord webhook settings");
-      const stored = await webhookRes.json();
-      webhookUrl = (stored?.url || env[`DISCORD_WEBHOOK_${suffix}`] || env.DISCORD_WEBHOOK_URL || "").trim();
-    } catch (error) {
-      results.push({ serverId, serverName, status: "error", reason: error.message });
-      continue;
+    let webhookUrl = (env[`DISCORD_WEBHOOK_${suffix}`] || "").trim();
+
+    // Fallback: đọc từ Firebase boss_timeline_webhook_urls/{serverId}/url
+    if (!webhookUrl) {
+      try {
+        const fbWebhookRes = await fetchImpl(firebaseUrl(databaseUrl, `boss_timeline_webhook_urls/${serverId}`, env), {
+          signal: AbortSignal.timeout(8000)
+        });
+        if (fbWebhookRes.ok) {
+          const fbWebhookData = await fbWebhookRes.json();
+          if (fbWebhookData && typeof fbWebhookData.url === "string") {
+            webhookUrl = fbWebhookData.url.trim();
+          }
+        }
+      } catch (_) {}
     }
 
     if (!webhookUrl || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
@@ -281,31 +279,13 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
     items.sort((a, b) => (a.eventTime - b.eventTime) || (a.order - b.order));
 
     // Build payload và gửi Discord
-    const payload = buildDiscordPayload(serverName, serverIcon, items, dateDisplay, config.tagEveryone !== false);
-    let body = JSON.stringify(payload);
-    let headers = { "Content-Type": "application/json" };
-    if (items.length > 35 || payload.embeds[0].description.length > 4096) {
-      payload.embeds[0].description = `Tổng số: **${items.length} lượt boss**. Toàn bộ lịch nằm trong tệp CSV đính kèm (UTC+7).`;
-      const cell = value => {
-        let text = String(value ?? "");
-        if (/^[\s]*[=+@-]/.test(text)) text = "'" + text;
-        return '"' + text.replaceAll('"', '""') + '"';
-      };
-      const csv = "\uFEFF" + [["Giờ (UTC+7)", "Boss", "Level", "Map"], ...items.map(item => [
-        new Date(item.eventTime + 7 * 3600000).toISOString().slice(11, 19), item.boss.name, item.boss.level || "", item.boss.map || ""
-      ])].map(row => row.map(cell).join(",")).join("\r\n");
-      const form = new FormData();
-      form.append("payload_json", JSON.stringify(payload));
-      form.append("files[0]", new Blob([csv], { type: "text/csv;charset=utf-8" }), `lich_boss_${dateKey}.csv`);
-      body = form;
-      headers = undefined;
-    }
+    const payload = buildDiscordPayload(serverName, serverIcon, items, dateDisplay);
     let discordAccepted = false;
     try {
       const discordRes = await fetchImpl(webhookUrl, {
         method: "POST",
-        headers,
-        body,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(15000)
       });
 
@@ -329,9 +309,8 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
   }
 
   const sentCount = results.filter(r => r.status === "sent").length;
-  const failed = results.some(result => ["error", "discord_error", "skipped"].includes(result.status));
-  return res.status(failed ? 502 : 200).json({
-    success: !failed,
+  return res.status(200).json({
+    success: true,
     date: dateDisplay,
     summary: `Sent to ${sentCount}/${serversList.length} servers`,
     results

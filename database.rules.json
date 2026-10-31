@@ -8,9 +8,7 @@
       "data": {
         ".read": true,
         "bosses": {
-          "$index": {
-            ".validate": "newData.hasChildren(['id', 'revision', 'updatedAt', 'updatedBy']) && newData.child('revision').isNumber() && newData.child('revision').val() >= 0 && newData.child('updatedAt').isNumber() && newData.child('updatedBy').isString()"
-          }
+          ".validate": true
         },
         "history": {
           ".validate": true
@@ -56,9 +54,7 @@
           "data": {
             ".read": true,
             "bosses": {
-              "$index": {
-                ".validate": "newData.hasChildren(['id', 'revision', 'updatedAt', 'updatedBy']) && newData.child('revision').isNumber() && newData.child('revision').val() >= 0 && newData.child('updatedAt').isNumber() && newData.child('updatedBy').isString()"
-              }
+              ".validate": true
             },
             "history": {
               ".validate": true

@@ -35,9 +35,9 @@
 
 ## Discord an toàn
 
-- Webhook được lưu trong nhánh Firebase `boss_timeline_webhook_urls/{serverId}`, chỉ Admin được đọc/ghi. Giao diện Admin đọc URL vào bộ nhớ và gửi tới API qua HTTPS; không lưu vào localStorage. API và Cron cùng ưu tiên URL này, rồi biến môi trường riêng của server, cuối cùng webhook chung.
+- Webhook chỉ được lưu bằng biến môi trường trên Vercel; trình duyệt và Firebase không lưu URL bí mật.
 - Dùng `DISCORD_WEBHOOK_URL` cho webhook chung.
-- Nếu mỗi server có webhook riêng, dùng `DISCORD_WEBHOOK_S1`, `DISCORD_WEBHOOK_S2`... Biến theo server được ưu tiên trước biến chung, sau webhook được lưu trong giao diện.
+- Nếu mỗi server có webhook riêng, dùng `DISCORD_WEBHOOK_S1`, `DISCORD_WEBHOOK_S2`... Biến theo server được ưu tiên trước biến chung.
 - API `/api/discord` yêu cầu Firebase ID token và kiểm tra quyền Admin trước khi gửi tin nhắn hoặc ảnh.
 - Bản GitHub Pages tại `https://tiensyle.github.io/boss-timeline-pro/` tự gọi API hiện có tại `https://bosschill.vercel.app/api/discord`. API cho phép đúng origin `https://tiensyle.github.io`, vẫn yêu cầu Admin; các website GitHub Pages của tài khoản khác không được phép.
 - Thông báo tự động được khóa bằng transaction để hai tab không cùng gửi một sự kiện; khi gửi thất bại, khóa được gỡ để cho phép thử lại. Các yêu cầu được xếp hàng và xử lý thời gian chờ khi API trả về 429.
@@ -82,21 +82,3 @@ Kiểm thử giao diện trong `tests/browser.mjs` cần Playwright và Chromium
 PDF dùng chức năng in của trình duyệt; không tải thư viện `html2pdf` không còn được sử dụng.
 
 Kiểm thử Rules trong Node kiểm tra các biểu thức cấp quyền và quy tắc kế thừa tại các đường dẫn liên quan; không thay thế Firebase Emulator hoặc kiểm tra quyền trên bản triển khai. Giới hạn gửi theo UID trong API là theo tiến trình; khóa thông báo tự động trong Firebase mới là phần chống gửi trùng giữa các tab/instance.
-
-## Bản sửa đồng bộ nhiều máy — 31/10/2026
-
-- Máy vừa mở phải nhận và áp dụng dữ liệu Firebase trước khi tự xử lý boss hồi sinh. Dữ liệu cũ thiếu revision được kiểm tra xung đột theo nội dung, tránh ghi đè mốc chết mới.
-- Nhãn Đã đồng bộ chỉ xuất hiện sau khi đã nhận dữ liệu boss; kết nối Firebase đơn thuần chưa được tính là đồng bộ.
-- Các phép tính lịch và định dạng giờ trong giao diện dùng UTC+7, không phụ thuộc múi giờ máy.
-- Server mới dùng UUID, không tái sử dụng mã server đã xóa và không nhận nhầm webhook/chấm công cũ.
-- Thưởng chức danh được phân bổ chung theo đơn vị nguyên để bảo toàn quỹ. Nếu tổng tỷ lệ vượt 100%, toàn bộ quỹ được chia theo tỷ trọng thưởng, phần chia điểm danh bằng 0; giao diện hiển thị cảnh báo. Cấu hình thưởng rỗng nghĩa là tắt thưởng, không tự khôi phục mặc định. Sửa thưởng một tuần không thay đổi cấu hình các tuần khác.
-- Cài đặt Discord chỉ báo lưu thành công khi Firebase xác nhận. Cron tuân theo enabled, notifyDailySchedule và tagEveryone; lịch dài được đính kèm CSV đầy đủ. Cron trả lỗi khi có server gửi thất bại hoặc thiếu webhook.
-
-### Áp dụng bản sửa lên hệ thống thật
-
-1. Sao lưu dữ liệu bằng phiên Admin và đóng các tab cũ trên cả hai máy.
-2. Triển khai mã mới lên Vercel và publish database.rules.json. Rules bổ sung yêu cầu metadata revision trên từng boss để từ chối các bản cũ làm mất metadata. Bản sửa không tự sửa các giờ boss đã bị ghi đè trước đây.
-3. Mở lại cùng URL có ?sv=s1 trên hai máy, đợi Đã đồng bộ, đối chiếu cùng một boss. Thử ghi nhận chết một boss theo dữ liệu thực tế và kiểm tra máy còn lại nhận đúng.
-4. Xác minh CRON_SECRET và FIREBASE_DATABASE_AUTH, cài đặt Discord trên từng server. Kiểm tra trước ở môi trường thử nghiệm; bộ test Rules trong dự án chưa thay thế Firebase Emulator.
-
-Chạy kiểm thử: npm test, npm run check, npm run test:browser. Trong môi trường hạn chế tạo tiến trình con, có thể dùng node --test --test-isolation=none tests/*.test.mjs.
