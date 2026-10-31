@@ -71,7 +71,7 @@ test('mixed boss conflicts produce per-boss delivery results, not false failure 
   const ctx=load(['cloneRealtimeValue','mergeRealtimeChanges','mergeBossStateChanges','getBossRemoteData','getChangedBossIds','enqueueBossSaveWaiter','discardConflictedQueuedBossChanges','applyRemoteState','saveState'],{
     state:local,bossSyncBase:copy(base),isAdmin:()=>true,REALTIME_ENABLED:true,firebaseAuthReady:true,
     stateDbRef:{transaction:update=>{remote=update(remote);return Promise.resolve({committed:true,snapshot:{val:()=>remote}})}},
-    normalizeBoss:copy,getNow:()=>1000,saveStateLocal:()=>{},render:()=>{},setRealtimeStatus:()=>{},showToast:()=>{},
+    normalizeBoss:copy,getNow:()=>1000,BOSS_SYNC_PROTOCOL:2,makeBossSyncEpoch:()=>"test-epoch",saveStateLocal:()=>{},render:()=>{},setRealtimeStatus:()=>{},showToast:()=>{},
     lastLocalEditTime:0,lastRemoteUpdatedAt:0,lastRenderedGridKey:'',remoteStateReady:true,remoteSaveInFlight:false,pendingRemoteSave:false,
     bossSyncGeneration:1,bossDeferredRemoteData:null,CLIENT_ID:'test',lastBossConflictIds:[],
     pendingBossSaveWaiters:[],activeBossSaveWaiters:new Set(),broadcastConfirmedBossState:()=>{},
@@ -93,4 +93,3 @@ test('renaming one server must not remove a server added by another admin', asyn
   await ctx.renameServer('s2','Renamed by admin A');
   assert.ok(remoteList.some(server=>server.id==='s3'), 'Full-array .set(serverList) deletes remote-only server s3');
 });
-

@@ -20,6 +20,32 @@ function permitted(path, action, auth) {
   return false;
 }
 
+function snapshot(value) {
+  return {
+    child(path) {
+      const next = String(path).split("/").filter(Boolean).reduce((current, key) => {
+        if (current == null || typeof current !== "object") return undefined;
+        return current[key];
+      }, value);
+      return snapshot(next);
+    },
+    val: () => value,
+    exists: () => value !== undefined && value !== null,
+    isString: () => typeof value === "string",
+    isNumber: () => typeof value === "number" && Number.isFinite(value)
+  };
+}
+
+function evaluateWrite(rule, { auth, current, next, active = true }) {
+  const writeRoot = snapshot({ admin_access: { [auth?.uid || "missing"]: { active } } });
+  return Function("auth", "root", "data", "newData", `return (${rule});`)(
+    auth,
+    writeRoot,
+    snapshot(current),
+    snapshot(next)
+  );
+}
+
 test("public boss and attendance data are readable while legacy attendance stays protected", () => {
   const privatePaths = ["boss_timeline_state", "boss_timeline_state/attendance_global", "boss_timeline_attendance", "boss_timeline_servers/s2/attendance"];
   for (const path of privatePaths) {
@@ -48,4 +74,46 @@ test("only approved admins can write attendance and approval removal takes effec
   assert.equal(permitted(path, ".write", { uid: "revoked", token: {} }), false);
   assert.equal(permitted(path, ".write", null), false);
   assert.equal(rules.boss_timeline_state.data.$other[".validate"], false);
+});
+
+test("primary state permits a secure first seed and requires protocol v2", () => {
+  const writeRule = rules.boss_timeline_state[".write"];
+  const admin = { uid: "approved", token: {} };
+  const seed = { data: { syncProtocol: 2, syncEpoch: "epoch-123", version: 1 } };
+
+  assert.equal(evaluateWrite(writeRule, { auth: admin, current: {}, next: seed }), true);
+  assert.equal(evaluateWrite(writeRule, { auth: null, current: {}, next: seed }), false);
+  assert.equal(evaluateWrite(writeRule, { auth: admin, current: {}, next: seed, active: false }), false);
+  assert.equal(evaluateWrite(writeRule, {
+    auth: admin,
+    current: {},
+    next: { data: { syncProtocol: 1, syncEpoch: "epoch-123", version: 1 } }
+  }), false);
+  assert.equal(evaluateWrite(writeRule, {
+    auth: admin,
+    current: {},
+    next: { data: { syncProtocol: 2, syncEpoch: "epoch-123", version: 2 } }
+  }), false);
+});
+
+test("primary state increments versions and keeps its sync epoch", () => {
+  const writeRule = rules.boss_timeline_state[".write"];
+  const admin = { uid: "approved", token: {} };
+  const current = { data: { syncProtocol: 2, syncEpoch: "epoch-123", version: 30 } };
+
+  assert.equal(evaluateWrite(writeRule, {
+    auth: admin,
+    current,
+    next: { data: { syncProtocol: 2, syncEpoch: "epoch-123", version: 31 } }
+  }), true);
+  assert.equal(evaluateWrite(writeRule, {
+    auth: admin,
+    current,
+    next: { data: { syncProtocol: 2, syncEpoch: "epoch-999", version: 31 } }
+  }), false);
+  assert.equal(evaluateWrite(writeRule, {
+    auth: admin,
+    current,
+    next: { data: { syncProtocol: 2, syncEpoch: "epoch-123", version: 32 } }
+  }), false);
 });

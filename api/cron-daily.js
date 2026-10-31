@@ -172,11 +172,14 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
     });
     if (svListRes.ok) {
       const raw = await svListRes.json();
-      // raw có thể là array hoặc object {0: {...}, 1: {...}}
+      // Hỗ trợ cả định dạng cũ và envelope v2: { version, items }.
       if (Array.isArray(raw)) {
-        serversList = raw.filter(Boolean);
+        serversList = raw.filter((item) => item && typeof item === "object" && item.id);
+      } else if (raw && raw.items && typeof raw.items === "object") {
+        const items = Array.isArray(raw.items) ? raw.items : Object.values(raw.items);
+        serversList = items.filter((item) => item && typeof item === "object" && item.id);
       } else if (raw && typeof raw === "object") {
-        serversList = Object.values(raw).filter(Boolean);
+        serversList = Object.values(raw).filter((item) => item && typeof item === "object" && item.id);
       }
     }
   } catch (_) {

@@ -453,6 +453,7 @@ function bossSyncContext(transaction) {
     state, bossSyncBase: copy(state), isAdmin: () => true, REALTIME_ENABLED: true,
     firebaseAuthReady: true,
     stateDbRef: { transaction }, normalizeBoss: copy, getNow: () => 1000000,
+    BOSS_SYNC_PROTOCOL: 2, makeBossSyncEpoch: () => "test-epoch",
     saveStateLocal: () => {}, render: () => {}, setRealtimeStatus: () => {},
     lastLocalEditTime: 0, lastRemoteUpdatedAt: 0, lastRenderedGridKey: "",
     remoteStateReady: true, remoteSaveInFlight: false, pendingRemoteSave: false,
@@ -685,7 +686,19 @@ test("edits made while a Firebase save is pending survive the acknowledgement", 
   assert.equal(broadcasts[0].bosses[0].name, "First edit");
   assert.equal(broadcasts[0].bosses[0].notes, "");
   assert.equal(broadcasts[1].bosses[0].notes, "Second edit");
-  assert.deepEqual(Object.keys(remote.data).sort(), ["_clientId", "bosses", "history", "updated_at", "version"]);
+  assert.deepEqual(Object.keys(remote.data).sort(), ["_clientId", "bosses", "history", "syncEpoch", "syncProtocol", "updated_at", "version"]);
+  assert.equal(remote.data.syncProtocol, 2);
+  assert.equal(remote.data.syncEpoch, "test-epoch");
+});
+
+test("server list writes preserve the versioned Firebase envelope", () => {
+  const ctx = load(["makeServerListEnvelope", "normalizeServerList"], {});
+  const next = ctx.makeServerListEnvelope({ version: 4, items: { s1: { id: "s1", name: "One" } } }, [
+    { id: "s1", name: "One" }, { id: "s2", name: "Two" }
+  ]);
+  assert.equal(next.version, 5);
+  assert.deepEqual(copy(next.items.s2), { id: "s2", name: "Two" });
+  assert.deepEqual(copy(ctx.normalizeServerList(next)).map(item => item.id).sort(), ["s1", "s2"]);
 });
 
 test("failed boss save keeps the retry flag and server switches ignore stale acknowledgements", async () => {
@@ -718,6 +731,17 @@ test("realtime badge distinguishes a connected socket from confirmed synchroniza
   assert.equal(badge.dataset.status, "unsynced");
   assert.equal(text.textContent, "Chưa đồng bộ");
   assert.equal(badge.title, "Firebase write was rejected");
+});
+
+test("applying a matching Firebase snapshot clears an early unsynced badge", () => {
+  const statuses = [];
+  const ctx = bossSyncContext(() => {});
+  ctx.firebaseRealtimeConnected = true;
+  ctx.setRealtimeStatus = (type, title) => statuses.push({ type, title });
+  const remote = copy(ctx.bossSyncBase);
+  assert.equal(ctx.applyRemoteState(remote.bosses, remote.history, null, "server", remote, 2), true);
+  assert.equal(statuses.at(-1).type, "online");
+  assert.match(statuses.at(-1).title, /dữ liệu mới nhất từ Firebase/);
 });
 
 test("auth restoration cannot discard offline admin edits before permissions are known", () => {
