@@ -3361,7 +3361,7 @@
       return `${dayName}, ${dd}/${mm}/${yyyy} · 00:00 → 24:00 · UTC+7`;
     }
 
-    let scheduleDayFilter = "all";
+    let scheduleDayFilter = "today";
 
     function getBossScheduleEventTimes(boss, now, dayFilter) {
       const nowDate = new Date(now);
