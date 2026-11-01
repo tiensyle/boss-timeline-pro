@@ -261,26 +261,25 @@ try {
 
   const activityCountBeforeDayNight = await page.evaluate(() => getActiveWeek().activities.length);
   await page.locator('#attAddActivityBtn').click();
-  assert.equal(await page.locator('#attActivityDaySection').isVisible(), true);
-  assert.equal(await page.locator('#attActivityNightSection').isVisible(), true);
+  assert.equal(await page.locator('.att-activity-name-card').isVisible(), true);
+  assert.equal(await page.locator('.att-activity-time-card').isVisible(), true);
   await page.locator('#attNewActivityNameBtn').click();
-  await page.locator('#attActivityNameInput').fill('Day Boss');
-  await page.locator('#attNewActivityNightNameBtn').click();
-  await page.locator('#attActivityNightNameInput').fill('Night Boss');
+  await page.locator('#attActivityNameInput').fill('Day Night Boss');
+  await page.locator('label[for="attActivityPeriodNight"]').click();
   await page.locator('#attActivityPointsInput').fill('3');
   assert.ok((await page.locator('#attNightPointsPreview').textContent()).includes('6'));
   await page.locator('#attSaveActivityBtn').click();
   const dayNightActivities = await page.evaluate(() => getActiveWeek().activities.slice(-2));
   assert.equal(dayNightActivities.length + activityCountBeforeDayNight, await page.evaluate(() => getActiveWeek().activities.length));
   assert.deepEqual(dayNightActivities.map(item => ({ name: item.name, period: item.timePeriod, points: item.points, base: item.basePoints })), [
-    { name: 'Day Boss', period: 'day', points: 3, base: 3 },
-    { name: 'Night Boss', period: 'night', points: 6, base: 3 }
+    { name: 'Day Night Boss', period: 'day', points: 3, base: 3 },
+    { name: 'Day Night Boss', period: 'night', points: 6, base: 3 }
   ]);
   assert.equal((await page.locator('.act-period-badge.is-night').last().textContent()).trim(), '🌙');
   assert.ok((await page.locator('.act-period-badge.is-night').last().getAttribute('title')).includes('X2'));
   await page.locator(`.att-edit-act-btn[data-act-id="${dayNightActivities[1].id}"]`).click();
-  assert.equal(await page.locator('#attActivityDaySection').isVisible(), false);
-  assert.equal(await page.locator('#attActivityNightSection').isVisible(), true);
+  assert.equal(await page.locator('#attActivityPeriodDay').isChecked(), false);
+  assert.equal(await page.locator('#attActivityPeriodNight').isChecked(), true);
   assert.equal(await page.locator('#attActivityPointsInput').inputValue(), '3');
   await page.locator('#attCancelActivityBtn').click();
   const attendanceHeaderLayout = await page.evaluate(() => {

@@ -9623,8 +9623,7 @@
           input.focus();
         };
       };
-      bindPicker("attActivityNameSelect", "attActivityNameInput", "attNewActivityNameBtn", "Chọn Boss / hoạt động ban ngày…");
-      bindPicker("attActivityNightNameSelect", "attActivityNightNameInput", "attNewActivityNightNameBtn", "Chọn Boss / hoạt động ban đêm…");
+      bindPicker("attActivityNameSelect", "attActivityNameInput", "attNewActivityNameBtn", "Chọn Boss / hoạt động…");
     }
 
     function updateAttendanceActivityPointPreview() {
@@ -9635,11 +9634,11 @@
       if (night) night.textContent = `${basePoints * 2} điểm (X2)`;
     }
 
-    function setAttendanceActivityPeriodMode(period = "both") {
-      const daySection = document.getElementById("attActivityDaySection");
-      const nightSection = document.getElementById("attActivityNightSection");
-      if (daySection) daySection.hidden = period === "night";
-      if (nightSection) nightSection.hidden = period === "day";
+    function setAttendanceActivityPeriodMode(period = "day") {
+      const dayCheckbox = document.getElementById("attActivityPeriodDay");
+      const nightCheckbox = document.getElementById("attActivityPeriodNight");
+      if (dayCheckbox) dayCheckbox.checked = period === "day" || period === "both";
+      if (nightCheckbox) nightCheckbox.checked = period === "night" || period === "both";
     }
 
     function openAttendanceActivityModal(actId = null) {
@@ -9648,7 +9647,6 @@
       const titleEl = document.getElementById("attActivityModalTitle");
       const dateInput = document.getElementById("attActivityDateInput");
       const nameInput = document.getElementById("attActivityNameInput");
-      const nightNameInput = document.getElementById("attActivityNightNameInput");
       const ptsInput = document.getElementById("attActivityPointsInput");
       const editIdInput = document.getElementById("attActivityEditId");
       const delBtn = document.getElementById("attDeleteActivityBtn");
@@ -9664,8 +9662,7 @@
         if (editIdInput) editIdInput.value = act.id;
         if (dateInput) dateInput.value = act.date || "";
         const period = act.timePeriod === "night" ? "night" : "day";
-        if (nameInput) nameInput.value = period === "day" ? (act.name || "") : "";
-        if (nightNameInput) nightNameInput.value = period === "night" ? (act.name || "") : "";
+        if (nameInput) nameInput.value = act.name || "";
         if (ptsInput) ptsInput.value = act.basePoints || (period === "night" ? Math.max(1, Number(act.points || 2) / 2) : act.points) || 1;
         setAttendanceActivityPeriodMode(period);
         if (delBtn) delBtn.style.display = "inline-flex";
@@ -9678,9 +9675,8 @@
         const dateStr = `${days[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
         if (dateInput) dateInput.value = dateStr;
         if (nameInput) nameInput.value = "";
-        if (nightNameInput) nightNameInput.value = "";
         if (ptsInput) ptsInput.value = "2";
-        setAttendanceActivityPeriodMode("both");
+        setAttendanceActivityPeriodMode("day");
         if (delBtn) delBtn.style.display = "none";
       }
 
@@ -9701,20 +9697,28 @@
       if (!isAdmin()) return;
       const dateInput = document.getElementById("attActivityDateInput");
       const nameInput = document.getElementById("attActivityNameInput");
-      const nightNameInput = document.getElementById("attActivityNightNameInput");
+      const dayCheckbox = document.getElementById("attActivityPeriodDay");
+      const nightCheckbox = document.getElementById("attActivityPeriodNight");
       const ptsInput = document.getElementById("attActivityPointsInput");
       const editIdInput = document.getElementById("attActivityEditId");
       const errEl = document.getElementById("attActivityModalError");
 
       const dateStr = (dateInput?.value || "").trim();
       const name = (nameInput?.value || "").trim();
-      const nightName = (nightNameInput?.value || "").trim();
+      const selectedPeriods = [dayCheckbox?.checked ? "day" : "", nightCheckbox?.checked ? "night" : ""].filter(Boolean);
       const basePoints = Math.max(1, parseInt(ptsInput?.value, 10) || 1);
       const editId = (editIdInput?.value || "").trim();
 
-      if (!name && !nightName) {
+      if (!name) {
         if (errEl) {
-          errEl.textContent = "Vui lòng chọn ít nhất một Boss ban ngày hoặc Boss ban đêm.";
+          errEl.textContent = "Vui lòng chọn hoặc nhập tên Boss / hoạt động.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+      if (!selectedPeriods.length) {
+        if (errEl) {
+          errEl.textContent = "Vui lòng tích chọn ít nhất một khung giờ: Ban ngày hoặc Ban đêm.";
           errEl.style.display = "block";
         }
         return;
@@ -9724,13 +9728,21 @@
       if (editId) {
         const act = currWeek.activities.find(a => a.id === editId);
         if (act) {
-          const period = act.timePeriod === "night" ? "night" : "day";
-          const updatedName = period === "night" ? nightName : name;
+          const period = selectedPeriods[0];
+          const updatedName = name;
           act.date = dateStr;
           act.name = updatedName;
           act.timePeriod = period;
           act.basePoints = basePoints;
           act.points = period === "night" ? basePoints * 2 : basePoints;
+          selectedPeriods.slice(1).forEach(extraPeriod => currWeek.activities.push({
+            id: "act_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+            date: dateStr,
+            name,
+            timePeriod: extraPeriod,
+            basePoints,
+            points: extraPeriod === "night" ? basePoints * 2 : basePoints
+          }));
           showToast(`✅ Đã cập nhật: ${updatedName} (${act.points}đ${period === "night" ? " · X2 ban đêm" : ""})`);
         }
       } else {
@@ -9743,10 +9755,9 @@
           basePoints,
           points: period === "night" ? basePoints * 2 : basePoints
         });
-        if (name) created.push(makeActivity(name, "day"));
-        if (nightName) created.push(makeActivity(nightName, "night"));
+        selectedPeriods.forEach(period => created.push(makeActivity(name, period)));
         currWeek.activities.push(...created);
-        showToast(`✅ Đã thêm ${created.length} hoạt động${nightName ? ` · Boss ban đêm ${basePoints * 2} điểm (X2)` : ""}`);
+        showToast(`✅ Đã thêm ${created.length} hoạt động${selectedPeriods.includes("night") ? ` · Ban đêm ${basePoints * 2} điểm (X2)` : ""}`);
       }
 
       saveAttendanceState(attendanceState, true);

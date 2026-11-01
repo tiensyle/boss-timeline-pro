@@ -1292,28 +1292,37 @@
           <label for="attActivityDateInput">Thời Gian / Ngày <span style="color: var(--red);">*</span></label>
           <input type="text" id="attActivityDateInput" required maxlength="30" placeholder="Ví dụ: T2 22/09, T3 23/09, CN 28/09...">
         </div>
-        <section class="att-activity-period-card is-day" id="attActivityDaySection">
+        <section class="att-activity-period-card att-activity-name-card">
           <div class="att-activity-period-head">
-            <span class="att-period-icon">☀️</span>
-            <div><strong>Tên Boss / Hoạt Động (Ban ngày)</strong><small>Khung giờ thông thường · điểm cơ bản</small></div>
+            <span class="att-period-icon">👑</span>
+            <div><strong>TÊN BOSS / HOẠT ĐỘNG</strong><small>Chọn tên đã có hoặc thêm tên mới</small></div>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <select id="attActivityNameSelect" aria-label="Chọn Boss ban ngày đã thêm" style="flex:1; min-width:0;"></select>
-            <button type="button" class="button-secondary att-new-activity-name-btn" id="attNewActivityNameBtn" title="Thêm tên Boss ban ngày mới" aria-label="Thêm tên Boss ban ngày mới">+</button>
+            <select id="attActivityNameSelect" aria-label="Chọn Boss hoặc hoạt động đã thêm" style="flex:1; min-width:0;"></select>
+            <button type="button" class="button-secondary att-new-activity-name-btn" id="attNewActivityNameBtn" title="Thêm tên Boss hoặc hoạt động mới" aria-label="Thêm tên Boss hoặc hoạt động mới">+</button>
           </div>
-          <input type="text" id="attActivityNameInput" maxlength="50" placeholder="Nhập tên Boss / hoạt động ban ngày" style="margin-top:8px;" hidden>
+          <input type="text" id="attActivityNameInput" maxlength="50" placeholder="Nhập tên Boss / hoạt động" style="margin-top:8px;" hidden>
         </section>
-        <section class="att-activity-period-card is-night" id="attActivityNightSection">
+        <section class="att-activity-period-card att-activity-time-card">
           <div class="att-activity-period-head">
-            <span class="att-period-icon">🌙</span>
-            <div><strong>Tên Boss / Hoạt Động (Ban đêm 00h–7h)</strong><small>Thành viên tham gia tự động nhận X2 điểm</small></div>
-            <span class="att-night-x2">X2</span>
+            <span class="att-period-icon">🕐</span>
+            <div><strong>KHUNG GIỜ HOẠT ĐỘNG</strong><small>Tích chọn một hoặc cả hai khung giờ</small></div>
           </div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <select id="attActivityNightNameSelect" aria-label="Chọn Boss ban đêm đã thêm" style="flex:1; min-width:0;"></select>
-            <button type="button" class="button-secondary att-new-activity-name-btn" id="attNewActivityNightNameBtn" title="Thêm tên Boss ban đêm mới" aria-label="Thêm tên Boss ban đêm mới">+</button>
+          <div class="att-activity-time-options">
+            <label class="att-activity-time-option is-day" for="attActivityPeriodDay">
+              <input type="checkbox" id="attActivityPeriodDay" value="day" checked>
+              <span class="att-time-check" aria-hidden="true"></span>
+              <span class="att-time-icon">☀️</span>
+              <span class="att-time-copy"><strong>Ban ngày</strong><small>Điểm cơ bản</small></span>
+            </label>
+            <label class="att-activity-time-option is-night" for="attActivityPeriodNight">
+              <input type="checkbox" id="attActivityPeriodNight" value="night">
+              <span class="att-time-check" aria-hidden="true"></span>
+              <span class="att-time-icon">🌙</span>
+              <span class="att-time-copy"><strong>Ban đêm</strong><small>00h–7h · tự động X2 điểm</small></span>
+              <span class="att-night-x2">X2</span>
+            </label>
           </div>
-          <input type="text" id="attActivityNightNameInput" maxlength="50" placeholder="Nhập tên Boss / hoạt động ban đêm" style="margin-top:8px;" hidden>
         </section>
         <div class="form-field" style="margin-bottom: 16px;">
           <label for="attActivityPointsInput">Điểm cơ bản</label>
