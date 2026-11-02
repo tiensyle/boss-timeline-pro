@@ -5214,23 +5214,45 @@
       const form = event.target.closest("[data-permissions-uid]");
       if (!form) return;
       event.preventDefault();
-      if (!isSuperAdmin() || !firebaseDb) return;
+      if (!isSuperAdmin() || !firebaseDb) {
+        showToast("Bạn cần đăng nhập Admin chính để lưu quyền.");
+        return;
+      }
       const permissions = normalizeAdminPermissions(Object.fromEntries(new FormData(form)));
       const button = form.querySelector("button[type=submit]");
       const status = form.querySelector("[role=status]");
       button.disabled = true;
+      status.textContent = "Đang lưu quyền…";
       try {
-        const result = await firebaseDb.ref(`admin_access/${form.dataset.permissionsUid}`).transaction(profile => {
-          if (!profile || profile.active !== true) return;
-          return { ...profile, permissions, permissionsUpdatedAt: Date.now(), permissionsUpdatedBy: firebaseAuth.currentUser.uid };
-        });
-        if (!result.committed) throw new Error("Admin đã bị thu hồi quyền");
+        await saveAdminPermissions(form.dataset.permissionsUid, permissions);
         status.textContent = "Đã lưu quyền";
         showToast("🔐 Đã cập nhật quyền Admin.");
       } catch (error) {
-        status.textContent = "Chưa lưu được quyền. Kiểm tra Firebase Rules.";
+        console.error("Admin permission save error:", error);
+        const message = error?.code === "admin/revoked"
+          ? "Tài khoản này đã bị thu hồi quyền. Hãy tải lại danh sách Admin."
+          : "Chưa lưu được quyền. Kiểm tra kết nối và quyền Admin chính.";
+        status.textContent = message;
+        showToast(message);
       } finally { button.disabled = false; }
     });
+
+    async function saveAdminPermissions(uid, permissions) {
+      if (!isSuperAdmin() || !firebaseDb) throw new Error("Admin chính mới được lưu quyền");
+      const ref = firebaseDb.ref(`admin_access/${uid}`);
+      const snapshot = await ref.once("value");
+      if (snapshot.val()?.active !== true) {
+        throw Object.assign(new Error("Admin đã bị thu hồi quyền"), { code: "admin/revoked" });
+      }
+      // Patch only permission fields. A transaction can initially receive null
+      // from its cold cache and abort before fetching the existing account.
+      // If revocation races this patch, Rules reject the incomplete new profile.
+      await ref.update({
+        permissions: normalizeAdminPermissions(permissions),
+        permissionsUpdatedAt: Date.now(),
+        permissionsUpdatedBy: firebaseAuth.currentUser.uid
+      });
+    }
 
     function isSuperAdmin() {
       return isAdmin() && currentUserIsSuperAdmin;
@@ -10561,7 +10583,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.11.02.v23-admin-permissions";
+    const CURRENT_APP_VERSION = "2026.11.02.v24-admin-permission-save";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
