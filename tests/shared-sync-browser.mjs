@@ -24,6 +24,12 @@ const mockSdk=`(() => {
   off(){listeners.delete(path)},
   once:async()=>{const value=await window.__dbRead(path);completePaths.add(path);return snapshot(value)},
   async transaction(update,_completion,applyLocally){
+   // Firebase may first invoke a transaction with an empty local cache even
+   // when this account already exists remotely. Returning undefined aborts it.
+   if(path.startsWith('admin_access/')) {
+    const first=update(null);
+    if(first===undefined)return {committed:false,snapshot:snapshot(null)};
+   }
    for(let attempt=0;attempt<20;attempt++){
     const current=await window.__dbRead(path);const next=update(structuredClone(current));
     if(next===undefined)return {committed:false,snapshot:snapshot(current)};
@@ -31,7 +37,10 @@ const mockSdk=`(() => {
     if(result.ok)return {committed:true,snapshot:snapshot(result.value)};
    } throw Error('Mock transaction retries exceeded');
   },
-  async update(patch){await window.__dbSet({path,value:{...await window.__dbRead(path),...patch}})},async set(value){await window.__dbSet({path,value})},remove:async()=>{throw Error('Unexpected automatic deletion')}
+  async update(patch){
+   if(window.__rejectPermissionWrites&&path.startsWith('admin_access/'))throw Object.assign(new Error('Firebase rejected permission save'),{code:'PERMISSION_DENIED'});
+   await window.__dbSet({path,value:{...await window.__dbRead(path),...patch}})
+  },async set(value){await window.__dbSet({path,value})},remove:async()=>{throw Error('Unexpected automatic deletion')}
  }}
  window.__emitDatabase=async paths=>{for(const [path,callbacks] of [...listeners])if(paths.some(changed=>!changed||path===changed||path.startsWith(changed+'/')||changed.startsWith(path+'/'))){const value=await window.__dbRead(path);for(const callback of [...callbacks])if(listeners.get(path)?.has(callback))await callback(snapshot(value));}};
  const user={uid:'test-admin',email:'admin@example.invalid',displayName:'Test Admin',getIdTokenResult:async()=>({claims:{admin:true}}),getIdToken:async()=> 'offline-test-token'};
@@ -124,8 +133,9 @@ try {
  assert.equal(writes,beforeWrites,'read-only admin cannot use direct action handlers to write');
  checks.push('Read-only secondary admin has no edit controls or direct-handler writes');
  await pages[0].evaluate(()=>openAdminAccModal());
- const form=pages[0].locator('form[data-permissions-uid="admin-1"]');
- await form.locator('..').locator('summary').click();
+ await pages[0].locator('[data-permission-uid="admin-1"]').click();
+ const form=pages[0].locator('#adminPermissionsForm');
+ await form.locator('[name=bosses]').waitFor();
  await form.locator('[name=bosses]').selectOption('none');
  await form.locator('[name=attendance]').selectOption('edit');
  await form.locator('button[type=submit]').click();
@@ -143,10 +153,27 @@ try {
  await pages[1].evaluate(()=>switchPageView('attendance'));
  assert.equal(await pages[1].locator('#attendanceContent').isVisible(),false);
  checks.push('Restored Boss viewing reconnects while denied attendance stays hidden');
+ await pages[0].locator('#closeAdminPermissionsModal').click();
+ put('admin_access/admin-2',{active:true,email:'second@example.invalid',name:'Admin thứ hai',approvedAt:now,approvedBy:'admin-0',permissions:{bosses:'view',attendance:'view',servers:'view',discord:'none'}});
+ await pages[0].evaluate(()=>renderAdminAccList());
+ await pages[0].locator('[data-permission-uid="admin-2"]').click();
+ await form.locator('[name=bosses]').waitFor();
+ assert.ok(await pages[0].locator('#adminPermissionsTarget').textContent().then(text=>text.includes('second@example.invalid')));
+ await form.locator('[name=discord]').selectOption('edit');
+ await pages[0].evaluate(()=>{window.__rejectPermissionWrites=true});
+ await form.locator('button[type=submit]').click();
+ await form.locator('[role=status]').filter({hasText:'PERMISSION_DENIED'}).waitFor();
+ assert.equal(read('admin_access/admin-2').permissions.discord,'none');
+ await pages[0].evaluate(()=>{window.__rejectPermissionWrites=false});
+ await form.locator('button[type=submit]').click();
+ await form.locator('[role=status]').filter({hasText:'Đã lưu quyền'}).waitFor();
+ assert.equal(read('admin_access/admin-2').permissions.discord,'edit');
+ assert.equal(read('admin_access/admin-1').permissions.discord,'none');
+ checks.push('Each account has its own permission dialog; failed saves show a visible error and can be retried');
  if(process.env.BOSS_TIMELINE_TEST_OUTPUT) {
   const {mkdir}=await import('node:fs/promises');
   await mkdir(process.env.BOSS_TIMELINE_TEST_OUTPUT,{recursive:true});
-  await pages[0].locator('#adminAccountModal .modal').screenshot({path:process.env.BOSS_TIMELINE_TEST_OUTPUT+'/admin-permissions.png'});
+  await pages[0].locator('#adminPermissionsModal .modal').screenshot({path:process.env.BOSS_TIMELINE_TEST_OUTPUT+'/admin-permissions.png'});
  }
  assert.deepEqual(errors,[]);
  console.log(JSON.stringify({passed:checks.length,checks,writes,errors},null,2));

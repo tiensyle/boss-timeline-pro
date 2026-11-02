@@ -68,3 +68,60 @@ test('frontend separates identity, module edit permissions and member viewing',(
  ctx.currentUserIsSuperAdmin=false;ctx.currentAdminPermissions=null;
  assert.equal(ctx.isAdmin('bosses'),true,'existing approved accounts remain compatible');
 });
+
+function permissionSaver(globals) {
+ const ctx=vm.createContext({Date,setTimeout,clearTimeout,...globals});
+ for(const name of ['normalizeAdminPermissions','saveAdminPermissions']){
+  const match=new RegExp(`^    (?:async )?function ${name}\\(`,'m').exec(source);
+  vm.runInContext(source.slice(match.index,source.indexOf('\n    }',match.index)+6),ctx);
+ }
+ return ctx;
+}
+
+test('permission save patches an existing account without depending on transaction cache',async()=>{
+ const profile={active:true,email:'admin@example.invalid',name:'Admin',approvedAt:1,approvedBy:'owner'};
+ const ctx=permissionSaver({isSuperAdmin:()=>true,firebaseAuth:{currentUser:{uid:'owner'}},
+  firebaseDb:{ref:path=>{
+   assert.equal(path,'admin_access/secondary');
+   return {once:async()=>({val:()=>profile}),
+    transaction:()=>{throw Error('Cold transaction cache must not be used');},
+    update:async patch=>Object.assign(profile,patch)};
+  }}});
+ await ctx.saveAdminPermissions('secondary',{bosses:'edit',attendance:'view',servers:'view',discord:'none'});
+ assert.equal(profile.permissions.bosses,'edit');
+ assert.equal(profile.permissions.attendance,'view');
+ assert.equal(profile.email,'admin@example.invalid');
+ assert.equal(profile.active,true);
+ assert.equal(profile.approvedAt,1);
+ assert.equal(profile.permissionsUpdatedBy,'owner');
+});
+
+test('permission save refuses revoked accounts and propagates write failures',async()=>{
+ let written=false;
+ const revoked=permissionSaver({isSuperAdmin:()=>true,firebaseDb:{ref:()=>({
+  once:async()=>({val:()=>null}),update:async()=>{written=true;}
+ })}});
+ await assert.rejects(revoked.saveAdminPermissions('revoked',{}),{code:'admin/revoked'});
+ assert.equal(written,false);
+ const failed=permissionSaver({isSuperAdmin:()=>true,firebaseAuth:{currentUser:{uid:'owner'}},firebaseDb:{ref:()=>({
+  once:async()=>({val:()=>({active:true})}),update:async()=>{throw Object.assign(new Error('Denied'),{code:'PERMISSION_DENIED'});}
+ })}});
+ await assert.rejects(failed.saveAdminPermissions('secondary',{}),{code:'PERMISSION_DENIED'});
+});
+
+test('secondary admins cannot invoke permission saver directly',async()=>{
+ const ctx=permissionSaver({isSuperAdmin:()=>false});
+ await assert.rejects(ctx.saveAdminPermissions('secondary',{}));
+});
+
+test('saving permissions repairs approval metadata on older admin records',async()=>{
+ const profile={active:true,email:'older@example.invalid',name:'Older Admin'};
+ const ctx=permissionSaver({isSuperAdmin:()=>true,firebaseAuth:{currentUser:{uid:'owner'}},firebaseDb:{ref:()=>({
+  once:async()=>({val:()=>profile}),update:async patch=>Object.assign(profile,patch)
+ })}});
+ await ctx.saveAdminPermissions('older',{bosses:'view',attendance:'edit',servers:'view',discord:'none'});
+ assert.equal(typeof profile.approvedAt,'number');
+ assert.equal(profile.approvedBy,'owner');
+ assert.equal(profile.email,'older@example.invalid');
+ assert.equal(profile.permissions.attendance,'edit');
+});

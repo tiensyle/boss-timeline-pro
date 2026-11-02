@@ -4574,3 +4574,16 @@
 .boss-access-denied #metrics { display:none !important; }
 .attendance-access-denied #attendanceContent { display:none !important; }
 .discord-btn[hidden] { display:none !important; }
+.admin-account-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.admin-account-actions button { font-size:12px; padding:8px 10px; }
+.admin-permissions-modal { max-width:560px; max-height:85vh; padding:0; overflow:hidden; display:flex; flex-direction:column; }
+.admin-permissions-header { padding:20px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; gap:12px; justify-content:space-between; }
+.admin-permissions-header h3 { margin:0 0 6px; }
+.admin-permissions-header p { margin:0; font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+#adminPermissionsForm { display:flex; flex-direction:column; min-height:0; }
+#adminPermissionsFields { padding:8px 20px; overflow-y:auto; }
+.admin-permissions-footer { flex-shrink:0; padding:12px 20px 20px; border-top:1px solid var(--line-soft); background:var(--surface); }
+.admin-permissions-footer .admin-permission-status { margin:0 0 10px; min-height:20px; font-size:13px; }
+.admin-permission-status[data-result="error"] { color:var(--red); }
+.admin-permission-status[data-result="success"] { color:var(--green); }
+@media(max-width:540px) { .admin-account-actions { max-width:120px; } .admin-account-actions button { width:100%; } }

@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261102-2">
+  <link rel="stylesheet" href="assets/app.css?v=20261102-4">
 </head>
 <body>
   <div class="app-shell">
@@ -920,13 +920,29 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="adminPermissionsModal" role="dialog" aria-modal="true" aria-labelledby="adminPermissionsTitle" style="z-index:10005;">
+    <div class="modal admin-permissions-modal">
+      <div class="admin-permissions-header">
+        <div><h3 id="adminPermissionsTitle">Phân quyền Admin</h3><p id="adminPermissionsTarget"></p></div>
+        <button type="button" class="icon-button" id="closeAdminPermissionsModal" aria-label="Đóng phân quyền">✕</button>
+      </div>
+      <form id="adminPermissionsForm" data-permissions-uid="">
+        <div id="adminPermissionsFields"></div>
+        <div class="admin-permissions-footer">
+          <p role="status" aria-live="polite" class="admin-permission-status"></p>
+          <button type="submit" class="button-primary">Lưu quyền</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ── Revoke Secondary Admin Confirmation ── -->
   <div class="modal-backdrop" id="adminRevokeConfirmModal" role="dialog" aria-modal="true" aria-labelledby="adminRevokeConfirmTitle" style="z-index:10004;">
     <div class="modal" style="max-width:430px;padding:0;overflow:hidden;">
       <div style="padding:20px 22px;border-bottom:1px solid var(--line-soft);">
         <h3 id="adminRevokeConfirmTitle" style="margin:0 0 7px;font-size:17px;color:var(--red);">Xác nhận thu hồi quyền Admin?</h3>
         <p style="margin:0;font-size:13px;line-height:1.55;color:var(--text-2);">
-          Bạn có chắc muốn thu hồi quyền của <strong id="adminRevokeTarget" style="color:var(--text);"></strong>? Tài khoản sẽ không còn được chỉnh sửa dữ liệu Boss và Attendance.
+          Bạn có chắc muốn thu hồi quyền của <strong id="adminRevokeTarget" style="color:var(--text);"></strong>? Tài khoản sẽ không còn quyền quản trị. Tài khoản đăng nhập vẫn được giữ lại để có thể xin cấp quyền lại.
         </p>
       </div>
       <div style="padding:16px 22px;display:flex;justify-content:flex-end;gap:9px;">
@@ -1739,7 +1755,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="assets/app.js?v=20261102-3"></script>
+  <script src="assets/app.js?v=20261102-4"></script>
 
 </body>
 </html>

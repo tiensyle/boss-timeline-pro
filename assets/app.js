@@ -5178,19 +5178,14 @@
                 <span style="display:block;font-size:11px;color:var(--green);font-weight:600;">✓ Đã phê duyệt</span>
               </div>
             </div>
+            <div class="admin-account-actions">
+            <button type="button" class="button-primary" data-permission-uid="${escapeHtml(acc.uid)}">Phân quyền</button>
             <button type="button" class="button-danger" data-revoke-uid="${escapeHtml(acc.uid)}" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
               <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M3 6h18M8 6V4h8v2m-1 4v8M9 10v8M5 6l1 15h12l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Thu hồi / Xóa
+              Thu hồi quyền
             </button>
+            </div>
           </div>
-          <details class="admin-permission-details">
-            <summary>🔐 Phân quyền</summary>
-            <form data-permissions-uid="${escapeHtml(acc.uid)}">
-              ${renderAdminPermissionFields(acc.permissions)}
-              <button type="submit" class="button-primary">Lưu quyền</button>
-              <span role="status" class="admin-permission-status"></span>
-            </form>
-          </details>
           </div>
         `).join("");
       }
@@ -5210,7 +5205,51 @@
         <select name="${key}" aria-label="${label}">${options.map(([value, text]) => `<option value="${value}" ${values[key] === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("");
     }
 
-    document.getElementById("adminAccountModal")?.addEventListener("submit", async event => {
+    let adminPermissionLoadGeneration = 0;
+
+    async function openAdminPermissionsModal(uid) {
+      if (!isSuperAdmin() || !firebaseDb) return;
+      const generation = ++adminPermissionLoadGeneration;
+      const modal = document.getElementById("adminPermissionsModal");
+      const form = document.getElementById("adminPermissionsForm");
+      const target = document.getElementById("adminPermissionsTarget");
+      const fields = document.getElementById("adminPermissionsFields");
+      const status = form.querySelector("[role=status]");
+      const button = form.querySelector("button[type=submit]");
+      form.dataset.permissionsUid = uid;
+      fields.innerHTML = "";
+      target.textContent = "Đang tải tài khoản…";
+      status.textContent = "";
+      button.disabled = true;
+      modal.classList.add("open");
+      syncModalScrollLock();
+      try {
+        const snapshot = await firebaseDb.ref(`admin_access/${uid}`).once("value");
+        if (generation !== adminPermissionLoadGeneration) return;
+        const profile = snapshot.val();
+        if (!profile?.active) throw new Error("Tài khoản đã bị thu hồi quyền.");
+        target.textContent = `${profile.name || "Admin phụ"} · ${profile.email || uid}`;
+        fields.innerHTML = renderAdminPermissionFields(profile.permissions);
+        button.disabled = false;
+      } catch (error) {
+        if (generation !== adminPermissionLoadGeneration) return;
+        target.textContent = "Không tải được tài khoản";
+        status.textContent = `Không thể tải quyền. ${error?.code || error?.message || "Kiểm tra kết nối."}`;
+      }
+    }
+
+    function closeAdminPermissionsModal() {
+      adminPermissionLoadGeneration++;
+      document.getElementById("adminPermissionsModal")?.classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    document.getElementById("closeAdminPermissionsModal")?.addEventListener("click", closeAdminPermissionsModal);
+    document.getElementById("adminPermissionsModal")?.addEventListener("click", event => {
+      if (event.target === event.currentTarget) closeAdminPermissionsModal();
+    });
+
+    document.getElementById("adminPermissionsModal")?.addEventListener("submit", async event => {
       const form = event.target.closest("[data-permissions-uid]");
       if (!form) return;
       event.preventDefault();
@@ -5221,27 +5260,36 @@
       const permissions = normalizeAdminPermissions(Object.fromEntries(new FormData(form)));
       const button = form.querySelector("button[type=submit]");
       const status = form.querySelector("[role=status]");
+      if (button.disabled) return;
       button.disabled = true;
+      const originalLabel = button.textContent;
+      button.textContent = "Đang lưu…";
       status.textContent = "Đang lưu quyền…";
       try {
         await saveAdminPermissions(form.dataset.permissionsUid, permissions);
         status.textContent = "Đã lưu quyền";
+        status.dataset.result = "success";
         showToast("🔐 Đã cập nhật quyền Admin.");
       } catch (error) {
         console.error("Admin permission save error:", error);
         const message = error?.code === "admin/revoked"
           ? "Tài khoản này đã bị thu hồi quyền. Hãy tải lại danh sách Admin."
-          : "Chưa lưu được quyền. Kiểm tra kết nối và quyền Admin chính.";
+          : error?.code === "admin/save-timeout"
+            ? "Chưa nhận được xác nhận từ Firebase. Kiểm tra kết nối, rồi mở lại tài khoản để kiểm tra quyền."
+            : `Chưa lưu được quyền. ${error?.code || error?.message || "Kiểm tra kết nối và quyền Admin chính."}`;
         status.textContent = message;
+        status.dataset.result = "error";
         showToast(message);
-      } finally { button.disabled = false; }
+      } finally { button.disabled = false; button.textContent = originalLabel; }
     });
 
     async function saveAdminPermissions(uid, permissions) {
       if (!isSuperAdmin() || !firebaseDb) throw new Error("Admin chính mới được lưu quyền");
+      const save = (async () => {
       const ref = firebaseDb.ref(`admin_access/${uid}`);
       const snapshot = await ref.once("value");
-      if (snapshot.val()?.active !== true) {
+      const profile = snapshot.val();
+      if (profile?.active !== true) {
         throw Object.assign(new Error("Admin đã bị thu hồi quyền"), { code: "admin/revoked" });
       }
       // Patch only permission fields. A transaction can initially receive null
@@ -5250,8 +5298,18 @@
       await ref.update({
         permissions: normalizeAdminPermissions(permissions),
         permissionsUpdatedAt: Date.now(),
-        permissionsUpdatedBy: firebaseAuth.currentUser.uid
+        permissionsUpdatedBy: firebaseAuth.currentUser.uid,
+        // Bring older approved records into the schema required by Rules.
+        approvedAt: typeof profile.approvedAt === "number" && Number.isFinite(profile.approvedAt) ? profile.approvedAt : Date.now(),
+        approvedBy: typeof profile.approvedBy === "string" ? profile.approvedBy : firebaseAuth.currentUser.uid
       });
+      })();
+      let timer;
+      try {
+        await Promise.race([save, new Promise((_, reject) => {
+          timer = setTimeout(() => reject(Object.assign(new Error("Firebase chưa xác nhận"), {code:"admin/save-timeout"})), 15000);
+        })]);
+      } finally { clearTimeout(timer); }
     }
 
     function isSuperAdmin() {
@@ -5287,8 +5345,13 @@
       const approveBtn = e.target.closest("[data-approve-uid]");
       const rejectBtn = e.target.closest("[data-reject-uid]");
       const revokeBtn = e.target.closest("[data-revoke-uid]");
-      if (!approveBtn && !rejectBtn && !revokeBtn) return;
+      const permissionBtn = e.target.closest("[data-permission-uid]");
+      if (!approveBtn && !rejectBtn && !revokeBtn && !permissionBtn) return;
       if (!isSuperAdmin() || !firebaseDb) return;
+      if (permissionBtn) {
+        openAdminPermissionsModal(permissionBtn.dataset.permissionUid);
+        return;
+      }
 
       try {
         if (approveBtn) {
@@ -10583,7 +10646,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.11.02.v24-admin-permission-save";
+    const CURRENT_APP_VERSION = "2026.11.02.v25-admin-permission-dialog";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
