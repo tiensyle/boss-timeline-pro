@@ -89,6 +89,7 @@
         colBoss: "TÊN BOSS",
         colCycle: "CHU KỲ",
         colMap: "ĐỊA ĐIỂM",
+        colPoints: "ĐIỂM",
         colNotes: "GHI CHÚ",
         tabAll7Days: "Tất cả (7 Ngày)",
         tabToday: "Hôm nay",
@@ -184,6 +185,7 @@
         colBoss: "BOSS",
         colCycle: "CYCLE",
         colMap: "LOCATION / MAP",
+        colPoints: "POINTS",
         colNotes: "NOTES",
         tabAll7Days: "All (7 Days)",
         tabToday: "Today",
@@ -2281,6 +2283,7 @@
         updatedAt: Math.max(0, Number(boss.updatedAt) || 0),
         updatedBy: String(boss.updatedBy || "").slice(0, 120),
         avatar: ["ember", "frost", "void", "stone", "storm"].includes(boss.avatar) ? boss.avatar : "ember",
+        points: Number.isFinite(Number(boss.points)) ? Math.max(0, Number(boss.points)) : 0,
         notes: String(boss.notes || "").slice(0, 160)
       };
     }
@@ -2469,22 +2472,7 @@
     }
 
     function formatRespawnMinutes(minutes) {
-      const isEn = currentLang === "en";
-      if (minutes >= 1440 && minutes % 1440 === 0) {
-        const days = minutes / 1440;
-        return isEn ? `${days} ${days > 1 ? 'days' : 'day'} (${minutes}m)` : `${days} ngày (${minutes}m)`;
-      }
-      if (minutes >= 1440) {
-        const days = (minutes / 1440).toFixed(1).replace(".0", "");
-        const hours = Math.floor((minutes % 1440) / 60);
-        return isEn ? `${days} days${hours > 0 ? ' ' + hours + 'h' : ''} (${minutes}m)` : `${days} ngày${hours > 0 ? ' ' + hours + 'h' : ''} (${minutes}m)`;
-      }
-      if (minutes >= 60) {
-        const hours = Math.floor(minutes / 60);
-        const rest = minutes % 60;
-        return rest ? `${hours}h ${rest}m` : `${hours}h`;
-      }
-      return isEn ? `${minutes} mins` : `${minutes} phút`;
+      return `${Number((Number(minutes) / 60).toFixed(4))}h`;
     }
 
     function formatSmartRespawnDate(time, now = getNow()) {
@@ -3483,9 +3471,9 @@
                   <span class="today-boss-badge ${badgeClass}">${badgeText}</span>
                 </div>
               </td>
+              <td class="today-points-cell">${Number(boss.points) || 0}</td>
               <td style="font-size:12.5px; font-weight:600; color:var(--text-2);">${escapeHtml(cycleText)}</td>
               <td class="today-map-cell">${escapeHtml(boss.map)}</td>
-              <td class="today-notes-cell">${notesContent}</td>
             </tr>
           `;
         }).join("");
@@ -3680,10 +3668,10 @@
             <td class="time-col"><strong>${cleanTimeStr}</strong></td>
             <td style="text-align:center;"><span class="level-tag">Lv. ${boss.level || 80}</span></td>
             <td>${bossNameHtml}</td>
+            <td>${Number(boss.points) || 0}</td>
             <td style="font-weight:600; color:#475569;">${escapeHtml(cycleText)}</td>
             <td style="text-align:center;"><span class="badge ${statusBadgeClass}">${statusText}</span></td>
             <td>${escapeHtml(boss.map)}</td>
-            <td style="color:#334155;">${notes}</td>
           </tr>
         `;
       }).join("");
@@ -3848,10 +3836,10 @@
         <th style="width:17%;">${isEn ? "SPAWN TIME & DATE" : "GIỜ & NGÀY HỒI SINH"}</th>
         <th style="width:7%; text-align:center;">LEVEL</th>
         <th style="width:18%;">${isEn ? "BOSS NAME" : "TÊN BOSS"}</th>
+        <th style="width:14%;">${isEn ? "POINTS" : "ĐIỂM"}</th>
         <th style="width:13%;">${isEn ? "CYCLE" : "CHU KỲ"}</th>
         <th style="width:12%; text-align:center;">${isEn ? "STATUS" : "TRẠNG THÁI"}</th>
         <th style="width:15%;">${isEn ? "LOCATION / MAP" : "ĐỊA ĐIỂM"}</th>
-        <th style="width:14%;">${isEn ? "NOTES" : "GHI CHÚ"}</th>
       </tr>
     </thead>
     <tbody>
@@ -3885,8 +3873,8 @@
     function buildScheduleCsv(items, now, isEn) {
       const rows = [
         isEn
-          ? ["SPAWN TIME & DATE", "LEVEL", "BOSS", "CYCLE", "STATUS", "LOCATION", "NOTES"]
-          : ["GIỜ & NGÀY HỒI SINH", "LEVEL", "BOSS", "CHU KỲ", "TRẠNG THÁI", "ĐỊA ĐIỂM", "GHI CHÚ"]
+          ? ["SPAWN TIME & DATE", "LEVEL", "BOSS", "POINTS", "CYCLE", "STATUS", "LOCATION"]
+          : ["GIỜ & NGÀY HỒI SINH", "LEVEL", "TÊN BOSS", "ĐIỂM", "CHU KỲ", "TRẠNG THÁI", "ĐỊA ĐIỂM"]
       ];
 
       items.forEach(({ boss, eventTime }) => {
@@ -3901,10 +3889,10 @@
           timeFormatted,
           `Lv. ${boss.level || 80}`,
           `${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${boss.name}`,
+          Number(boss.points) || 0,
           cycleText,
           statusText,
-          boss.map,
-          boss.notes || ""
+          boss.map
         ]);
       });
 
@@ -4477,7 +4465,7 @@
       elements.bossForm.elements.level.value = boss ? (boss.level || 80) : 80;
       elements.bossForm.elements.respawnMinutes.value = boss?.respawnMinutes || 30;
       if (elements.bossForm.elements.avatar) elements.bossForm.elements.avatar.value = boss?.avatar || "ember";
-      elements.bossForm.elements.notes.value = boss?.notes || "";
+      elements.bossForm.elements.points.value = boss?.points ?? 0;
 
       setSpawnModeInModal(boss?.spawnMode || "interval");
       populateFixedSlotsInModal(boss?.fixedSchedules || []);
@@ -4537,7 +4525,7 @@
         respawnMinutes: clamp(Number(form.elements.respawnMinutes.value) || 30, 1, 10080),
         fixedSchedules: fixedSchedules.length ? fixedSchedules : [{ day: "all", time: "18:00" }],
         avatar: form.elements.avatar ? form.elements.avatar.value : (editingBossId ? (state.bosses.find((b) => b.id === editingBossId)?.avatar || "ember") : "ember"),
-        notes: form.elements.notes.value.trim()
+        points: Math.max(0, Number(form.elements.points.value) || 0)
       };
 
       if (!payload.name || !payload.map) {
@@ -9615,7 +9603,15 @@
           [...names.values()].sort((a, b) => a.localeCompare(b, "vi")).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
         select.value = names.get(input.value.trim().toLocaleLowerCase("vi")) || "";
         input.hidden = Boolean(select.value) || !input.value;
-        select.onchange = () => { input.value = select.value; input.hidden = true; };
+        select.onchange = () => {
+          input.value = select.value;
+          input.hidden = true;
+          const boss = (state?.bosses || []).find(item =>
+            String(item.name || "").trim().toLocaleLowerCase("vi") === select.value.trim().toLocaleLowerCase("vi"));
+          const pointsInput = document.getElementById("attActivityPointsInput");
+          if (boss && pointsInput) pointsInput.value = normalizeAttendanceBasePoints(boss.points);
+          updateAttendanceActivityPointPreview();
+        };
         button.onclick = () => {
           select.value = "";
           input.hidden = false;
@@ -9626,8 +9622,13 @@
       bindPicker("attActivityNameSelect", "attActivityNameInput", "attNewActivityNameBtn", "Chọn Boss / hoạt động…");
     }
 
+    function normalizeAttendanceBasePoints(value) {
+      const points = Number(value);
+      return Number.isFinite(points) ? Math.max(0, points) : 0;
+    }
+
     function updateAttendanceActivityPointPreview() {
-      const basePoints = Math.max(1, parseInt(document.getElementById("attActivityPointsInput")?.value, 10) || 1);
+      const basePoints = normalizeAttendanceBasePoints(document.getElementById("attActivityPointsInput")?.value);
       const day = document.getElementById("attDayPointsPreview");
       const night = document.getElementById("attNightPointsPreview");
       if (day) day.textContent = `${basePoints} điểm`;
@@ -9663,7 +9664,7 @@
         if (dateInput) dateInput.value = act.date || "";
         const period = act.timePeriod === "night" ? "night" : "day";
         if (nameInput) nameInput.value = act.name || "";
-        if (ptsInput) ptsInput.value = act.basePoints || (period === "night" ? Math.max(1, Number(act.points || 2) / 2) : act.points) || 1;
+        if (ptsInput) ptsInput.value = normalizeAttendanceBasePoints(act.basePoints ?? (period === "night" ? Number(act.points ?? 2) / 2 : (act.points ?? 1)));
         setAttendanceActivityPeriodMode(period);
         if (delBtn) delBtn.style.display = "inline-flex";
       } else {
@@ -9706,7 +9707,7 @@
       const dateStr = (dateInput?.value || "").trim();
       const name = (nameInput?.value || "").trim();
       const selectedPeriods = [dayCheckbox?.checked ? "day" : "", nightCheckbox?.checked ? "night" : ""].filter(Boolean);
-      const basePoints = Math.max(1, parseInt(ptsInput?.value, 10) || 1);
+      const basePoints = normalizeAttendanceBasePoints(ptsInput?.value);
       const editId = (editIdInput?.value || "").trim();
 
       if (!name) {
