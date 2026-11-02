@@ -1269,3 +1269,13 @@ test("column filters combine name search, numeric range, eligibility and sorting
   assert.deepEqual(copy(ctx.applyAttendanceColumnFilters(rows)).map(m => m.name), ["Tiến B", "Tiến A"]);
   assert.equal(rows[0].name, "Tiến A");
 });
+
+
+test("boss death label renders a recorded death without interrupting rendering", () => {
+  const ctx = load(["formatTimeOnly", "formatBossDeathLabel"], { currentLang: "vi" });
+  const diedAt = new Date(2026, 10, 2, 15, 5).getTime();
+  assert.match(ctx.formatBossDeathLabel({ diedAt }), /^Chết .*15:05.*02\/11\/2026$/);
+  assert.equal(ctx.formatBossDeathLabel({ diedAt: null }), "Chết —");
+  ctx.currentLang = "en";
+  assert.match(ctx.formatBossDeathLabel({ diedAt }), /^Died /);
+});

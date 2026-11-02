@@ -3032,6 +3032,7 @@
       const label = currentLang === "en" ? "Died " : "Chết ";
       if (!boss.diedAt) return label + "—";
       const date = new Date(boss.diedAt);
+      const pad = value => String(value).padStart(2, "0");
       return label + formatTimeOnly(boss.diedAt) + ` · ${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
     }
 
