@@ -500,11 +500,29 @@
     let currentAdminName = "";
     let currentUserIsAdmin = false;
     let currentUserIsSuperAdmin = false;
+    let currentAdminPermissions = null;
     let currentAdminAccessRef = null;
     const SUPER_ADMIN_NAME = "Firebase Admin";
 
-    function isAdmin() {
-      return currentRole === "admin" && currentUserIsAdmin && Boolean(firebaseAuth?.currentUser);
+    function isAdmin(scope = null) {
+      const active = currentRole === "admin" && currentUserIsAdmin && Boolean(firebaseAuth?.currentUser);
+      if (!active || !scope) return active;
+      if (currentUserIsSuperAdmin) return true;
+      // Existing approved accounts retain access until the owner assigns a policy.
+      return currentAdminPermissions === null || currentAdminPermissions?.[scope] === "edit";
+    }
+
+    function canViewAdminArea(scope) {
+      if (!isAdmin()) return scope !== "discord";
+      if (currentUserIsSuperAdmin || currentAdminPermissions === null) return true;
+      return ["view", "edit"].includes(currentAdminPermissions?.[scope]);
+    }
+
+    function normalizeAdminPermissions(value) {
+      const levels = { bosses: ["none", "view", "edit"], attendance: ["none", "view", "edit"],
+        servers: ["view", "edit"], discord: ["none", "edit"] };
+      return Object.fromEntries(Object.entries(levels).map(([key, allowed]) => [key,
+        value == null ? "edit" : (allowed.includes(value[key]) ? value[key] : (key === "servers" ? "view" : "none"))]));
     }
 
     async function getFirebaseAdminAccess(user, forceRefresh = false) {
@@ -539,7 +557,26 @@
       currentAdminAccessRef = firebaseDb.ref(`admin_access/${user.uid}`);
       currentAdminAccessRef.on("value", async (snapshot) => {
         const profile = snapshot.val();
-        if (profile?.active === true || firebaseAuth?.currentUser?.uid !== user.uid) return;
+        if (firebaseAuth?.currentUser?.uid !== user.uid) return;
+        if (profile?.active === true) {
+          const next = profile.permissions == null ? null : normalizeAdminPermissions(profile.permissions);
+          if (JSON.stringify(next) !== JSON.stringify(currentAdminPermissions)) {
+            currentAdminPermissions = next;
+            closeModal();
+            closeDiscordModal();
+            document.querySelectorAll(".modal-backdrop.open").forEach(modal => modal.classList.remove("open"));
+            syncModalScrollLock();
+            lastRenderedGridKey = "";
+            attendanceRoleUIMode = null;
+            initRealtimeSync();
+            if (activeAttendanceRef) { activeAttendanceRef.off(); activeAttendanceRef = null; }
+            initAttendanceRealtimeSync();
+            render();
+            renderAttendanceTable();
+            showToast("🔐 Quyền của bạn vừa được Admin chính cập nhật.");
+          }
+          return;
+        }
         stopWatchingCurrentAdminAccess();
         currentUserIsAdmin = false;
         currentUserIsSuperAdmin = false;
@@ -588,6 +625,7 @@
             if (firebaseAuth.currentUser?.uid !== user.uid) return;
             currentUserIsAdmin = access.allowed;
             currentUserIsSuperAdmin = access.superAdmin;
+            currentAdminPermissions = access.profile?.permissions == null ? null : normalizeAdminPermissions(access.profile.permissions);
           } catch (error) {
             if (firebaseAuth.currentUser?.uid !== user.uid) return;
             currentUserIsAdmin = false;
@@ -627,30 +665,34 @@
     }
 
     function updateRoleUI() {
+      document.body.classList.toggle("boss-access-denied", !canViewAdminArea("bosses"));
+      document.body.classList.toggle("attendance-access-denied", !canViewAdminArea("attendance"));
+      const discordButton = document.getElementById("discordSettingsBtn");
+      if (discordButton) discordButton.hidden = !isAdmin("discord");
       document.querySelectorAll(".role-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.role === currentRole);
       });
       if (elements.addBossBtn) {
-        elements.addBossBtn.style.display = isAdmin() ? "inline-flex" : "none";
+        elements.addBossBtn.style.display = isAdmin("bosses") ? "inline-flex" : "none";
       }
       if (elements.clearHistoryBtn) {
-        elements.clearHistoryBtn.style.display = isAdmin() ? "inline-flex" : "none";
+        elements.clearHistoryBtn.style.display = isAdmin("bosses") ? "inline-flex" : "none";
       }
       if (elements.resetAllTimersBtn) {
-        elements.resetAllTimersBtn.style.display = isAdmin() ? "inline-flex" : "none";
+        elements.resetAllTimersBtn.style.display = isAdmin("bosses") ? "inline-flex" : "none";
       }
       if (elements.addServerBtn) {
-        elements.addServerBtn.style.display = isAdmin() ? "flex" : "none";
+        elements.addServerBtn.style.display = isAdmin("servers") ? "flex" : "none";
       }
       if (elements.manageServersBtn) {
-        elements.manageServersBtn.style.display = isAdmin() ? "flex" : "none";
+        elements.manageServersBtn.style.display = isAdmin("servers") ? "flex" : "none";
       }
       const svDivider = document.querySelector(".server-dropdown-divider");
       if (svDivider) {
-        svDivider.style.display = isAdmin() ? "block" : "none";
+        svDivider.style.display = isAdmin("servers") ? "block" : "none";
       }
       if (elements.modalAddServerSection) {
-        elements.modalAddServerSection.style.display = isAdmin() ? "block" : "none";
+        elements.modalAddServerSection.style.display = isAdmin("servers") ? "block" : "none";
       }
       if (typeof renderServerListUI === "function") {
         renderServerListUI();
@@ -781,6 +823,7 @@
 
 
     function saveDiscordConfigLocal(cfg) {
+      if (!isAdmin("discord")) return;
       const previousConfig = { ...discordConfig };
       const safeConfig = { ...cfg };
       delete safeConfig.webhookUrl;
@@ -788,7 +831,7 @@
       try {
         localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
       } catch (e) {}
-      if (firebaseDb && isAdmin()) {
+      if (firebaseDb && isAdmin("discord")) {
         try {
           const path = currentServerId === "s1"
             ? "boss_timeline_discord_config"
@@ -811,7 +854,7 @@
      * Không lưu vào localStorage để tránh lộ qua devtools.
      */
     async function saveWebhookUrl(svId, url) {
-      if (!firebaseDb || !isAdmin()) return false;
+      if (!firebaseDb || !isAdmin("discord")) return false;
       try {
         await firebaseDb.ref(`boss_timeline_webhook_urls/${svId}`).set({ url: url || "" });
         webhookUrlCache[svId] = url || "";
@@ -870,7 +913,7 @@
       }
       try {
         const user = firebaseAuth?.currentUser;
-        if (!user || !isAdmin()) {
+        if (!user || !isAdmin("discord")) {
           lastDiscordError = "Phiên Admin không hợp lệ. Vui lòng đăng nhập Admin lại.";
           return false;
         }
@@ -933,7 +976,7 @@
     }
 
     async function sendDiscordAlertOnce(alertId, ttlMs, deliver, forced = false) {
-      if (!isAdmin() || (!discordConfig.enabled && !forced)) return false;
+      if (!isAdmin("discord") || (!discordConfig.enabled && !forced)) return false;
       const notified = activeDiscordNotified;
       if (notified[alertId] === "pending" || (!forced && notified[alertId] === "sent")) return false;
       notified[alertId] = "pending";
@@ -1923,7 +1966,7 @@
       lastLocalEditTime = Date.now();
       // Do not broadcast optimistic data to sibling tabs before Firebase accepts it.
       saveStateLocal(false);
-      if (!isAdmin() || !REALTIME_ENABLED || !stateDbRef) return false;
+      if (!isAdmin("bosses") || !REALTIME_ENABLED || !stateDbRef) return false;
 
       if (remoteSaveInFlight && Date.now() - lastRemoteSaveStartTime > 8000) {
         console.warn("[saveState] Clearing stuck remoteSaveInFlight lock (> 8s)");
@@ -2085,6 +2128,7 @@
     }
 
     function applyRemoteState(incomingBosses, incomingHistory, updatedAt, senderId, localBase = bossSyncBase, remoteVersion = 0) {
+      if (!canViewAdminArea("bosses")) return false;
       if (!Array.isArray(incomingBosses)) return false;
       // Auth restoration must finish before choosing whether to preserve unsent admin edits.
       if (!firebaseAuthReady) return false;
@@ -2102,7 +2146,7 @@
         history: Array.isArray(incomingHistory) ? incomingHistory.slice(0, 30) : []
       };
       const attemptedState = cloneRealtimeValue(state);
-      state = isAdmin() ? mergeBossStateChanges(localBase, state, remote) : remote;
+      state = isAdmin("bosses") ? mergeBossStateChanges(localBase, state, remote) : remote;
       const snapshotConflictIds = typeof lastBossConflictIds !== "undefined" ? [...lastBossConflictIds] : [];
       bossSyncBase = cloneRealtimeValue(remote);
       lastRenderedGridKey = ""; // Bat buoc render lai giao dien moi
@@ -2174,8 +2218,8 @@
             setRealtimeStatus(unsynced ? "unsynced" : "online", unsynced
               ? "Đã kết nối Firebase nhưng còn thay đổi chưa đồng bộ"
               : "Đã kết nối Firebase Realtime — dữ liệu đã đồng bộ");
-            if (isAdmin() && remoteStateReady && hasUnsyncedBossChanges()) saveState();
-            if (isAdmin() && attendanceRemoteStateReady) pushAttendanceToFirebase();
+            if (isAdmin("bosses") && remoteStateReady && hasUnsyncedBossChanges()) saveState();
+            if (isAdmin("attendance") && attendanceRemoteStateReady) pushAttendanceToFirebase();
           } else {
             setRealtimeStatus("connecting", "Đang kết nối lại Firebase Realtime…");
           }
@@ -2183,8 +2227,34 @@
         connectedRefBound = true;
       }
 
+      // Lang nghe cau hinh Discord Webhook tu Firebase cua server hien tai
+      if (discordConfigDbRef && isAdmin("discord")) {
+        activeDiscordConfigRef = discordConfigDbRef;
+        activeDiscordConfigRef.on("value", (snapshot) => {
+          const remoteCfg = snapshot.val();
+          if (remoteCfg && typeof remoteCfg === "object") {
+            const safeRemoteCfg = { ...remoteCfg };
+            const hadLegacyWebhook = Boolean(safeRemoteCfg.webhookUrl);
+            delete safeRemoteCfg.webhookUrl;
+            discordConfig = { ...defaultDiscordConfig, ...safeRemoteCfg };
+            try {
+              localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
+            } catch (e) {}
+            if (hadLegacyWebhook && isAdmin("discord")) {
+              discordConfigDbRef.child("webhookUrl").remove().catch(() => {});
+            }
+            updateDiscordButtonUI();
+          }
+        });
+      }
       // Lang nghe thay doi truc tiep tu Firebase Realtime Database cua server hien tai
       // Subscribe only to public boss data; the parent also contains legacy payroll.
+      if (!canViewAdminArea("bosses")) {
+        state = { bosses: [], history: [] };
+        bossSyncBase = cloneRealtimeValue(state);
+        render();
+        return;
+      }
       activeStateRef = stateDbRef.child("data");
       const subscribedRef = activeStateRef;
       const generation = bossSyncGeneration;
@@ -2206,19 +2276,19 @@
         if (val) {
           const senderId = val.last_editor || val.data?._clientId;
           const remote = getBossRemoteData(val);
-          const hasUnsyncedBossesBefore = isAdmin() && state.bosses.some(b => {
+          const hasUnsyncedBossesBefore = isAdmin("bosses") && state.bosses.some(b => {
             const rb = remote.bosses.find(item => item.id === b.id);
             return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || JSON.stringify(normalizeBoss(b)) !== JSON.stringify(normalizeBoss(rb));
           });
           applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId, bossSyncBase, val.version || val.data?.version);
           if (senderId !== CLIENT_ID) showToast("🔄 Team vừa cập nhật Boss Timeline.");
-          const hasUnsyncedBosses = hasUnsyncedBossesBefore || (isAdmin() && state.bosses.some(b => {
+          const hasUnsyncedBosses = hasUnsyncedBossesBefore || (isAdmin("bosses") && state.bosses.some(b => {
             const rb = remote.bosses.find(item => item.id === b.id);
             return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || JSON.stringify(normalizeBoss(b)) !== JSON.stringify(normalizeBoss(rb));
           }));
-          if (isAdmin() && (pendingRemoteSave || hasUnsyncedBosses)) saveState();
+          if (isAdmin("bosses") && (pendingRemoteSave || hasUnsyncedBosses)) saveState();
         } else if (!val) {
-          if (isAdmin() && !bossFirebaseSeedAttempted) {
+          if (isAdmin("bosses") && !bossFirebaseSeedAttempted) {
             bossFirebaseSeedAttempted = true;
             saveState(true);
           }
@@ -2229,26 +2299,7 @@
         setRealtimeStatus("offline", "Lỗi kết nối Firebase — đang dùng localStorage");
       });
 
-      // Lang nghe cau hinh Discord Webhook tu Firebase cua server hien tai
-      if (discordConfigDbRef && isAdmin()) {
-        activeDiscordConfigRef = discordConfigDbRef;
-        activeDiscordConfigRef.on("value", (snapshot) => {
-          const remoteCfg = snapshot.val();
-          if (remoteCfg && typeof remoteCfg === "object") {
-            const safeRemoteCfg = { ...remoteCfg };
-            const hadLegacyWebhook = Boolean(safeRemoteCfg.webhookUrl);
-            delete safeRemoteCfg.webhookUrl;
-            discordConfig = { ...defaultDiscordConfig, ...safeRemoteCfg };
-            try {
-              localStorage.setItem(STORAGE_DISCORD_KEY, JSON.stringify(discordConfig));
-            } catch (e) {}
-            if (hadLegacyWebhook && isAdmin()) {
-              discordConfigDbRef.child("webhookUrl").remove().catch(() => {});
-            }
-            updateDiscordButtonUI();
-          }
-        });
-      }
+
     }
 
 
@@ -2593,7 +2644,7 @@
     async function autoResolveRespawns() {
       // Members render countdown/status from confirmed Firebase timers only. They
       // must never create transitions, revisions, history, or broadcasts locally.
-      if (!isAdmin() || autoRespawnSaveInFlight) return;
+      if (!isAdmin("bosses") || autoRespawnSaveInFlight) return;
       const now = getNow();
       let changed = false;
       const confirmedCandidates = [];
@@ -2802,7 +2853,7 @@
           ? (isEn ? "Record Death" : "Ghi nhận chết")
           : (isEn ? "Revive Now" : "Cho hồi sinh");
 
-        const actionBoxHtml = isAdmin()
+        const actionBoxHtml = isAdmin("bosses")
           ? `
             <div class="compact-action-panel">
               <div class="compact-timer-row">
@@ -2975,7 +3026,7 @@
       }
 
       // Luôn đảm bảo nút bấm khớp 100% với trạng thái sống/chết (chống nhấp nháy hoặc kẹt nút)
-      if (isAdmin()) {
+      if (isAdmin("bosses")) {
         const actionPanel = row.querySelector(".compact-action-panel");
         if (actionPanel) {
           const btnGroup = actionPanel.querySelector("div[style*='display:flex']");
@@ -3143,7 +3194,7 @@
       }
 
       // Đồng bộ nút bấm tương ứng ngay lập tức khi boss chết/sống
-      if (isAdmin()) {
+      if (isAdmin("bosses")) {
         const actionsEl = card.querySelector(".card-actions");
         if (actionsEl) {
           const hasSplitGroup = Boolean(actionsEl.querySelector(".split-btn-group"));
@@ -3199,7 +3250,7 @@
         ? (status === "alive" ? "• ALIVE" : (status === "soon" ? "• SPAWNING SOON" : "• COUNTING DOWN"))
         : statusCopy[status].label;
 
-      const actionsHtml = isAdmin()
+      const actionsHtml = isAdmin("bosses")
         ? `
           <div class="card-actions">
             ${isAlive ? `
@@ -3976,7 +4027,7 @@
     }
 
     function openBossActionConfirmation(action, id) {
-      if (!isAdmin()) return;
+      if (!isAdmin("bosses")) return;
       const boss = state.bosses.find(item => item.id === id);
       if (!boss || !["kill", "revive"].includes(action)) return;
       closeBossActionConfirmation();
@@ -3996,7 +4047,7 @@
     function confirmBossAction(action) {
       const pending = pendingBossAction;
       closeBossActionConfirmation();
-      if (!pending || pending.action !== action || pending.serverId !== currentServerId || pending.generation !== bossSyncGeneration || !isAdmin()) return;
+      if (!pending || pending.action !== action || pending.serverId !== currentServerId || pending.generation !== bossSyncGeneration || !isAdmin("bosses")) return;
       const latestBoss = state.bosses.find(item => item.id === pending.id);
       if (!latestBoss || (Number(latestBoss.revision) || 0) !== pending.revision) {
         showToast("⚠️ Boss vừa được Admin khác cập nhật. Hãy kiểm tra lại trước khi thao tác.");
@@ -4008,7 +4059,7 @@
 
     async function killBoss(id, diedAt = getNow()) {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
         return;
       }
@@ -4044,7 +4095,7 @@
 
     async function reviveBoss(id) {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast(isEn ? "Only Admin can revive bosses." : "Chỉ Admin mới có quyền cho hồi sinh boss.");
         return;
       }
@@ -4110,7 +4161,7 @@
 
     function openOffsetModal(id) {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
         requestAdminLogin();
         return;
@@ -4248,7 +4299,7 @@
 
     async function confirmOffsetDeath() {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast(isEn ? "Only Admin can record boss deaths." : "Chỉ Admin mới có quyền ghi nhận boss chết.");
         return;
       }
@@ -4492,7 +4543,7 @@
     }
 
     function openModal(id = null) {
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast("Chỉ Admin mới có quyền thêm hoặc chỉnh sửa boss.");
         return;
       }
@@ -4543,7 +4594,7 @@
 
     async function handleFormSubmit(event) {
       event.preventDefault();
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast("Chỉ Admin mới có quyền lưu thông tin boss.");
         return;
       }
@@ -4662,7 +4713,7 @@
 
     async function deleteActiveBoss() {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast(isEn ? "Only Admin can delete bosses." : "Chỉ Admin mới có quyền xóa boss.");
         return;
       }
@@ -4684,7 +4735,7 @@
         cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
+      if (!confirmed || !isAdmin("bosses") || generation !== bossSyncGeneration) return;
 
       const latestBoss = state.bosses.find(item => item.id === bossId);
       if (!latestBoss || (Number(latestBoss.revision) || 0) !== bossRevision) {
@@ -4707,7 +4758,7 @@
     async function resetAllTimers() {
       const isEn = currentLang === "en";
       const generation = bossSyncGeneration;
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast(isEn ? "Only Admin can reset boss timers after maintenance." : "Chỉ Admin mới có quyền reset thời gian boss sau bảo trì.");
         return;
       }
@@ -4725,7 +4776,7 @@
         cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
+      if (!confirmed || !isAdmin("bosses") || generation !== bossSyncGeneration) return;
       const confirmationIsStale = state.bosses.length !== revisionsAtOpen.size
         || state.bosses.some(boss => revisionsAtOpen.get(boss.id) !== (Number(boss.revision) || 0));
       if (confirmationIsStale) {
@@ -4765,7 +4816,7 @@
     async function clearHistory() {
       const isEn = currentLang === "en";
       const generation = bossSyncGeneration;
-      if (!isAdmin()) {
+      if (!isAdmin("bosses")) {
         showToast(isEn ? "Only Admin can clear timeline history." : "Chỉ Admin mới có quyền xóa lịch sử timeline.");
         return;
       }
@@ -4782,7 +4833,7 @@
         cancelText: isEn ? "Cancel" : "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed || !isAdmin() || generation !== bossSyncGeneration) return;
+      if (!confirmed || !isAdmin("bosses") || generation !== bossSyncGeneration) return;
 
       state.history = [];
       render();
@@ -4939,6 +4990,7 @@
         }
         currentUserIsAdmin = true;
         currentUserIsSuperAdmin = access.superAdmin;
+            currentAdminPermissions = access.profile?.permissions == null ? null : normalizeAdminPermissions(access.profile.permissions);
         setRole("admin", credential.user.displayName || credential.user.email || "Admin");
         elements.adminPasswordInput.value = "";
         closeAuthModal();
@@ -5116,6 +5168,7 @@
         activeHtml += `<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px;">Chưa có tài khoản Admin phụ nào được phê duyệt.</div>`;
       } else {
         activeHtml += approvedAccs.map((acc) => `
+          <div class="admin-permission-card">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:6px;margin-bottom:8px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:16px;">👤</span>
@@ -5130,11 +5183,54 @@
               Thu hồi / Xóa
             </button>
           </div>
+          <details class="admin-permission-details">
+            <summary>🔐 Phân quyền</summary>
+            <form data-permissions-uid="${escapeHtml(acc.uid)}">
+              ${renderAdminPermissionFields(acc.permissions)}
+              <button type="submit" class="button-primary">Lưu quyền</button>
+              <span role="status" class="admin-permission-status"></span>
+            </form>
+          </details>
+          </div>
         `).join("");
       }
 
       containerActive.innerHTML = activeHtml;
     }
+
+    function renderAdminPermissionFields(permissions) {
+      const values = normalizeAdminPermissions(permissions);
+      const fields = [
+        ["bosses", "Boss, điểm, ghi chú, lịch hồi sinh", [["none", "Không xem"], ["view", "Chỉ xem"], ["edit", "Chỉnh sửa"]]],
+        ["attendance", "Chấm công và lương", [["none", "Không xem"], ["view", "Chỉ xem"], ["edit", "Chỉnh sửa"]]],
+        ["servers", "Quản lý Server", [["view", "Chỉ xem"], ["edit", "Thêm, sửa, xóa"]]],
+        ["discord", "Discord", [["none", "Không truy cập"], ["edit", "Cấu hình và gửi"]]]
+      ];
+      return fields.map(([key, label, options]) => `<label class="admin-permission-field"><span>${label}</span>
+        <select name="${key}" aria-label="${label}">${options.map(([value, text]) => `<option value="${value}" ${values[key] === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("");
+    }
+
+    document.getElementById("adminAccountModal")?.addEventListener("submit", async event => {
+      const form = event.target.closest("[data-permissions-uid]");
+      if (!form) return;
+      event.preventDefault();
+      if (!isSuperAdmin() || !firebaseDb) return;
+      const permissions = normalizeAdminPermissions(Object.fromEntries(new FormData(form)));
+      const button = form.querySelector("button[type=submit]");
+      const status = form.querySelector("[role=status]");
+      button.disabled = true;
+      try {
+        const result = await firebaseDb.ref(`admin_access/${form.dataset.permissionsUid}`).transaction(profile => {
+          if (!profile || profile.active !== true) return;
+          return { ...profile, permissions, permissionsUpdatedAt: Date.now(), permissionsUpdatedBy: firebaseAuth.currentUser.uid };
+        });
+        if (!result.committed) throw new Error("Admin đã bị thu hồi quyền");
+        status.textContent = "Đã lưu quyền";
+        showToast("🔐 Đã cập nhật quyền Admin.");
+      } catch (error) {
+        status.textContent = "Chưa lưu được quyền. Kiểm tra Firebase Rules.";
+      } finally { button.disabled = false; }
+    });
 
     function isSuperAdmin() {
       return isAdmin() && currentUserIsSuperAdmin;
@@ -5185,6 +5281,7 @@
               name: request.name || request.email || "Admin phụ",
               approvedAt: firebase.database.ServerValue.TIMESTAMP,
               approvedBy: firebaseAuth.currentUser.uid
+              ,permissions: { bosses: "view", attendance: "view", servers: "view", discord: "none" }
             },
             [`admin_requests/${uid}`]: null
           });
@@ -5528,7 +5625,7 @@
     // ── Discord Settings Modal Event Handlers ──
     function openDiscordModal() {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("discord")) {
         showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
         requestAdminLogin();
         return;
@@ -5605,7 +5702,7 @@
 
     document.getElementById("discordSaveBtn")?.addEventListener("click", async () => {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("discord")) {
         showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
         return;
       }
@@ -5659,7 +5756,7 @@
 
     document.getElementById("discordTestScheduleBtn")?.addEventListener("click", async () => {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("discord")) {
         showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
         return;
       }
@@ -5698,7 +5795,7 @@
 
     document.getElementById("discordTestBtn")?.addEventListener("click", async () => {
       const isEn = currentLang === "en";
-      if (!isAdmin()) {
+      if (!isAdmin("discord")) {
         showToast(isEn ? "Only Admin can configure Discord Webhook." : "Chỉ Admin mới có quyền cài đặt Discord Webhook.");
         return;
       }
@@ -5785,7 +5882,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
                 ${isActive ? '<span style="font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(34, 211, 238, 0.15); color:var(--cyan);">Đang xem</span>' : ""}
-                ${isAdmin() ? `
+                ${isAdmin("servers") ? `
                   <button type="button" class="rename-sv-quick-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" title="Đổi tên ${escapeHtml(sv.name)}" style="background:transparent; border:none; color:var(--muted); cursor:pointer; padding:3px 5px; border-radius:4px; font-size:12px; display:inline-flex; align-items:center;" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--muted)'">
                     ✏️
                   </button>
@@ -5834,7 +5931,7 @@
                 </div>
               </div>
               <div style="display:flex; align-items:center; gap:6px; padding:0 14px 12px; flex-wrap:wrap;">
-                ${isAdmin() ? `
+                ${isAdmin("servers") ? `
                   <button type="button" class="btn btn-secondary rename-sv-modal-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" style="padding:5px 10px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Đổi tên máy chủ này">
                     ✏️ Đổi tên
                   </button>
@@ -5846,7 +5943,7 @@
                   ? `<button type="button" class="btn btn-secondary switch-to-sv-btn" data-sv-id="${escapeHtml(sv.id)}" style="padding:5px 12px; font-size:12px; cursor:pointer;">Chuyển tới</button>`
                   : ""
                 }
-                ${!isDefault && isAdmin() ? `
+                ${!isDefault && isAdmin("servers") ? `
                   <button type="button" class="btn delete-sv-btn" data-sv-id="${escapeHtml(sv.id)}" data-sv-name="${escapeHtml(sv.name)}" style="padding:5px 8px; font-size:12px; color:var(--red); background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); border-radius:6px; cursor:pointer; margin-left:auto;" title="Xóa máy chủ này">
                     🗑️
                   </button>
@@ -5956,7 +6053,7 @@
     }
 
     async function createNewServer(name, cloneTemplate = true) {
-      if (!isAdmin()) {
+      if (!isAdmin("servers")) {
         showToast("Chỉ Quản trị viên (Admin) mới có quyền tạo máy chủ mới.");
         requestAdminLogin();
         return;
@@ -6109,7 +6206,7 @@
     }
 
     async function renameServer(serverId, newName) {
-      if (!isAdmin()) {
+      if (!isAdmin("servers")) {
         showToast("Chỉ Quản trị viên (Admin) mới có quyền đổi tên máy chủ.");
         requestAdminLogin();
         return;
@@ -6161,7 +6258,7 @@
     }
 
     function promptRenameServer(serverId, currentName) {
-      if (!isAdmin()) {
+      if (!isAdmin("servers")) {
         showToast("Chỉ Quản trị viên (Admin) mới có quyền đổi tên máy chủ.");
         requestAdminLogin();
         return;
@@ -6177,7 +6274,7 @@
     }
 
     async function deleteServer(serverId) {
-      if (!isAdmin()) {
+      if (!isAdmin("servers")) {
         showToast("Chỉ Quản trị viên (Admin) mới có quyền xóa máy chủ.");
         requestAdminLogin();
         return;
@@ -6264,11 +6361,11 @@
         syncModalScrollLock();
         renderServerListUI();
         if (elements.modalAddServerSection) {
-          elements.modalAddServerSection.style.display = isAdmin() ? "block" : "none";
+          elements.modalAddServerSection.style.display = isAdmin("servers") ? "block" : "none";
         }
         if (elements.newServerName) {
           elements.newServerName.value = "";
-          if (isAdmin()) {
+          if (isAdmin("servers")) {
             setTimeout(() => elements.newServerName.focus(), 100);
           }
         }
@@ -6303,7 +6400,7 @@
 
     if (elements.addServerBtn) {
       elements.addServerBtn.addEventListener("click", () => {
-        if (!isAdmin()) {
+        if (!isAdmin("servers")) {
           showToast("Chỉ Quản trị viên (Admin) mới có quyền thêm máy chủ.");
           requestAdminLogin();
           return;
@@ -6315,7 +6412,7 @@
 
     if (elements.manageServersBtn) {
       elements.manageServersBtn.addEventListener("click", () => {
-        if (!isAdmin()) {
+        if (!isAdmin("servers")) {
           showToast("Chỉ Quản trị viên (Admin) mới có quyền quản lý & đổi tên máy chủ.");
           requestAdminLogin();
           return;
@@ -6337,7 +6434,7 @@
 
     if (elements.confirmAddServerBtn) {
       elements.confirmAddServerBtn.addEventListener("click", () => {
-        if (!isAdmin()) {
+        if (!isAdmin("servers")) {
           showToast("Chỉ Quản trị viên (Admin) mới có quyền thêm máy chủ.");
           requestAdminLogin();
           return;
@@ -6352,7 +6449,7 @@
       elements.newServerName.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          if (!isAdmin()) {
+          if (!isAdmin("servers")) {
             showToast("Chỉ Quản trị viên (Admin) mới có quyền thêm máy chủ.");
             requestAdminLogin();
             return;
@@ -6483,11 +6580,12 @@
     }
 
     function applyAttendanceRemoteData(remoteData, localBase = attendanceSyncBase) {
+      if (!canViewAdminArea("attendance")) return;
       const confirmed = normalizeAttendanceState(cloneRealtimeValue(remoteData), getDefaultAttendanceServerId());
       const remote = getAttendanceSyncData(confirmed);
       const local = attendanceState ? getAttendanceSyncData(attendanceState) : remote;
       const base = localBase ? cloneRealtimeValue(localBase) : local;
-      const merged = isAdmin() ? mergeRealtimeChanges(base, local, remote) : cloneRealtimeValue(remote);
+      const merged = isAdmin("attendance") ? mergeRealtimeChanges(base, local, remote) : cloneRealtimeValue(remote);
       attendanceSyncBase = cloneRealtimeValue(remote);
       attendanceState = normalizeAttendanceState({ ...confirmed, ...merged }, getDefaultAttendanceServerId());
       cacheAttendanceSyncState();
@@ -6972,6 +7070,7 @@
     }
 
     function saveAttendanceState(newState, syncRemote = true) {
+      if (syncRemote && !isAdmin("attendance")) return;
       if (!newState) return;
       attendanceState = normalizeAttendanceState(newState, getDefaultAttendanceServerId());
 
@@ -6986,7 +7085,7 @@
 
       attendanceState.updatedAt = Date.now();
       attendanceState.updatedBy = CLIENT_ID;
-      if (syncRemote && attendanceDbRef && isAdmin()) {
+      if (syncRemote && attendanceDbRef && isAdmin("attendance")) {
         attendanceState.version = (Number(attendanceState.version) || 0) + 1;
       }
 
@@ -6997,13 +7096,13 @@
         console.error("Error saving attendance to localStorage:", e);
       }
 
-      if (syncRemote && attendanceDbRef && isAdmin()) {
+      if (syncRemote && attendanceDbRef && isAdmin("attendance")) {
         pushAttendanceToFirebase();
       }
     }
 
     function openAttendanceWeekModal(weekId = null) {
-      if (!isAdmin()) {
+      if (!isAdmin("attendance")) {
         showToast("Chỉ Quản trị viên (Admin) mới có quyền quản lý tuần.");
         requestAdminLogin();
         return;
@@ -7071,7 +7170,7 @@
     }
 
     function saveAttendanceWeek() {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const editIdInput = document.getElementById("attWeekEditId");
       const cloneSourceInput = document.getElementById("attWeekCloneSourceId");
       const nameInput = document.getElementById("attWeekNameInput");
@@ -7177,7 +7276,7 @@
     }
 
     async function deleteAttendanceWeek(weekId) {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       if (!attendanceState || !attendanceState.weeks || attendanceState.weeks.length <= 1) {
         showToast("Phải giữ lại ít nhất 1 tuần chấm công.");
         return;
@@ -7193,7 +7292,7 @@
         cancelText: "Hủy bỏ",
         isDanger: true
       });
-      if (!confirmed || !isAdmin()) return;
+      if (!confirmed || !isAdmin("attendance")) return;
 
       attendanceState.weeks = attendanceState.weeks.filter(w => w.id !== weekId);
       if (attendanceState.activeWeekId === weekId) {
@@ -7213,7 +7312,7 @@
         getActiveWeek();
       }
 
-      const adminMode = isAdmin();
+      const adminMode = isAdmin("attendance");
       let tabsHtml = "";
 
       attendanceState.weeks.forEach(w => {
@@ -7327,7 +7426,7 @@
     }
 
     async function pushAttendanceToFirebase(seedOnly = false, seedBase = null) {
-      if (!attendanceDbRef || !isAdmin() || attendanceRemotePermissionDenied) return;
+      if (!attendanceDbRef || !isAdmin("attendance") || attendanceRemotePermissionDenied) return;
       if (attendanceRemoteSaveInFlight || !attendanceRemoteStateReady || attendanceFirebaseMigrationInFlight) {
         attendancePendingRemoteSave = true;
         return;
@@ -7354,7 +7453,7 @@
             version: (Number(current?.version) || 0) + 1
           }, fallbackServerId);
         }, undefined, false);
-        if (generation !== attendanceSyncGeneration || !isAdmin()) return;
+        if (generation !== attendanceSyncGeneration || !isAdmin("attendance")) return;
         const confirmed = result.snapshot.val();
         if (confirmed) {
           applyAttendanceRemoteData(confirmed, result.committed ? local : (seedBase || local));
@@ -7364,7 +7463,7 @@
         }
         saved = true;
       } catch (err) {
-        if (generation === attendanceSyncGeneration && isAdmin()) handleAttendanceSyncError(err);
+        if (generation === attendanceSyncGeneration && isAdmin("attendance")) handleAttendanceSyncError(err);
       } finally {
 
 
@@ -7382,6 +7481,12 @@
 
     function initAttendanceRealtimeSync() {
       if (!attendanceDbRef) return;
+      if (!canViewAdminArea("attendance")) {
+        if (activeAttendanceRef) activeAttendanceRef.off();
+        activeAttendanceRef = null;
+        attendanceRemoteStateReady = false;
+        return;
+      }
       if (activeAttendanceRef === attendanceDbRef) return;
       try {
         if (activeAttendanceRef) activeAttendanceRef.off();
@@ -7412,12 +7517,12 @@
           return;
         }
         if (!remoteData) {
-          if (isAdmin() && attendanceState && !attendanceFirebaseSeedAttempted) {
+          if (isAdmin("attendance") && attendanceState && !attendanceFirebaseSeedAttempted) {
             // A rejected Firebase write emits the empty value again; seed only once per page load.
             attendanceFirebaseSeedAttempted = true;
             const beforeMigration = getAttendanceSyncData(attendanceState);
             migrateLegacyFirebaseAttendanceIfNeeded().then(migrated => {
-              if (generation !== attendanceSyncGeneration || !isAdmin() || attendanceRemotePermissionDenied) return;
+              if (generation !== attendanceSyncGeneration || !isAdmin("attendance") || attendanceRemotePermissionDenied) return;
               if (attendanceRemoteDataExists) {
                 pushAttendanceToFirebase();
                 return;
@@ -7431,14 +7536,14 @@
               }
               pushAttendanceToFirebase(true, seedBase);
             }).catch(err => {
-              if (generation === attendanceSyncGeneration && isAdmin()) handleAttendanceSyncError(err);
+              if (generation === attendanceSyncGeneration && isAdmin("attendance")) handleAttendanceSyncError(err);
             });
           }
           return;
         }
 
         applyAttendanceRemoteData(remoteData);
-        if (isAdmin()) pushAttendanceToFirebase();
+        if (isAdmin("attendance")) pushAttendanceToFirebase();
       }, err => {
         if (generation === attendanceSyncGeneration) handleAttendanceSyncError(err);
       });
@@ -7802,8 +7907,20 @@
       closeAttendanceColumnFilter();
       const content = document.getElementById("attendanceContent");
       const notice = document.getElementById("attendanceAccessNotice");
+      if (notice) {
+        if (!notice.dataset.originalHtml) notice.dataset.originalHtml = notice.innerHTML;
+        if (canViewAdminArea("attendance")) notice.innerHTML = notice.dataset.originalHtml;
+      }
+      if (!canViewAdminArea("attendance")) {
+        if (content) content.hidden = true;
+        if (notice) {
+          notice.hidden = false;
+          notice.textContent = "🔒 Tài khoản Admin này chưa được cấp quyền xem chấm công và lương.";
+        }
+        return;
+      }
       if (content) content.hidden = false;
-      if (notice) notice.hidden = isAdmin();
+      if (notice) notice.hidden = isAdmin("attendance");
       if (!attendanceState) attendanceState = loadAttendanceState();
 
       renderWeekTabs();
@@ -7818,7 +7935,7 @@
       const diasInput = document.getElementById("attDiasPoolInput");
       if (diasInput && document.activeElement !== diasInput) {
         diasInput.value = guildCalc.diasPool;
-        diasInput.readOnly = !isAdmin();
+        diasInput.readOnly = !isAdmin("attendance");
       }
       const diasRateEl = document.getElementById("attDiasRateText");
       if (diasRateEl) diasRateEl.textContent = calc.diasRate.toFixed(2);
@@ -7828,7 +7945,7 @@
       const usdtInput = document.getElementById("attUsdtPoolInput");
       if (usdtInput && document.activeElement !== usdtInput) {
         usdtInput.value = guildCalc.usdtPool;
-        usdtInput.readOnly = !isAdmin();
+        usdtInput.readOnly = !isAdmin("attendance");
       }
       const usdtRateEl = document.getElementById("attUsdtRateText");
       if (usdtRateEl) usdtRateEl.textContent = calc.usdtRate.toFixed(4);
@@ -7859,7 +7976,7 @@
         if (document.activeElement !== thresholdInput || normalizeMinimumParticipationPercent(thresholdInput.value) !== calc.minimumParticipationPercent) {
           thresholdInput.value = calc.minimumParticipationPercent;
         }
-        thresholdInput.readOnly = !isAdmin();
+        thresholdInput.readOnly = !isAdmin("attendance");
       }
       const thresholdText = document.getElementById("attThresholdText");
       if (thresholdText) thresholdText.textContent = `Ngưỡng nhận thưởng: ≥ ${calc.minimumParticipationPercent}%`;
@@ -7904,9 +8021,9 @@
 
       // Update Role permissions on top cards
       const diasTag = document.getElementById("attDiasAdminTag");
-      if (diasTag) diasTag.style.display = isAdmin() ? "inline-block" : "none";
+      if (diasTag) diasTag.style.display = isAdmin("attendance") ? "inline-block" : "none";
       const usdtTag = document.getElementById("attUsdtAdminTag");
-      if (usdtTag) usdtTag.style.display = isAdmin() ? "inline-block" : "none";
+      if (usdtTag) usdtTag.style.display = isAdmin("attendance") ? "inline-block" : "none";
 
       // 2. Filter Members
       const filteredMembers = filterAttendanceMembers(calc.membersCalc);
@@ -7916,7 +8033,7 @@
       if (!headEl) return;
 
       const activities = currWeek.activities || [];
-      const adminMode = isAdmin();
+      const adminMode = isAdmin("attendance");
 
       let headHtml = `<tr>
         <th class="col-sticky col-stt">#</th>
@@ -8119,7 +8236,7 @@
 
     function openAttendanceMemberMenu(memberId, x, y, row) {
       closeAttendanceMemberMenu();
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const week = getActiveWeek();
       const member = week?.members.find(item => item.id === memberId);
       if (!member) return;
@@ -8157,24 +8274,24 @@
       });
       menu.querySelector(".att-edit-member-btn").addEventListener("click", () => {
         closeAttendanceMemberMenu();
-        if (isAdmin()) openAttendanceMemberModal(memberId);
+        if (isAdmin("attendance")) openAttendanceMemberModal(memberId);
       });
       menu.querySelector(".att-del-member-btn").addEventListener("click", async () => {
         closeAttendanceMemberMenu();
-        if (!isAdmin()) return;
+        if (!isAdmin("attendance")) return;
         const confirmed = await showConfirmModal({
           title: "Xóa thành viên?",
           subtitle: "Hành động này sẽ xóa thành viên khỏi bảng chấm công",
           message: `Bạn có chắc muốn xóa thành viên "${member.name}"? Dữ liệu điểm của thành viên này trong tuần sẽ bị mất.`,
           confirmText: "Xóa thành viên", cancelText: "Hủy bỏ", isDanger: true
         });
-        if (confirmed && isAdmin()) deleteAttendanceMember(memberId, week.id);
+        if (confirmed && isAdmin("attendance")) deleteAttendanceMember(memberId, week.id);
       });
       menu.querySelector("button").focus({ preventScroll: true });
     }
 
     function bindAttendanceTableEvents() {
-      const adminMode = isAdmin();
+      const adminMode = isAdmin("attendance");
 
       // Header Server select
       const headServerSelect = document.getElementById("attHeaderServerSelect");
@@ -8469,9 +8586,9 @@
         document.querySelector('.att-ocr-body').prepend(gallery);
       }
       const images = attendanceOcrReview?.images || [];
-      gallery.innerHTML = images.map((item, index) => `<figure class="att-gallery-item"><img ${index === 0 ? 'id="attOcrSavedImage"' : ''} src="${escapeHtml(item.src)}" alt="Ảnh đội hình ${index + 1}"><figcaption>Ảnh ${index + 1} · ${escapeHtml(item.name)} ${isAdmin() ? `<button type="button" class="button-secondary" data-remove-image="${index}">Xóa ảnh</button>` : ''}</figcaption></figure>`).join('');
+      gallery.innerHTML = images.map((item, index) => `<figure class="att-gallery-item"><img ${index === 0 ? 'id="attOcrSavedImage"' : ''} src="${escapeHtml(item.src)}" alt="Ảnh đội hình ${index + 1}"><figcaption>Ảnh ${index + 1} · ${escapeHtml(item.name)} ${isAdmin("attendance") ? `<button type="button" class="button-secondary" data-remove-image="${index}">Xóa ảnh</button>` : ''}</figcaption></figure>`).join('');
       gallery.querySelectorAll('[data-remove-image]').forEach(button => button.onclick = () => {
-        if (!isAdmin()) return;
+        if (!isAdmin("attendance")) return;
         const [removed] = attendanceOcrReview.images.splice(Number(button.dataset.removeImage), 1);
         attendanceOcrFiles = attendanceOcrFiles.filter(file => `${file.name}|${file.size}|${file.lastModified}` !== removed.id);
         attendanceOcrSession++;
@@ -8483,7 +8600,7 @@
         retry = document.createElement('button'); retry.id = 'attOcrRetry'; retry.type = 'button'; retry.className = 'button-secondary';
         retry.textContent = 'Nhận diện lại tất cả ảnh'; gallery.after(retry);
         retry.onclick = async () => {
-          if (!isAdmin() || retry.disabled) return;
+          if (!isAdmin("attendance") || retry.disabled) return;
           const session = attendanceOcrSession;
           retry.disabled = true;
           try {
@@ -8493,7 +8610,7 @@
           } finally { retry.disabled = false; }
         };
       }
-      retry.style.display = isAdmin() && images.length ? '' : 'none';
+      retry.style.display = isAdmin("attendance") && images.length ? '' : 'none';
     }
 
     function renderAttendanceManualPicker() {
@@ -8504,7 +8621,7 @@
         document.getElementById('attOcrResults').after(wrap);
         wrap.querySelector('input').oninput = () => renderAttendanceManualPicker();
       }
-      wrap.style.display = isAdmin() ? '' : 'none';
+      wrap.style.display = isAdmin("attendance") ? '' : 'none';
       const query = normalizeAttendanceOcrName(wrap.querySelector('input').value);
       const chosen = new Set((attendanceOcrReview?.matched || []).map(item => item.member.id));
       const week = attendanceState.weeks.find(item => item.id === attendanceOcrReview?.weekId) || getActiveWeek();
@@ -8512,7 +8629,7 @@
       const list = wrap.querySelector('div');
       list.innerHTML = members.map(member => `<button type="button" class="att-ocr-chip" data-add-member="${escapeHtml(member.id)}">+ ${escapeHtml(member.name)}</button>`).join('') || '<span>Không có thành viên phù hợp</span>';
       list.querySelectorAll('button').forEach(button => button.onclick = () => {
-        if (!isAdmin()) return;
+        if (!isAdmin("attendance")) return;
         const member = week.members.find(item => item.id === button.dataset.addMember);
         if (!member) return;
         attendanceOcrReview.matched.push({ member, manualFaded: true });
@@ -8543,7 +8660,7 @@
         const target = document.getElementById(targetId);
         if (!target) return;
         target.innerHTML = items.length ? items.map(item => selectable
-          ? `<label class="att-ocr-chip ${className}"><input type="checkbox" data-ocr-member-id="${escapeHtml(item.member.id)}" data-ocr-source="${item.manualFaded || !checkedByDefault ? "faded" : "bright"}"${checkedByDefault ? " checked" : ""}${!isAdmin() ? " disabled" : ""}><span>${escapeHtml(item.member.name)}</span></label>`
+          ? `<label class="att-ocr-chip ${className}"><input type="checkbox" data-ocr-member-id="${escapeHtml(item.member.id)}" data-ocr-source="${item.manualFaded || !checkedByDefault ? "faded" : "bright"}"${checkedByDefault ? " checked" : ""}${!isAdmin("attendance") ? " disabled" : ""}><span>${escapeHtml(item.member.name)}</span></label>`
           : `<span class="att-ocr-chip ${className}">${escapeHtml(item.member?.name || item.text)}</span>`).join("")
           : '<span class="att-ocr-empty">Không có</span>';
       };
@@ -8572,7 +8689,7 @@
     function refreshAttendanceOcrApplyButton() {
       const button = document.getElementById("attOcrApplyBtn");
 
-      if (button) button.disabled = !isAdmin();
+      if (button) button.disabled = !isAdmin("attendance");
     }
 
     function clearAttendanceOcrFilePreviews() {
@@ -8605,7 +8722,7 @@
         remove.type = 'button'; remove.textContent = '✕ Xóa'; remove.className = 'att-image-remove';
         remove.onclick = event => {
           event.preventDefault(); event.stopPropagation();
-          if (!isAdmin()) return;
+          if (!isAdmin("attendance")) return;
           attendanceOcrFiles.splice(index, 1);
           attendanceOcrSession++;
           renderAttendanceOcrFilePreviews();
@@ -8620,7 +8737,7 @@
     }
 
     function queueAttendanceOcrFiles(files) {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const imageFiles = [...(files || [])].filter(file => file && String(file.type || "").startsWith("image/"));
       if (!imageFiles.length && !attendanceOcrFiles.length) {
         showToast("Clipboard không có ảnh. Hãy sao chép ảnh rồi nhấn Ctrl+V.");
@@ -8662,7 +8779,7 @@
       document.getElementById("attOcrResults").hidden = true;
       document.getElementById("attOcrError").hidden = true;
       document.getElementById("attOcrApplyBtn").disabled = true;
-      const admin = isAdmin();
+      const admin = isAdmin("attendance");
       document.querySelector('.att-ocr-drop').style.display = admin ? '' : 'none';
       document.getElementById('attOcrFileInput').disabled = !admin;
       document.querySelector('.att-ocr-safe-option').style.display = admin ? '' : 'none';
@@ -8701,7 +8818,7 @@
     }
 
     async function analyzeAttendanceOcrFiles(files, refreshOnly = false) {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const session = attendanceOcrSession;
       const previousReview = attendanceOcrReview;
       const errorEl = document.getElementById("attOcrError");
@@ -8728,7 +8845,7 @@
               }
             }
           });
-          if (session !== attendanceOcrSession || !isAdmin()) return;
+          if (session !== attendanceOcrSession || !isAdmin("attendance")) return;
           const words = collectAttendanceOcrWords(result?.data);
           // A second contrast pass reveals dim names. Always classify brightness on the original image.
           const contrast = document.createElement('canvas');
@@ -8742,7 +8859,7 @@
           }
           contrastContext.putImageData(pixels, 0, 0);
           const enhanced = await Tesseract.recognize(contrast, 'eng', { tessedit_pageseg_mode: '11' });
-          if (session !== attendanceOcrSession || !isAdmin()) return;
+          if (session !== attendanceOcrSession || !isAdmin("attendance")) return;
           words.push(...collectAttendanceOcrWords(enhanced?.data));
           // Join adjacent OCR fragments only inside the same name row/card.
           const fragments = words.slice();
@@ -8774,7 +8891,7 @@
         const images = [...(previousReview.images || [])];
         if (!refreshOnly) newImages.forEach(image => { if (!images.some(item => item.id === image.id)) images.push(image); });
         const evidenceImage = images[0]?.src || '';
-        if (session !== attendanceOcrSession || !isAdmin()) return;
+        if (session !== attendanceOcrSession || !isAdmin("attendance")) return;
         attendanceOcrReview = {
           activityId: previousReview.activityId, weekId: currWeek.id,
           matched: [...new Map([...(previousReview.matched || []).map(item => [item.member.id, item]), ...[...detected.values()].filter(item => item.bright).map(item => [item.member.id, item])]).values()].sort((a, b) => a.member.name.localeCompare(b.member.name, "vi")),
@@ -8801,7 +8918,7 @@
     }
 
     function applyAttendanceOcrReview() {
-      if (!isAdmin() || !attendanceOcrReview) return;
+      if (!isAdmin("attendance") || !attendanceOcrReview) return;
       const currWeek = attendanceState.weeks.find(week => week.id === attendanceOcrReview.weekId) || getActiveWeek();
       const activityId = attendanceOcrReview.activityId;
       const selectedIds = new Set([...document.querySelectorAll("[data-ocr-member-id]:checked")].map(input => input.dataset.ocrMemberId));
@@ -8984,7 +9101,7 @@
     }
 
     function saveAttendanceMember() {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const nameInput = document.getElementById("attMemberNameInput");
       const serverSelect = document.getElementById("attMemberServerSelect");
       const multInput = document.getElementById("attMemberMultiplierInput");
@@ -9067,7 +9184,7 @@
     }
 
     function deleteAttendanceMember(memberId, weekId = attendanceState?.activeWeekId) {
-      if (!isAdmin() || !attendanceState) return;
+      if (!isAdmin("attendance") || !attendanceState) return;
       const currWeek = attendanceState.weeks.find(week => week.id === weekId);
       if (!currWeek) return;
       currWeek.members = currWeek.members.filter(m => m.id !== memberId);
@@ -9079,7 +9196,7 @@
 
     // Modal Role Bonus Functions
     function openAttendanceRoleBonusModal() {
-      if (!isAdmin()) {
+      if (!isAdmin("attendance")) {
         showToast("Chỉ Quản trị viên (Admin) mới có quyền cài đặt Thưởng Vị Trí.");
         requestAdminLogin();
         return;
@@ -9154,7 +9271,7 @@
     }
 
     function saveAttendanceRoleBonuses() {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const rows = document.querySelectorAll("#attRoleBonusListContainer .att-role-bonus-row");
       const errEl = document.getElementById("attRoleBonusModalError");
       if (errEl) errEl.style.display = "none";
@@ -9195,7 +9312,7 @@
 
     // Modal Combat Power & Ranking Functions
     function openAttendanceCombatPowerModal() {
-      if (!isAdmin()) {
+      if (!isAdmin("attendance")) {
         showToast("Chỉ Quản trị viên (Admin) mới có quyền quản lý Lực Chiến.");
         requestAdminLogin();
         return;
@@ -9439,7 +9556,7 @@
     }
 
     async function analyzeAttendanceCpImages(files) {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const imageFiles = [...(files || [])].filter(file => String(file?.type || "").startsWith("image/"));
       if (!imageFiles.length) return;
       const session = ++attendanceCpOcrSession;
@@ -9511,7 +9628,7 @@
     }
 
     function applyAttendanceCpImageReview() {
-      if (!isAdmin() || !attendanceCpImageReview) return;
+      if (!isAdmin("attendance") || !attendanceCpImageReview) return;
       const selected = new Map();
       document.querySelectorAll("[data-cp-image-member-id]:checked").forEach(checkbox => {
         const memberId = checkbox.dataset.cpImageMemberId;
@@ -9558,7 +9675,7 @@
     }
 
     function saveCombatPowerModalData(applyTiers = false) {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const currWeek = getActiveWeek();
       if (!currWeek) return;
 
@@ -9743,7 +9860,7 @@
     }
 
     function saveAttendanceActivity() {
-      if (!isAdmin()) return;
+      if (!isAdmin("attendance")) return;
       const dateInput = document.getElementById("attActivityDateInput");
       const nameInput = document.getElementById("attActivityNameInput");
       const dayCheckbox = document.getElementById("attActivityPeriodDay");
@@ -9815,7 +9932,7 @@
     }
 
     function deleteAttendanceActivity(actId, weekId = attendanceState?.activeWeekId) {
-      if (!isAdmin() || !attendanceState) return;
+      if (!isAdmin("attendance") || !attendanceState) return;
       const currWeek = attendanceState.weeks.find(week => week.id === weekId);
       if (!currWeek) return;
       currWeek.activities = currWeek.activities.filter(a => a.id !== actId);
@@ -9882,7 +9999,7 @@
     }
 
     function updateAttendanceRoleUI() {
-      const adminMode = isAdmin();
+      const adminMode = isAdmin("attendance");
       // The Boss timer calls this every second; refresh Attendance only when permissions change.
       if (attendanceRoleUIMode === adminMode) return;
       attendanceRoleUIMode = adminMode;
@@ -9922,7 +10039,11 @@
     }
 
     async function downloadFullDataBackup() {
-      if (!isAdmin()) {
+      if (!canViewAdminArea("bosses") || !canViewAdminArea("attendance")) {
+        showToast("Bạn cần quyền xem cả Boss và chấm công để tải bản sao lưu đầy đủ.");
+        return;
+      }
+      if (!isAdmin("attendance")) {
         showToast("Chỉ Admin mới có quyền sao lưu dữ liệu.");
         return;
       }
@@ -10027,7 +10148,7 @@
         }
         if (dashboardEyebrow) dashboardEyebrow.innerHTML = `<span class="server-pulse" aria-hidden="true"></span> Realtime countdown`;
         if (realtimeStatus) realtimeStatus.style.display = "inline-flex";
-        if (addBossBtn) addBossBtn.style.display = isAdmin() ? "inline-flex" : "none";
+        if (addBossBtn) addBossBtn.style.display = isAdmin("bosses") ? "inline-flex" : "none";
 
         if (window.location.hash === "#attendance" || window.location.hash === "#salary" || window.location.hash === "#attendance-salary") {
           try {
@@ -10072,7 +10193,7 @@
       const diasInput = document.getElementById("attDiasPoolInput");
       if (diasInput) {
         diasInput.addEventListener("change", () => {
-          if (!isAdmin()) {
+          if (!isAdmin("attendance")) {
             showToast("Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa Quỹ.");
             requestAdminLogin();
             diasInput.value = getActiveWeek().diasPool;
@@ -10090,7 +10211,7 @@
       const usdtInput = document.getElementById("attUsdtPoolInput");
       if (usdtInput) {
         usdtInput.addEventListener("change", () => {
-          if (!isAdmin()) {
+          if (!isAdmin("attendance")) {
             showToast("Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa Quỹ.");
             requestAdminLogin();
             usdtInput.value = getActiveWeek().usdtPool;
@@ -10109,7 +10230,7 @@
       if (thresholdInput) {
         const updateThreshold = (event) => {
           const currWeek = getActiveWeek();
-          if (!isAdmin()) {
+          if (!isAdmin("attendance")) {
             thresholdInput.value = normalizeMinimumParticipationPercent(currWeek.minimumParticipationPercent);
             return;
           }
@@ -10440,7 +10561,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.10.31.v22-firebase-sync-protocol-2";
+    const CURRENT_APP_VERSION = "2026.11.02.v23-admin-permissions";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();

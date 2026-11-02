@@ -22,7 +22,9 @@ async function verifyFirebaseAdmin(idToken, fetchImpl, env) {
     { signal: AbortSignal.timeout(10000) }
   );
   if (!accessResponse.ok) return null;
-  return (await accessResponse.json())?.active === true ? { uid: account.localId } : null;
+  const profile = await accessResponse.json();
+  return profile?.active === true && (profile.permissions == null || profile.permissions.discord === "edit")
+    ? { uid: account.localId } : null;
 }
 
 export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now = Date.now } = {}) {

@@ -110,6 +110,44 @@ try {
  await pages[0].evaluate(id=>deleteServer(id),newId);
  for(const page of pages)await page.waitForFunction(id=>!serverList.some(s=>s.id===id),newId);
  checks.push('Server creation and deletion propagate');
+ // Switch one independent session from owner to an approved secondary account.
+ put('admin_access/admin-1',{active:true,email:'secondary@example.invalid',name:'Admin phụ thử nghiệm',
+  approvedAt:now,approvedBy:'admin-0',permissions:{bosses:'view',attendance:'view',servers:'view',discord:'none'}});
+ await pages[1].evaluate(async()=>{
+  firebaseAuth.currentUser.getIdTokenResult=async()=>({claims:{}});
+  await window.__repeatAuth();
+ });
+ await pages[1].waitForFunction(()=>isAdmin()&&!currentUserIsSuperAdmin&&!isAdmin('bosses'));
+ assert.equal(await pages[1].locator('#addBossBtn').isVisible(),false);
+ const beforeWrites=writes;
+ await pages[1].evaluate(async()=>{await killBoss('a');await renameServer('s1','Unauthorized rename');saveDiscordConfigLocal({...discordConfig,tagEveryone:false});});
+ assert.equal(writes,beforeWrites,'read-only admin cannot use direct action handlers to write');
+ checks.push('Read-only secondary admin has no edit controls or direct-handler writes');
+ await pages[0].evaluate(()=>openAdminAccModal());
+ const form=pages[0].locator('form[data-permissions-uid="admin-1"]');
+ await form.locator('..').locator('summary').click();
+ await form.locator('[name=bosses]').selectOption('none');
+ await form.locator('[name=attendance]').selectOption('edit');
+ await form.locator('button[type=submit]').click();
+ await pages[1].waitForFunction(()=>!canViewAdminArea('bosses')&&isAdmin('attendance'));
+ assert.equal(await pages[1].locator('#bossGrid').isVisible(),false);
+ assert.equal(await pages[1].evaluate(()=>state.bosses.length),0);
+ await pages[1].evaluate(()=>{getActiveWeek().diasPool=999;saveAttendanceState(attendanceState);});
+ await pages[2].waitForFunction(()=>getActiveWeek().diasPool===999);
+ checks.push('Owner permission form saves and changes another active session immediately');
+ await form.locator('[name=attendance]').selectOption('none');
+ await form.locator('[name=bosses]').selectOption('view');
+ await form.locator('button[type=submit]').click();
+ await pages[1].waitForFunction(()=>canViewAdminArea('bosses')&&!canViewAdminArea('attendance'));
+ await pages[1].waitForFunction(()=>state.bosses.some(b=>b.id==='a'));
+ await pages[1].evaluate(()=>switchPageView('attendance'));
+ assert.equal(await pages[1].locator('#attendanceContent').isVisible(),false);
+ checks.push('Restored Boss viewing reconnects while denied attendance stays hidden');
+ if(process.env.BOSS_TIMELINE_TEST_OUTPUT) {
+  const {mkdir}=await import('node:fs/promises');
+  await mkdir(process.env.BOSS_TIMELINE_TEST_OUTPUT,{recursive:true});
+  await pages[0].locator('#adminAccountModal .modal').screenshot({path:process.env.BOSS_TIMELINE_TEST_OUTPUT+'/admin-permissions.png'});
+ }
  assert.deepEqual(errors,[]);
  console.log(JSON.stringify({passed:checks.length,checks,writes,errors},null,2));
 } finally {await browser?.close();await new Promise(r=>server.close(r));}

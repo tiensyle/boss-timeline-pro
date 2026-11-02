@@ -12,8 +12,11 @@ test('state Rules require a strictly newer version and preserve the restoration 
  assert.equal(grant(write,state(4),state(5,'other')),false);
  assert.equal(grant(write,state(4),{data:{version:5}}),false);
 });
-test('state Rules deny cache seeding into an empty default database',()=>{
- assert.equal(grant(rules.boss_timeline_state['.write'],null,state(1)),false);
+test('empty default database accepts only a versioned protocol-v2 initialization',()=>{
+ assert.equal(grant(rules.boss_timeline_state['.write'],null,state(1)),true);
+ assert.equal(grant(rules.boss_timeline_state['.write'],null,state(2)),false);
+ assert.equal(grant(rules.boss_timeline_state['.write'],null,{data:{bosses:[]}}),false);
+ assert.equal(grant(rules.boss_timeline_state['.write'],null,state(1,'one',1)),false);
 });
 test('new servers can initialize only after their explicit registration',()=>{
  const write=rules.boss_timeline_servers.$serverId.state['.write'];

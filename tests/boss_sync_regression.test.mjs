@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync(new URL('../assets/app.js', import.meta.url), 'utf8');
 const copy = value => JSON.parse(JSON.stringify(value));
 function load(names, globals = {}) {
-  const ctx = vm.createContext({ console, Date, ...globals });
+  const ctx = vm.createContext({ console, Date, canViewAdminArea: () => true, currentAdminPermissions: null, ...globals });
   for (const name of names) {
     const match = new RegExp(`^    (?:async )?function ${name}\\(`, 'm').exec(source);
     assert.ok(match, `Missing ${name}`);

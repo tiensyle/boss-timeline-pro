@@ -4,9 +4,7 @@ import { readFileSync } from "node:fs";
 
 const rules = JSON.parse(readFileSync(new URL("../database.rules.json", import.meta.url))).rules;
 const approved = new Set(["approved"]);
-const root = {
-  child(name) { return { child(uid) { return { child(field) { return { val: () => name === "admin_access" && field === "active" && approved.has(uid) }; } }; } }; }
-};
+const root = snapshot({admin_access: {approved: {active: true}}});
 
 // Evaluate the actual read/write grant expressions and ancestor cascading.
 // This is a focused regression check, not a replacement for the Firebase Emulator.

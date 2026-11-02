@@ -13,6 +13,28 @@
 
 ## Quản trị và dữ liệu
 
+### Phân quyền Admin phụ
+
+Admin chính (Firebase custom claim `admin: true`) mở **Quản lý tài khoản Admin → Phân quyền**
+ở từng tài khoản, chọn quyền rồi bấm **Lưu quyền**:
+
+- Boss/điểm/ghi chú/lịch và chấm công/lương: Không xem, Chỉ xem, Chỉnh sửa.
+- Server: Chỉ xem hoặc Thêm/sửa/xóa. Người quản lý Server có thể khởi tạo Server mới đã đăng ký;
+  quyền đó không cho sửa dữ liệu Boss của Server đã tồn tại.
+- Discord: Không truy cập hoặc Cấu hình và gửi. API Discord cũng kiểm tra quyền này.
+- Cấp, sửa và thu hồi quyền tài khoản: chỉ Admin chính, không thể ủy quyền lại.
+
+Quyền lưu tại `admin_access/{uid}/permissions` và được áp dụng khi tài khoản Admin phụ đang đăng nhập.
+Member/khách vẫn chỉ xem dữ liệu công khai. “Không xem” không phải bảo mật dữ liệu khỏi một người
+có thể đăng xuất để xem dưới dạng Member. Dữ liệu đã xem/tải trước khi đổi quyền không thể bị thu hồi.
+Admin phụ mới được phê duyệt mặc định chỉ xem Boss/chấm công/Server và không truy cập Discord.
+Tài khoản cũ chưa có trường `permissions` giữ quyền cũ; Admin chính nên phân quyền lại từng tài khoản.
+
+**Triển khai tính năng này:** sao lưu, Publish `database.rules.json` lên Realtime Database Rules,
+rồi triển khai cùng lúc giao diện (`index.html`, `assets/app.js`, `assets/app.css`) và API (`api/discord.js`).
+Không cần đổi Firebase config, tạo lại database hay tạo lại tài khoản. Chỉ đổi giao diện mà chưa Publish
+Rules/API mới sẽ không bảo vệ đầy đủ các quyền. Quyền đang mở được cập nhật qua listener mà không cần đăng nhập lại.
+
 - Tài khoản đăng nhập được xác thực bằng Firebase Authentication.
 - Admin phụ chỉ hoạt động khi có bản ghi đang bật trong `admin_access/{uid}`; khi quyền bị thu hồi, phiên quản trị trên web bị thoát ngay.
 - Nút **Sao Lưu** trong bảng Chấm Công & Lương tải xuống một tệp JSON chứa dữ liệu Boss, máy chủ và chấm công. Tệp sao lưu không chứa mật khẩu hay Discord webhook.

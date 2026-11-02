@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { createDiscordHandler } from "../api/discord.js";
 
 const webhook = "https://discord.com/api/webhooks/123456789/test-token";
-function fixture({ superAdmin = true, active = true, discordStatus = 204, env = {} } = {}) {
+function fixture({ superAdmin = true, active = true, permissions, discordStatus = 204, env = {} } = {}) {
   const requests = [];
   let timestamp = 1000;
   const fetchImpl = async (url, options) => {
     requests.push({ url, options });
     if (url.includes("accounts:lookup")) return Response.json({ users: [{ localId: "uid", customAttributes: JSON.stringify({ admin: superAdmin }) }] });
-    if (url.includes("admin_access")) return Response.json({ active });
+    if (url.includes("admin_access")) return Response.json({ active, permissions });
     if (discordStatus === 204) return new Response(null, { status: 204 });
     return Response.json({ retry_after: 2.5 }, { status: discordStatus });
   };
@@ -48,6 +48,14 @@ test("approved secondary admins and super admins can send; server webhook overri
   assert.equal((await override.send({ body: { serverId: "s2", payload: { content: "Hi" } } })).code, 200);
   assert.equal(override.requests.at(-1).url, otherWebhook);
   assert.deepEqual(JSON.parse(override.requests.at(-1).options.body).allowed_mentions, { parse: [] });
+});
+
+test("Discord rejects an active admin without Discord permission", async () => {
+  const denied = fixture({ superAdmin: false, permissions: { bosses: "edit", discord: "none" } });
+  assert.equal((await denied.send()).code, 403);
+  assert.equal(denied.requests.length, 2);
+  const granted = fixture({ superAdmin: false, permissions: { bosses: "none", discord: "edit" } });
+  assert.equal((await granted.send()).code, 200);
 });
 
 test("webhook saved by an admin overrides the old deployment webhook for the selected server", async () => {

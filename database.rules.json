@@ -3,10 +3,10 @@
     ".read": false,
     ".write": false,
     "boss_timeline_state": {
-      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true) && newData.child('data/syncProtocol').val() === 2 && newData.child('data/syncEpoch').isString() && newData.child('data/version').isNumber() && newData.child('data/version').val() === (data.child('data/version').isNumber() ? data.child('data/version').val() + 1 : 1) && (!data.child('data/syncEpoch').exists() || newData.child('data/syncEpoch').val() === data.child('data/syncEpoch').val())",
+      ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit' || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'view')))",
+      ".write": "(auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit')))) && newData.child('data/syncProtocol').val() === 2 && newData.child('data/syncEpoch').isString() && newData.child('data/version').isNumber() && newData.child('data/version').val() === (data.child('data/version').isNumber() ? data.child('data/version').val() + 1 : 1) && (!data.child('data/syncEpoch').exists() || newData.child('data/syncEpoch').val() === data.child('data/syncEpoch').val())",
       "data": {
-        ".read": true,
+        ".read": "auth == null || auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() !== true || !root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'view' || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit'",
         "bosses": {
           "$index": {
             ".validate": "newData.hasChildren(['id', 'revision', 'updatedAt', 'updatedBy']) && newData.child('revision').isNumber() && newData.child('revision').val() >= 0 && newData.child('updatedAt').isNumber() && newData.child('updatedBy').isString()"
@@ -35,32 +35,32 @@
         }
       },
       "bosses_map": {
-        ".read": true
+        ".read": "auth == null || auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() !== true || !root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'view' || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit'"
       }
     },
     "boss_timeline_attendance_global": {
-      ".read": true,
-      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+      ".read": "auth == null || auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() !== true || !root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/attendance').val() === 'view' || root.child('admin_access').child(auth.uid).child('permissions/attendance').val() === 'edit'",
+      ".write": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/attendance').val() === 'edit')))"
     },
     "boss_timeline_attendance": {
-      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+      ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/attendance').val() === 'edit' || root.child('admin_access').child(auth.uid).child('permissions/attendance').val() === 'view')))",
       ".write": false
     },
     "boss_timeline_discord_config": {
-      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+      ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))",
+      ".write": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))"
     },
     "boss_timeline_discord_alerts": {
-      ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+      ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))",
+      ".write": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))"
     },
     "boss_timeline_servers": {
       "$serverId": {
         "state": {
-          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true) && (data.child('data').exists() || root.child('boss_timeline_servers_list/items').child($serverId).exists()) && newData.child('data/syncProtocol').val() === 2 && newData.child('data/syncEpoch').isString() && newData.child('data/version').isNumber() && newData.child('data/version').val() === (data.child('data/version').isNumber() ? data.child('data/version').val() + 1 : 1) && (!data.child('data/syncEpoch').exists() || newData.child('data/syncEpoch').val() === data.child('data/syncEpoch').val())",
+          ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit' || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'view')))",
+          ".write": "((auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit')))) || ((auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/servers').val() === 'edit')))) && !data.child('data').exists())) && (data.child('data').exists() || root.child('boss_timeline_servers_list/items').child($serverId).exists()) && newData.child('data/syncProtocol').val() === 2 && newData.child('data/syncEpoch').isString() && newData.child('data/version').isNumber() && newData.child('data/version').val() === (data.child('data/version').isNumber() ? data.child('data/version').val() + 1 : 1) && (!data.child('data/syncEpoch').exists() || newData.child('data/syncEpoch').val() === data.child('data/syncEpoch').val())",
           "data": {
-            ".read": true,
+            ".read": "auth == null || auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() !== true || !root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'view' || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit'",
             "bosses": {
               "$index": {
                 ".validate": "newData.hasChildren(['id', 'revision', 'updatedAt', 'updatedBy']) && newData.child('revision').isNumber() && newData.child('revision').val() >= 0 && newData.child('updatedAt').isNumber() && newData.child('updatedBy').isString()"
@@ -89,26 +89,26 @@
             }
           },
           "bosses_map": {
-            ".read": true
+            ".read": "auth == null || auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() !== true || !root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'view' || root.child('admin_access').child(auth.uid).child('permissions/bosses').val() === 'edit'"
           }
         },
         "attendance": {
-          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+          ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/attendance').val() === 'edit' || root.child('admin_access').child(auth.uid).child('permissions/attendance').val() === 'view')))",
           ".write": false
         },
         "discord_config": {
-          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+          ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))",
+          ".write": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))"
         },
         "discord_alerts": {
-          ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-          ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)"
+          ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))",
+          ".write": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))"
         }
       }
     },
     "boss_timeline_servers_list": {
       ".read": true,
-      ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true) && newData.child('version').isNumber() && newData.child('version').val() === (data.child('version').isNumber() ? data.child('version').val() + 1 : 1)",
+      ".write": "(auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/servers').val() === 'edit')))) && newData.child('version').isNumber() && newData.child('version').val() === (data.child('version').isNumber() ? data.child('version').val() + 1 : 1)",
       "version": {
         ".validate": "newData.isNumber()"
       },
@@ -123,8 +123,8 @@
     },
     "boss_timeline_webhook_urls": {
       "$serverId": {
-        ".read": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
-        ".write": "auth != null && (auth.token.admin === true || root.child('admin_access').child(auth.uid).child('active').val() === true)",
+        ".read": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))",
+        ".write": "auth != null && (auth.token.admin === true || (root.child('admin_access').child(auth.uid).child('active').val() === true && (!root.child('admin_access').child(auth.uid).child('permissions').exists() || root.child('admin_access').child(auth.uid).child('permissions/discord').val() === 'edit')))",
         ".validate": "newData.hasChildren(['url']) && newData.child('url').isString()"
       }
     },
@@ -133,7 +133,25 @@
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
         ".write": "auth != null && auth.token.admin === true",
-        ".validate": "!newData.exists() || (newData.hasChildren(['active', 'email', 'approvedAt', 'approvedBy']) && newData.child('active').isBoolean() && newData.child('email').isString() && newData.child('approvedAt').isNumber() && newData.child('approvedBy').isString())"
+        ".validate": "!newData.exists() || (newData.hasChildren(['active', 'email', 'approvedAt', 'approvedBy']) && newData.child('active').isBoolean() && newData.child('email').isString() && newData.child('approvedAt').isNumber() && newData.child('approvedBy').isString())",
+        "permissions": {
+          ".validate": "newData.hasChildren(['bosses', 'attendance', 'servers', 'discord'])",
+          "bosses": {
+            ".validate": "newData.isString() && (newData.val() === 'none' || newData.val() === 'view' || newData.val() === 'edit')"
+          },
+          "attendance": {
+            ".validate": "newData.isString() && (newData.val() === 'none' || newData.val() === 'view' || newData.val() === 'edit')"
+          },
+          "servers": {
+            ".validate": "newData.isString() && (newData.val() === 'view' || newData.val() === 'edit')"
+          },
+          "discord": {
+            ".validate": "newData.isString() && (newData.val() === 'none' || newData.val() === 'edit')"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
       }
     },
     "admin_requests": {

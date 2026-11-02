@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261031-8">
+  <link rel="stylesheet" href="assets/app.css?v=20261102-2">
 </head>
 <body>
   <div class="app-shell">
@@ -448,6 +448,7 @@
           </div>
         </div>
 
+        <p class="boss-access-notice" role="status">🔒 Tài khoản Admin này chưa được cấp quyền xem Boss.</p>
         <div class="boss-grid" id="bossGrid"></div>
       </section>
 
@@ -888,7 +889,7 @@
           </div>
           <div>
             <h3 id="adminAccTitle" style="margin:0;font-size:16px;font-weight:700;">Quản lý tài khoản Admin</h3>
-            <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Phê duyệt hoặc thu hồi quyền Admin phụ trên Firebase</p>
+            <p style="margin:2px 0 0;font-size:12px;color:var(--muted);">Phê duyệt, phân quyền hoặc thu hồi quyền Admin phụ</p>
           </div>
         </div>
         <button type="button" class="icon-button" id="closeAdminAccModal" style="width:34px;height:34px;" aria-label="Đóng">
@@ -912,6 +913,7 @@
         <!-- Active Accounts Section -->
         <div>
           <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📋 Danh sách Admin đã phê duyệt & hoạt động</div>
+          <p class="admin-permission-help">Phân quyền chỉ áp dụng cho Admin phụ đang đăng nhập. Member luôn chỉ xem dữ liệu công khai. “Không xem” không khóa quyền xem công khai khi đăng xuất. Chỉ Admin chính được cấp và thu hồi quyền.</p>
           <div id="adminAccList"></div>
         </div>
       </div>
@@ -1737,7 +1739,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="assets/app.js?v=20261102-1"></script>
+  <script src="assets/app.js?v=20261102-2"></script>
 
 </body>
 </html>

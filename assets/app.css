@@ -4561,3 +4561,16 @@
     .boss-meta .boss-death-time { flex: 1 1 auto; }
     .boss-meta .boss-progress-percent { flex: 0 0 auto; }
     .boss-meta .boss-respawn-time { flex: 1 1 auto; text-align: right; margin-left: auto; }
+.admin-permission-card { border:1px solid var(--line-soft); border-radius:8px; padding:10px; margin-bottom:12px; }
+.admin-permission-details summary { cursor:pointer; padding:8px 4px; font-weight:700; color:var(--cyan); }
+.admin-permission-field { display:grid; grid-template-columns:minmax(0,1fr) minmax(130px,42%); align-items:center; gap:10px; margin:12px 0; font-size:13px; }
+.admin-permission-field select { width:100%; padding:8px; border:1px solid var(--line-soft); border-radius:6px; background:var(--surface-2); color:var(--text); }
+.admin-permission-help, .admin-permission-status { font-size:12px; line-height:1.6; color:var(--muted); }
+.admin-permission-status { display:block; margin-top:8px; }
+.boss-access-notice { display:none; padding:20px; border:1px solid var(--line-soft); border-radius:8px; }
+.boss-access-denied .boss-access-notice { display:block; }
+.boss-access-denied #bossGrid, .boss-access-denied #timeline,
+.boss-access-denied .today-schedule-panel, .boss-access-denied .weekly-schedule-panel,
+.boss-access-denied #metrics { display:none !important; }
+.attendance-access-denied #attendanceContent { display:none !important; }
+.discord-btn[hidden] { display:none !important; }
