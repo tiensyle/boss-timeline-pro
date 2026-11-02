@@ -3028,6 +3028,13 @@
       }
     }
 
+    function formatBossDeathLabel(boss) {
+      const label = currentLang === "en" ? "Died " : "Chết ";
+      if (!boss.diedAt) return label + "—";
+      const date = new Date(boss.diedAt);
+      return label + formatTimeOnly(boss.diedAt) + ` · ${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+    }
+
     function updateBossCardInPlace(card, boss, now) {
       const isEn = currentLang === "en";
       const status = getBossStatus(boss, now);
@@ -3065,7 +3072,9 @@
       if (progressSpan) progressSpan.style.width = `${progress}%`;
 
       const metaSpans = card.querySelectorAll(".boss-meta span");
-      if (metaSpans[0] && metaSpans[0].textContent !== respawnTimeText) metaSpans[0].textContent = respawnTimeText;
+      const deathText = formatBossDeathLabel(boss);
+      if (metaSpans[0] && metaSpans[0].textContent !== deathText) metaSpans[0].textContent = deathText;
+      if (metaSpans[2] && metaSpans[2].textContent !== respawnTimeText) metaSpans[2].textContent = respawnTimeText;
       if (metaSpans[1] && metaSpans[1].textContent !== `${progress}%`) metaSpans[1].textContent = `${progress}%`;
 
       const nameEl = card.querySelector(".boss-name");
@@ -3209,8 +3218,9 @@
             </div>
             <div class="progress-track" aria-label="Tiến độ hồi sinh"><span style="width:${progress}%"></span></div>
             <div class="boss-meta">
-              <span>${respawnTimeText}</span>
-              <span>${progress}%</span>
+              <span class="boss-death-time">${formatBossDeathLabel(boss)}</span>
+              <span class="boss-progress-percent">${progress}%</span>
+              <span class="boss-respawn-time">${respawnTimeText}</span>
             </div>
           </div>
 

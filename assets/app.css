@@ -4556,3 +4556,8 @@
   .att-column-options { width:min(270px,calc(100vw - 36px)); }
   .att-activity-modal { max-width:calc(100vw - 16px); }
 }
+
+    .boss-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+    .boss-meta .boss-death-time { flex: 1 1 auto; }
+    .boss-meta .boss-progress-percent { flex: 0 0 auto; }
+    .boss-meta .boss-respawn-time { flex: 1 1 auto; text-align: right; margin-left: auto; }
