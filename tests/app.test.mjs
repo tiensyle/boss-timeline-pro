@@ -618,7 +618,7 @@ test("BroadcastChannel rejects member or legacy messages without a Firebase vers
 test("rejected offline operations are retained for review and shown to the admin", () => {
   const saved = new Map();
   const dialogs = [];
-  const ctx = load(["reportRejectedBossOperations"], {
+  const ctx = load(["cloneRealtimeValue", "reportRejectedBossOperations"], {
     getNow: () => 9000, currentServerId: "s1", STORAGE_KEY: "state",
     localStorage: { setItem: (key, value) => saved.set(key, value) },
     console: { warn() {} }, showToast: () => {}, escapeHtml: String,
@@ -1144,6 +1144,7 @@ test("member mode reads shared attendance data without sending writes", () => {
     }
   };
   const ctx = load(["initAttendanceRealtimeSync"], {
+    firebaseAuthReady: true,
     attendanceDbRef: ref,
     activeAttendanceRef: null,
     attendanceSyncGeneration: 0,

@@ -70,6 +70,16 @@ Không chạy các bản cũ song song sau khi chuyển dữ liệu: bản cũ v
 
 ## Kiểm thử
 
+Kiểm tra đồng bộ bốn phiên trình duyệt/Admin độc lập bằng `node tests/shared-sync-browser.mjs`.
+Bài kiểm tra dùng Firebase giả lập, chặn truy cập Firebase/Discord thật; bao gồm thông tin Boss,
+sửa đồng thời các trường khác nhau, giờ và lịch sử, cấu hình Discord, chấm công, thêm/xóa Server và mở lại trang.
+
+Đồng bộ Boss gộp các trường được sửa độc lập. Nếu cùng sửa một trường hoặc cùng thay đổi
+nhóm giờ chết/hồi sinh hay nhóm cấu hình lịch, bản Firebase được giữ và Admin được báo xung đột.
+Toàn bộ Boss đang sửa được lưu tại khóa localStorage có đuôi `.rejectedOperations` để kiểm tra/khôi phục.
+Các máy cần dùng cùng Firebase, cùng Server cho lịch Boss và tải bản `assets/app.js` mới.
+Giao diện cá nhân như ngôn ngữ, giao diện sáng/tối, âm thanh và bộ lọc vẫn lưu riêng theo trình duyệt.
+
 ```powershell
 node --test tests/*.test.mjs
 node --check assets/app.js

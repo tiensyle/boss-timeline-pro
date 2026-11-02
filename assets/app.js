@@ -563,6 +563,13 @@
       if (typeof attendanceState !== "undefined") {
         initAttendanceRealtimeSync();
         initRealtimeSync();
+        // Do not let a snapshot arriving before Auth restoration erase offline edits.
+        if (firebaseAuthReady && attendanceDeferredRemoteData && !attendanceRemoteSaveInFlight) {
+          const deferred = attendanceDeferredRemoteData;
+          attendanceDeferredRemoteData = null;
+          applyAttendanceRemoteData(deferred);
+          if (isAdmin()) pushAttendanceToFirebase();
+        }
       }
       const isEn = currentLang === "en";
       if (isAdmin()) {
@@ -602,7 +609,7 @@
           // Writes that were queued while Auth restored can now be retried safely.
           const hasUnsyncedAuthBosses = isAdmin() && bossSyncBase && state.bosses.some(b => {
             const rb = (bossSyncBase.bosses || []).find(item => item.id === b.id);
-            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || b.notes !== rb.notes || b.name !== rb.name;
+            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || JSON.stringify(normalizeBoss(b)) !== JSON.stringify(normalizeBoss(rb));
           });
           if (typeof saveState === "function" && (pendingRemoteSave || hasUnsyncedAuthBosses)) saveState();
           if (typeof pushAttendanceToFirebase === "function" && attendanceRemoteStateReady && attendancePendingRemoteSave) {
@@ -774,6 +781,7 @@
 
 
     function saveDiscordConfigLocal(cfg) {
+      const previousConfig = { ...discordConfig };
       const safeConfig = { ...cfg };
       delete safeConfig.webhookUrl;
       discordConfig = { ...defaultDiscordConfig, ...safeConfig };
@@ -785,7 +793,12 @@
           const path = currentServerId === "s1"
             ? "boss_timeline_discord_config"
             : `boss_timeline_servers/${currentServerId}/discord_config`;
-          firebaseDb.ref(path).set(discordConfig);
+          const patch = Object.fromEntries(Object.entries(discordConfig)
+            .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(previousConfig[key])));
+          if (Object.keys(patch).length) firebaseDb.ref(path).update(patch).catch(error => {
+            console.warn("Firebase save discord config error:", error);
+            showToast("⚠️ Cài đặt Discord chưa được đồng bộ. Vui lòng lưu lại khi có kết nối.");
+          });
         } catch (e) {
           console.warn("Firebase save discord config error:", e);
         }
@@ -1768,10 +1781,29 @@
         // reject the stale local operation instead of silently overwriting it.
         if (previous && target && remoteBoss && Number.isFinite(baseRevision)
           && localRevision > baseRevision && remoteRevision > baseRevision) {
-          Object.keys(target).forEach(key => delete target[key]);
-          Object.assign(target, cloneRealtimeValue(remoteBoss));
-          conflictIds.add(boss.id);
-          continue;
+          // Merge independent edits; timers and schedules each form an atomic group.
+          const ignored = new Set(["revision", "updatedAt", "updatedBy"]);
+          const fields = new Set([...Object.keys(previous), ...Object.keys(boss), ...Object.keys(remoteBoss)]);
+          const changed = (a, b, key) => JSON.stringify(a[key]) !== JSON.stringify(b[key]);
+          const localFields = [...fields].filter(key => !ignored.has(key) && changed(previous, boss, key));
+          const remoteFields = [...fields].filter(key => !ignored.has(key) && changed(previous, remoteBoss, key));
+          const groups = [timerFields, ["spawnMode", "respawnMinutes", "fixedTime", "fixedSchedules", "weekDays"]];
+          const overlap = localFields.some(key => remoteFields.includes(key) && changed(boss, remoteBoss, key))
+            || groups.some(group => group.some(key => localFields.includes(key))
+              && group.some(key => remoteFields.includes(key)) && group.some(key => changed(boss, remoteBoss, key)));
+          if (overlap) {
+            Object.keys(target).forEach(key => delete target[key]);
+            Object.assign(target, cloneRealtimeValue(remoteBoss));
+            conflictIds.add(boss.id);
+            continue;
+          }
+          if (localFields.some(key => changed(boss, remoteBoss, key))) {
+            target.revision = Math.max(localRevision, remoteRevision + 1);
+            if (boss.updatedAt !== undefined) target.updatedAt = boss.updatedAt;
+            if (boss.updatedBy !== undefined) target.updatedBy = boss.updatedBy;
+          } else {
+            Object.assign(target, cloneRealtimeValue(remoteBoss));
+          }
         }
         if (previous && target && timerFields.some(key => previous[key] !== boss[key])) {
           // A death/respawn is one state transition, not three independent field edits.
@@ -1841,6 +1873,7 @@
         diedAt: boss?.diedAt || null,
         respawnsAt: boss?.respawnsAt || null,
         notes: boss?.notes || "",
+        attemptedBoss: boss ? cloneRealtimeValue(boss) : null,
         rejectedAt: getNow(),
         serverId: currentServerId
       }; });
@@ -2141,8 +2174,8 @@
             setRealtimeStatus(unsynced ? "unsynced" : "online", unsynced
               ? "Đã kết nối Firebase nhưng còn thay đổi chưa đồng bộ"
               : "Đã kết nối Firebase Realtime — dữ liệu đã đồng bộ");
-            if (isAdmin() && remoteStateReady && pendingRemoteSave) saveState();
-            if (isAdmin() && attendanceRemoteStateReady && attendancePendingRemoteSave) pushAttendanceToFirebase();
+            if (isAdmin() && remoteStateReady && hasUnsyncedBossChanges()) saveState();
+            if (isAdmin() && attendanceRemoteStateReady) pushAttendanceToFirebase();
           } else {
             setRealtimeStatus("connecting", "Đang kết nối lại Firebase Realtime…");
           }
@@ -2175,13 +2208,13 @@
           const remote = getBossRemoteData(val);
           const hasUnsyncedBossesBefore = isAdmin() && state.bosses.some(b => {
             const rb = remote.bosses.find(item => item.id === b.id);
-            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || b.notes !== rb.notes || b.name !== rb.name;
+            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || JSON.stringify(normalizeBoss(b)) !== JSON.stringify(normalizeBoss(rb));
           });
           applyRemoteState(remote.bosses, remote.history, val.updated_at, senderId, bossSyncBase, val.version || val.data?.version);
           if (senderId !== CLIENT_ID) showToast("🔄 Team vừa cập nhật Boss Timeline.");
           const hasUnsyncedBosses = hasUnsyncedBossesBefore || (isAdmin() && state.bosses.some(b => {
             const rb = remote.bosses.find(item => item.id === b.id);
-            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || b.notes !== rb.notes || b.name !== rb.name;
+            return !rb || (Number(b.revision) || 0) > (Number(rb.revision) || 0) || JSON.stringify(normalizeBoss(b)) !== JSON.stringify(normalizeBoss(rb));
           }));
           if (isAdmin() && (pendingRemoteSave || hasUnsyncedBosses)) saveState();
         } else if (!val) {
@@ -7370,6 +7403,10 @@
         const remoteData = snapshot.val();
         attendanceRemoteStateReady = true;
         if (remoteData) attendanceRemoteDataExists = true;
+        if (!firebaseAuthReady) {
+          attendanceDeferredRemoteData = cloneRealtimeValue(remoteData);
+          return;
+        }
         if (attendanceRemoteSaveInFlight) {
           attendanceDeferredRemoteData = cloneRealtimeValue(remoteData);
           return;
