@@ -4574,6 +4574,11 @@
 .boss-access-denied #metrics { display:none !important; }
 .attendance-access-denied #attendanceContent { display:none !important; }
 .discord-btn[hidden] { display:none !important; }
+#recoveryOpenBtn[hidden], #recoveryEnableBtn[hidden] { display:none !important; }
+#recoveryModal .modal { padding:0; }
+#recoveryModal .modal > :not(.admin-permissions-header) { margin-left:20px; margin-right:20px; }
+#recoveryModal .modal > p { font-size:14px; line-height:1.6; }
+#recoveryRestoreBtn { margin-bottom:20px; }
 .admin-account-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 .admin-account-actions button { font-size:12px; padding:8px 10px; }
 .admin-permissions-modal { max-width:560px; max-height:85vh; padding:0; overflow:hidden; display:flex; flex-direction:column; }

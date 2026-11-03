@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261102-4">
+  <link rel="stylesheet" href="assets/app.css?v=20261103-1">
 </head>
 <body>
   <div class="app-shell">
@@ -151,6 +151,7 @@
             <span data-i18n="systemClock">Giờ hệ thống</span>
             <strong id="headerClock">--:--:--</strong>
           </div>
+          <button class="button-ghost" type="button" id="recoveryOpenBtn" hidden>Khôi phục dữ liệu</button>
           <button class="button-primary" type="button" id="addBossBtn">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
             <span data-i18n="addBoss">Thêm boss</span>
@@ -933,6 +934,19 @@
           <button type="submit" class="button-primary">Lưu quyền</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="recoveryModal" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle" style="z-index:9998;">
+    <div class="modal" style="max-width:600px;max-height:85vh;overflow:auto;">
+      <div class="admin-permissions-header"><h3 id="recoveryTitle">Lịch sử và khôi phục dữ liệu</h3><button type="button" class="icon-button" id="recoveryCloseBtn" aria-label="Đóng khôi phục">✕</button></div>
+      <p>Lưu bản lịch sử khi dữ liệu thay đổi trên website. Chỉ Admin chính được khôi phục. Không bao gồm mật khẩu, tài khoản, phân quyền hoặc Discord.</p>
+      <button type="button" class="button-primary" id="recoveryEnableBtn">Bật lịch sử sao lưu</button>
+      <label class="admin-permission-field"><span>Phần dữ liệu</span><select id="recoveryScope"><option value="bosses">Boss — Server đang chọn</option><option value="attendance">Chấm công và lương</option><option value="servers">Danh sách Server</option><option value="all">Toàn bộ dữ liệu nghiệp vụ</option></select></label>
+      <label class="admin-permission-field"><span>Mốc khôi phục</span><select id="recoveryAge"><option value="1800000">30 phút trước</option><option value="3600000">1 giờ trước</option><option value="43200000">12 giờ trước</option><option value="86400000">1 ngày trước</option><option value="259200000">3 ngày trước</option><option value="604800000">1 tuần trước</option></select></label>
+      <button type="button" class="button-ghost" id="recoveryPreviewBtn">Tìm bản sao</button>
+      <p id="recoveryStatus" role="status" aria-live="polite" style="white-space:pre-line;line-height:1.6;overflow-wrap:anywhere;"></p>
+      <button type="button" class="button-danger" id="recoveryRestoreBtn" disabled>Khôi phục bản đã chọn</button>
     </div>
   </div>
 
@@ -1755,7 +1769,8 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="assets/app.js?v=20261102-4"></script>
+  <script src="assets/recovery.js?v=20261103-1"></script>
+  <script src="assets/app.js?v=20261103-1"></script>
 
 </body>
 </html>

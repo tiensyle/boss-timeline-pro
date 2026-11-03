@@ -665,6 +665,7 @@
     }
 
     function updateRoleUI() {
+      if (typeof BossRecovery !== "undefined") BossRecovery.updateUI();
       document.body.classList.toggle("boss-access-denied", !canViewAdminArea("bosses"));
       document.body.classList.toggle("attendance-access-denied", !canViewAdminArea("attendance"));
       const discordButton = document.getElementById("discordSettingsBtn");
@@ -2000,6 +2001,8 @@
       let transactionConflictIds = [];
       let confirmedRemote = null;
       try {
+        if (typeof BossRecovery !== "undefined") await BossRecovery.prepare("bosses", currentServerId);
+        if (generation !== bossSyncGeneration) return false;
         const txPromise = saveRef.transaction(current => {
           if (seedOnly && current?.data) return;
           const merged = current ? mergeBossStateChanges(base, local, getBossRemoteData(current)) : cloneRealtimeValue(local);
@@ -2020,7 +2023,8 @@
               syncProtocol: BOSS_SYNC_PROTOCOL,
               syncEpoch,
               updated_at: updatedAt,
-              version
+              version,
+              ...(typeof BossRecovery !== "undefined" && BossRecovery.epoch() ? {recoveryEpoch: BossRecovery.epoch()} : {})
             },
             bosses_map: Object.fromEntries(merged.bosses.map(boss => [boss.id, boss])),
             last_editor: CLIENT_ID,
@@ -2034,6 +2038,7 @@
           : await txPromise;
         if (generation !== bossSyncGeneration) return false;
         const confirmed = result.snapshot.val();
+        if (result.committed && confirmed && typeof BossRecovery !== "undefined") BossRecovery.confirmed("bosses", currentServerId, confirmed);
         if (confirmed) {
           const remote = getBossRemoteData(confirmed);
           confirmedRemote = { ...cloneRealtimeValue(remote), updated_at: confirmed.updated_at, version: Number(confirmed.version) || 0 };
@@ -6161,12 +6166,12 @@
         return;
       }
 
-      // Tạo ID duy nhất (s2, s3, ...)
+      // Never reuse the identity (and recovery history) of a deleted server.
       let nextNum = serverList.length + 1;
-      let newId = "s" + nextNum;
+      let newId = "s_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2,10);
       while (serverList.some(s => s.id === newId)) {
         nextNum++;
-        newId = "s" + nextNum;
+        newId += "_" + nextNum;
       }
 
       const icons = ["⚔️", "🛡️", "🔥", "⚡", "🌟", "👑", "🏹", "🔮", "🏰", "🐉"];
@@ -6183,13 +6188,14 @@
       if (firebaseDb) {
         try {
           const listRef = firebaseDb.ref("boss_timeline_servers_list");
+          if (typeof BossRecovery !== "undefined") await BossRecovery.prepare("servers", "global");
           if (typeof listRef.transaction === "function") {
             const result = await listRef.transaction(current => {
               const parsedCurrent = normalizeServerList(current);
               const latest = parsedCurrent.length ? parsedCurrent : serverList.slice();
               let candidate = newId;
               let candidateNumber = nextNum;
-              while (latest.some(item => item.id === candidate)) candidate = "s" + (++candidateNumber);
+              while (latest.some(item => item.id === candidate)) candidate = newId + "_" + (++candidateNumber);
               newServerObj.id = candidate;
               if (latest.some(item => String(item.name || "").toLowerCase() === trimmed.toLowerCase())) return;
               return makeServerListEnvelope(current, [...latest, { ...newServerObj }]);
@@ -6198,6 +6204,7 @@
               showToast("❌ Không thể tạo Server vì tên vừa được Admin khác sử dụng.");
               return;
             }
+            if (result.committed && typeof BossRecovery !== "undefined") BossRecovery.confirmed("servers", "global", result.snapshot.val());
             serverList = normalizeServerList(result.snapshot.val());
             if (!serverList.length) serverList = [...DEFAULT_SERVERS];
             newId = newServerObj.id;
@@ -6254,7 +6261,8 @@
               syncProtocol: BOSS_SYNC_PROTOCOL,
               syncEpoch: makeBossSyncEpoch(),
               updated_at: new Date(getNow()).toISOString(),
-              version: 1
+              version: 1,
+              ...(typeof BossRecovery !== "undefined" && BossRecovery.epoch() ? {recoveryEpoch: BossRecovery.epoch()} : {})
             },
             bosses_map: bMap,
             last_editor: CLIENT_ID,
@@ -6262,9 +6270,11 @@
             version: 1
           };
           await firebaseDb.ref(paths.statePath).set(seed);
+          if (typeof BossRecovery !== "undefined") BossRecovery.confirmed("bosses", newId, seed);
         } catch (e) {
           console.warn("Firebase server initialization error:", e);
           try {
+            if (typeof BossRecovery !== "undefined") await BossRecovery.prepare("servers", "global");
             const rollback = await firebaseDb.ref("boss_timeline_servers_list").transaction(current => {
               const latest = normalizeServerList(current);
               const next = latest.filter(item => !(item?.id === newId && item?.name === newServerObj.name));
@@ -6312,6 +6322,7 @@
       if (firebaseDb) {
         try {
           const listRef = firebaseDb.ref("boss_timeline_servers_list");
+          if (typeof BossRecovery !== "undefined") await BossRecovery.prepare("servers", "global");
           if (typeof listRef.transaction === "function") {
             const result = await listRef.transaction(current => {
               const parsedCurrent = normalizeServerList(current);
@@ -6323,6 +6334,7 @@
               showToast("❌ Tên Server vừa được Admin khác sử dụng.");
               return false;
             }
+            if (result.committed && typeof BossRecovery !== "undefined") BossRecovery.confirmed("servers", "global", result.snapshot.val());
             serverList = normalizeServerList(result.snapshot.val());
             if (!serverList.length) serverList = [...DEFAULT_SERVERS];
           } else {
@@ -6372,6 +6384,7 @@
       if (firebaseDb) {
         try {
           const listRef = firebaseDb.ref("boss_timeline_servers_list");
+          if (typeof BossRecovery !== "undefined") await BossRecovery.prepare("servers", "global");
           if (typeof listRef.transaction === "function") {
             const result = await listRef.transaction(current => {
               const currentList = normalizeServerList(current);
@@ -6379,6 +6392,7 @@
               return makeServerListEnvelope(current, latest.filter(item => item.id !== serverId));
             });
             if (!result.committed) return false;
+            if (result.committed && typeof BossRecovery !== "undefined") BossRecovery.confirmed("servers", "global", result.snapshot.val());
             serverList = normalizeServerList(result.snapshot.val());
             if (!serverList.length) serverList = [...DEFAULT_SERVERS];
           } else {
@@ -6415,7 +6429,8 @@
 
     function makeServerListEnvelope(current, list) {
       const items = Object.fromEntries((list || []).filter(item => item?.id).map(item => [item.id, { ...item }]));
-      return { version: (Number(current?.version) || 0) + 1, items };
+      return { version: (Number(current?.version) || 0) + 1, items, updatedAt: typeof getNow === "function" ? getNow() : Date.now(),
+        ...(typeof BossRecovery !== "undefined" && BossRecovery.epoch() ? {recoveryEpoch: BossRecovery.epoch()} : {}) };
     }
 
     function initServerListSync() {
@@ -6653,7 +6668,7 @@
     let attendanceSyncGeneration = 0;
 
     function getAttendanceSyncData(value) {
-      const { diasPool, usdtPool, activities, members, updatedAt, updatedBy, version, ...data } = value;
+      const { diasPool, usdtPool, activities, members, updatedAt, updatedBy, version, recoveryEpoch, restoreBaseVersion, ...data } = value;
       return cloneRealtimeValue(data);
     }
 
@@ -7527,6 +7542,8 @@
       attendanceDeferredRemoteData = null;
       let saved = false;
       try {
+        if (typeof BossRecovery !== "undefined") await BossRecovery.prepare("attendance", "global");
+        if (generation !== attendanceSyncGeneration) return;
         const result = await saveRef.transaction(current => {
           if (seedOnly && current) return;
           const remote = current ? getAttendanceSyncData(normalizeAttendanceState(cloneRealtimeValue(current), fallbackServerId)) : null;
@@ -7535,11 +7552,13 @@
             ...merged,
             updatedAt: Date.now(),
             updatedBy: CLIENT_ID,
-            version: (Number(current?.version) || 0) + 1
+            version: (Number(current?.version) || 0) + 1,
+            ...(typeof BossRecovery !== "undefined" && BossRecovery.epoch() ? {recoveryEpoch: BossRecovery.epoch()} : {})
           }, fallbackServerId);
         }, undefined, false);
         if (generation !== attendanceSyncGeneration || !isAdmin("attendance")) return;
         const confirmed = result.snapshot.val();
+        if (result.committed && confirmed && typeof BossRecovery !== "undefined") BossRecovery.confirmed("attendance", "global", confirmed);
         if (confirmed) {
           applyAttendanceRemoteData(confirmed, result.committed ? local : (seedBase || local));
           if (attendanceDeferredRemoteData && Number(attendanceDeferredRemoteData.version) > Number(confirmed.version)) {
@@ -10619,6 +10638,7 @@
     suppressBusinessAutofill();
     new MutationObserver(() => suppressBusinessAutofill()).observe(document.body, { childList: true, subtree: true });
 
+    if (typeof BossRecovery !== "undefined") BossRecovery.init();
     updateServerSwitcherButton();
     renderServerListUI();
     initServerListSync();
@@ -10646,7 +10666,7 @@
     window.setInterval(render, 1000);
 
     // Tu dong kiem tra va refresh neu co phien ban web moi (tranh treo tab chay code cu)
-    const CURRENT_APP_VERSION = "2026.11.02.v25-admin-permission-dialog";
+    const CURRENT_APP_VERSION = "2026.11.03.v26-change-recovery";
     window.setInterval(async () => {
       try {
         const updateUrl = (window.location?.pathname || "/") + "?v=" + Date.now();
