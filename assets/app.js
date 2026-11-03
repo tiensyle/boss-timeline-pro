@@ -1969,10 +1969,6 @@
       saveStateLocal(false);
       if (!isAdmin("bosses") || !REALTIME_ENABLED || !stateDbRef) return false;
 
-      if (remoteSaveInFlight && Date.now() - lastRemoteSaveStartTime > 8000) {
-        console.warn("[saveState] Clearing stuck remoteSaveInFlight lock (> 8s)");
-        remoteSaveInFlight = false;
-      }
       if (remoteSaveInFlight || !remoteStateReady) {
         pendingRemoteSave = true;
         return enqueueBossSaveWaiter(getChangedBossIds(activeBossTransactionLocal || bossSyncBase, state));
@@ -2032,10 +2028,8 @@
             version
           };
         }, undefined, false);
-        const timerFn = typeof setTimeout !== "undefined" ? setTimeout : (typeof globalThis !== "undefined" && globalThis.setTimeout ? globalThis.setTimeout : null);
-        const result = timerFn
-          ? await Promise.race([txPromise, new Promise((_, reject) => timerFn(() => reject(new Error("Timeout khi kết nối Firebase (15s)")), 15000))])
-          : await txPromise;
+        // Keep the lock until Firebase settles; a timeout does not cancel its transaction.
+        const result = await txPromise;
         if (generation !== bossSyncGeneration) return false;
         const confirmed = result.snapshot.val();
         if (result.committed && confirmed && typeof BossRecovery !== "undefined") BossRecovery.confirmed("bosses", currentServerId, confirmed);
@@ -2076,6 +2070,11 @@
       } finally {
         if (generation === bossSyncGeneration) {
           remoteSaveInFlight = false;
+          if (!saved && bossDeferredRemoteData) {
+            const deferred = bossDeferredRemoteData;
+            const remote = getBossRemoteData(deferred);
+            applyRemoteState(remote.bosses, remote.history, deferred.updated_at, deferred.last_editor, bossSyncBase, deferred.version);
+          }
           bossDeferredRemoteData = null;
           activeBossTransactionLocal = null;
           const savePending = pendingRemoteSave;
