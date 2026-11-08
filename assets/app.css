@@ -3223,11 +3223,70 @@
       border-bottom: 1px solid var(--line);
     }
 
-    .guild-items-heading h1 {
-      margin: 0 auto 0 0;
-      color: var(--text);
-      font-size: clamp(1.75rem, 3.2vw, 2.5rem);
-      line-height: 1.2;
+    .guild-week-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-right: auto;
+    }
+
+    .guild-week-toolbar label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .guild-week-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 100%;
+      padding: 7px 12px;
+      border: 1px solid var(--cyan);
+      border-radius: var(--radius);
+      background: var(--cyan-soft);
+      color: var(--cyan);
+      line-height: 1.3;
+    }
+
+    .guild-week-card strong { display: block; font-size: 13px; }
+
+    .guild-week-card span {
+      display: inline-block;
+      margin-top: 3px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--text-2);
+      font-size: 11px;
+    }
+
+    .guild-week-chevron { width: 15px; height: 15px; flex-shrink: 0; }
+
+    .guild-week-card select {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .guild-week-card:has(select:focus-visible) { box-shadow: inset 0 0 0 1px var(--cyan); }
+    #guildAddWeek { min-height: 38px; border-color: var(--red); color: var(--red); }
+    #guildAddWeek:hover { background: var(--red-soft); border-color: var(--red); }
+
+    .guild-heading-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      max-width: 100%;
+      margin-left: auto;
     }
 
     .guild-items-totals {
@@ -3238,25 +3297,30 @@
     }
 
     .guild-total-card {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 4px;
       padding: 8px 12px;
       border: 1px solid var(--line-soft);
-      border-radius: var(--radius);
+      border-radius: 14px;
       background: var(--surface-2);
+      text-align: center;
     }
 
     .guild-total-card h2 {
-      margin: 0 0 4px;
+      margin: 0;
       color: var(--green);
       font-size: 13px;
       text-transform: uppercase;
     }
 
     #guildPendingTotal h2 { color: var(--amber); }
-    .guild-total-card small { color: var(--muted); }
 
     .guild-total-values {
       display: flex;
       flex-wrap: wrap;
+      align-content: center;
+      justify-content: center;
       gap: 2px 10px;
       font-size: 13px;
       font-weight: 700;
@@ -3269,10 +3333,8 @@
         padding: 14px;
       }
 
-      .guild-items-totals {
-        order: 1;
-        width: 100%;
-      }
+      .guild-heading-actions { width: 100%; }
+      .guild-items-totals { width: min(100%, 460px); }
     }
 
     .guild-items-scroll {
@@ -3281,7 +3343,7 @@
 
     .guild-items-table {
       width: 100%;
-      min-width: 710px;
+      min-width: 940px;
       border-collapse: collapse;
       font-size: 14px;
     }
@@ -3290,6 +3352,7 @@
       padding: 10px 14px;
       border-bottom: 1px solid var(--line-soft);
       text-align: center;
+      vertical-align: middle;
       overflow-wrap: anywhere;
     }
 
@@ -3303,8 +3366,10 @@
 
     .guild-items-table thead tr + tr th { color: var(--muted); }
 
+    .guild-items-table .guild-item-notes { min-width: 145px; text-align: left; white-space: pre-wrap; }
+
     .guild-items-table tbody th {
-      width: 24%;
+      width: 18%;
     }
 
     .guild-items-table .guild-value-high { color: var(--amber); }
@@ -3316,8 +3381,9 @@
     }
 
     .guild-row-button {
-      min-height: 32px;
-      padding: 3px 11px;
+      min-width: 8.25rem;
+      min-height: 34px;
+      padding: 4px 14px;
       border-radius: 999px;
       border-color: var(--amber);
       background: var(--amber-soft);
@@ -3337,12 +3403,18 @@
     }
 
     .guild-payment {
-      display: inline-block;
-      padding: 4px 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 10.5rem;
+      min-height: 34px;
+      padding: 4px 12px;
+      border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
       border-radius: 999px;
       background: var(--red-soft);
       color: var(--red);
       font-weight: 700;
+      line-height: 1.25;
       white-space: nowrap;
     }
 

@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261108-8">
+  <link rel="stylesheet" href="assets/app.css?v=20261108-13">
 </head>
 <body>
   <div class="app-shell">
@@ -471,22 +471,33 @@
         </div>
         <div class="history-list" id="historyList"></div>
       </section>
-      <section id="item-guild" class="guild-items" aria-labelledby="guildItemsTitle" hidden>
+      <section id="item-guild" class="guild-items" aria-label="ITEM GUILD" hidden>
         <div class="guild-items-heading">
-          <h1 id="guildItemsTitle">ITEM GUILD</h1>
-          <div class="guild-items-totals" id="guildItemsTotals" aria-label="Tổng giá trị vật phẩm" hidden>
-            <section class="guild-total-card" id="guildPaidTotal" aria-labelledby="guildPaidTotalLabel">
-              <h2 id="guildPaidTotalLabel">Tổng đã thanh toán</h2>
-              <div class="guild-total-values"></div>
-              <small></small>
-            </section>
-            <section class="guild-total-card" id="guildPendingTotal" aria-labelledby="guildPendingTotalLabel">
-              <h2 id="guildPendingTotalLabel">Tổng chưa thanh toán</h2>
-              <div class="guild-total-values"></div>
-              <small></small>
-            </section>
+          <div class="guild-week-toolbar">
+            <label for="guildWeekSelect">Chọn tuần</label>
+            <div class="guild-week-card">
+              <div aria-hidden="true">
+                <strong id="guildWeekTitle">Vật phẩm trước đây</strong>
+                <span id="guildWeekDates">Các món chưa xếp tuần</span>
+              </div>
+              <svg class="guild-week-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <select id="guildWeekSelect"><option value="">Vật phẩm trước đây</option></select>
+            </div>
+            <button type="button" class="button-ghost" id="guildAddWeek" hidden>+ Thêm tuần mới</button>
           </div>
-          <button type="button" class="button-primary" id="guildAddItem" hidden>+ Thêm vật phẩm</button>
+          <div class="guild-heading-actions">
+            <div class="guild-items-totals" id="guildItemsTotals" aria-label="Tổng giá trị vật phẩm" hidden>
+              <section class="guild-total-card" id="guildPaidTotal" aria-labelledby="guildPaidTotalLabel">
+                <h2 id="guildPaidTotalLabel">Tổng đã thanh toán</h2>
+                <div class="guild-total-values"></div>
+              </section>
+              <section class="guild-total-card" id="guildPendingTotal" aria-labelledby="guildPendingTotalLabel">
+                <h2 id="guildPendingTotalLabel">Tổng chưa thanh toán</h2>
+                <div class="guild-total-values"></div>
+              </section>
+            </div>
+            <button type="button" class="button-primary" id="guildAddItem" hidden>+ Thêm vật phẩm</button>
+          </div>
         </div>
         <div class="guild-items-scroll" tabindex="0" role="region" aria-label="Bảng vật phẩm Guild">
           <table class="guild-items-table">
@@ -497,6 +508,7 @@
                 <th colspan="2" scope="colgroup">Giá trị</th>
                 <th rowspan="2" scope="col">Trạng thái</th>
                 <th rowspan="2" scope="col">Người mua</th>
+                <th rowspan="2" scope="col">Ghi chú</th>
               </tr>
               <tr>
                 <th scope="col">VNĐ / USDT</th>
@@ -510,6 +522,23 @@
       </section>
     </main>
   </div>
+
+  <dialog class="modal guild-dialog" id="guildWeekDialog" aria-labelledby="guildWeekDialogTitle">
+    <form id="guildWeekForm">
+      <div class="modal-head"><h2 id="guildWeekDialogTitle">Thêm tuần mới</h2></div>
+      <div class="form-grid">
+        <div class="form-field guild-full-field">
+          <label for="guildWeekStart">Ngày bắt đầu tuần</label>
+          <input type="date" id="guildWeekStart" min="1900-01-01" max="9999-12-25" required autofocus>
+          <small>Mỗi tuần gồm 7 ngày kể từ ngày bắt đầu.</small>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="button-ghost" id="guildWeekCancel">Hủy</button>
+        <button type="submit" class="button-primary" id="guildWeekSave">Thêm tuần</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog class="modal guild-dialog" id="guildItemDialog" aria-labelledby="guildItemDialogTitle">
     <form id="guildItemForm">
@@ -554,6 +583,10 @@
             <option value="low">Thấp · Xám</option>
             <option value="high">Cao · Vàng</option>
           </select>
+        </div>
+        <div class="form-field guild-full-field">
+          <label for="guildItemNotes">Ghi chú</label>
+          <textarea id="guildItemNotes" maxlength="500" rows="2"></textarea>
         </div>
         <div class="form-field guild-full-field">
           <label for="guildItemImage">Hình đính kèm</label>
@@ -1883,7 +1916,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261108-8"></script>
+  <script src="assets/app.js?v=20261108-13"></script>
 
 </body>
 </html>

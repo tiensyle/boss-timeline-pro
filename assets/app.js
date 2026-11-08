@@ -708,7 +708,10 @@
         updateAttendanceRoleUI();
       }
       const canEditGuildItems = isAdmin("guildItems");
-      if (!canEditGuildItems) document.getElementById("guildItemDialog").close();
+      if (!canEditGuildItems) {
+        document.getElementById("guildItemDialog").close();
+        document.getElementById("guildWeekDialog").close();
+      }
       if (document.body.classList.contains("view-mode-item-guild") && canEditGuildItems !== guildItemsRenderedCanEdit) renderGuildItems();
     }
 
@@ -10231,6 +10234,9 @@
     const guildImageLimit = 600000;
     let guildItemsRef = null;
     let guildItems = {};
+    let guildWeeks = {};
+    let guildWeekId = null;
+    let guildWeeksReady = false;
     let guildItemsStatus = "Đang tải danh sách vật phẩm…";
     let guildItemsRenderedCanEdit;
     let closeGuildItemMenu = () => {};
@@ -10239,6 +10245,12 @@
       if (!firebaseDb) guildItemsStatus = "Chưa kết nối với kho vật phẩm Guild.";
       if (!firebaseDb || guildItemsRef) return;
       guildItemsRef = firebaseDb.ref(guildItemsPath);
+      guildItemsRef.child("weeks").on("value", snapshot => {
+        guildWeeks = snapshot.val() || {};
+        guildWeeksReady = true;
+        renderGuildWeeks();
+        renderGuildItems();
+      }, () => { guildWeeksReady = false; });
       guildItemsRef.child("items").on("value", snapshot => {
         guildItems = snapshot.val() || {};
         guildItemsStatus = "";
@@ -10250,22 +10262,47 @@
       });
     }
 
+    function renderGuildWeeks() {
+      const select = document.getElementById("guildWeekSelect");
+      const weeks = Object.keys(guildWeeks).sort().reverse();
+      if (guildWeekId === null) guildWeekId = weeks[0] || "";
+      const options = weeks.map(id => {
+        const [startYear, startMonth, startDay] = id.split("-");
+        const end = new Date(Date.parse(id) + 6 * 86400000);
+        const [endYear, endMonth, endDay] = end.toISOString().slice(0, 10).split("-");
+        const startLabel = `${startDay}/${startMonth}` + (startYear === endYear ? "" : "/" + startYear);
+        const dates = `${startLabel} – ${endDay}/${endMonth}/${endYear}`;
+        const option = new Option(`Tuần ${dates}`, id);
+        option.dataset.title = `Tuần bắt đầu ${startDay}/${startMonth}`;
+        option.dataset.dates = dates;
+        return option;
+      });
+      const all = new Option("Xem tất cả", "all");
+      all.dataset.title = "Xem tất cả";
+      all.dataset.dates = "Mọi tuần và vật phẩm chưa xếp tuần";
+      select.replaceChildren(all, ...options, new Option("Vật phẩm trước đây", ""));
+      select.value = guildWeekId;
+      const selected = select.selectedOptions[0];
+      document.getElementById("guildWeekTitle").textContent = selected?.dataset.title || "Vật phẩm trước đây";
+      document.getElementById("guildWeekDates").textContent = selected?.dataset.dates || "Các món chưa xếp tuần";
+    }
+
     function renderGuildItems() {
       closeGuildItemMenu();
       const canEdit = isAdmin("guildItems");
       guildItemsRenderedCanEdit = canEdit;
-      const entries = Object.entries(guildItems).sort(([, a], [, b]) => b.createdAt - a.createdAt);
+      const entries = Object.entries(guildItems).filter(([, item]) => guildWeekId === "all" || (item.weekId || "") === (guildWeekId || ""))
+        .sort(([, a], [, b]) => b.createdAt - a.createdAt);
       const status = document.getElementById("guildItemsStatus");
-      status.textContent = guildItemsStatus || (entries.length ? "" : "Chưa có vật phẩm nào.");
-      status.hidden = !status.textContent;
       document.getElementById("guildAddItem").hidden = !canEdit;
+      document.getElementById("guildAddWeek").hidden = !canEdit;
       const format = new Intl.NumberFormat(currentLang === "en" ? "en" : "vi-VN", { maximumFractionDigits: 2 });
       const totals = {
-        paid: { VND: 0, USDT: 0, diamonds: 0, count: 0 },
-        pending: { VND: 0, USDT: 0, diamonds: 0, count: 0 }
+        paid: { VND: 0, USDT: 0, diamonds: 0 },
+        pending: { VND: 0, USDT: 0, diamonds: 0 }
       };
       const paymentLabels = { paid: "Đã thanh toán", pending: "Chưa thanh toán", unsold: "Chưa bán" };
-      document.getElementById("guildItemsRows").innerHTML = entries.map(([id, item]) => {
+      const rows = entries.map(([id, item]) => {
         const itemId = escapeHtml(id);
         const payment = Object.hasOwn(paymentLabels, item.payment) ? item.payment : "pending";
         const valueTier = item.valueTier === "high" || item.valueTier === "low" ? item.valueTier : "";
@@ -10274,7 +10311,6 @@
           const total = totals[payment];
           total[currency] += Math.round((item.money ?? 0) * 100);
           total.diamonds += item.diamonds ?? 0;
-          total.count++;
         }
         return `<tr data-guild-item="${itemId}"${canEdit ? ' tabindex="0" title="Bấm chuột phải để sửa hoặc xóa vật phẩm"' : ""}>
           <th scope="row"${valueTier ? ` class="guild-value-${valueTier}" title="Giá trị ${valueTier === "high" ? "cao" : "thấp"}"` : ""}>${escapeHtml(item.name)}</th>
@@ -10283,15 +10319,18 @@
           <td>${item.diamonds == null ? "—" : format.format(item.diamonds)}</td>
           <td><span class="guild-payment is-${payment}">${paymentLabels[payment]}</span></td>
           <td>${escapeHtml(item.buyer) || "—"}</td>
+          <td class="guild-item-notes">${escapeHtml(item.notes) || "—"}</td>
         </tr>`;
       }).join("");
+      document.getElementById("guildItemsRows").innerHTML = rows;
+      status.textContent = guildItemsStatus || (entries.length ? "" : "Chưa có vật phẩm nào.");
+      status.hidden = !status.textContent;
       document.getElementById("guildItemsTotals").hidden = !entries.length;
       for (const [cardId, total] of [["guildPaidTotal", totals.paid], ["guildPendingTotal", totals.pending]]) {
         const card = document.getElementById(cardId);
         card.querySelector(".guild-total-values").innerHTML = `<span>${format.format(total.VND / 100)} VNĐ</span>
           <span>${format.format(total.USDT / 100)} USDT</span>
           <span>${format.format(total.diamonds)} kim cương</span>`;
-        card.querySelector("small").textContent = `${format.format(total.count)} vật phẩm`;
       }
     }
 
@@ -10313,6 +10352,9 @@
     function initGuildItemsEvents() {
       const byId = id => document.getElementById(id);
       const editor = byId("guildItemDialog");
+      const weekDialog = byId("guildWeekDialog");
+      const weekStart = byId("guildWeekStart");
+      const weekSave = byId("guildWeekSave");
       const rows = byId("guildItemsRows");
       const form = byId("guildItemForm");
       const photo = byId("guildImageDialog");
@@ -10330,9 +10372,10 @@
       const fields = {
         name: byId("guildItemName"), money: byId("guildItemMoney"), currency: byId("guildItemCurrency"),
         diamonds: byId("guildItemDiamonds"), payment: byId("guildItemPayment"), buyer: byId("guildItemBuyer"),
-        valueTier: byId("guildItemValueTier")
+        valueTier: byId("guildItemValueTier"), notes: byId("guildItemNotes")
       };
       let editId = null;
+      let itemWeekId = null;
       let original = null;
       let imageRequest = 0;
       let draftImage = null;
@@ -10364,6 +10407,7 @@
       function openEditor(id = null) {
         if (!isAdmin("guildItems") || save.disabled || (id && (!guildItems[id] || deletingItems.has(id)))) return;
         editId = id;
+        itemWeekId = guildWeekId === "all" ? null : guildWeekId || null;
         original = id ? guildItems[id] : null;
         form.reset();
         setDraftImage(null);
@@ -10456,6 +10500,43 @@
       }
 
       byId("guildAddItem").addEventListener("click", () => openEditor());
+      byId("guildWeekSelect").addEventListener("change", event => {
+        guildWeekId = event.target.value;
+        renderGuildWeeks();
+        renderGuildItems();
+      });
+      byId("guildAddWeek").addEventListener("click", () => {
+        if (!isAdmin("guildItems") || weekSave.disabled) return;
+        if (!guildWeeksReady || !firebaseRealtimeConnected) {
+          showToast("Chưa kết nối được danh sách tuần. Vui lòng thử lại.");
+          return;
+        }
+        const today = new Date();
+        today.setDate(today.getDate() - (today.getDay() + 1) % 7);
+        weekStart.value = dateToYMD(today);
+        weekDialog.showModal();
+      });
+      byId("guildWeekCancel").addEventListener("click", () => weekDialog.close());
+      byId("guildWeekForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        if (!isAdmin("guildItems") || weekSave.disabled || !guildWeeksReady || !firebaseRealtimeConnected) return;
+        const id = weekStart.value;
+        weekSave.disabled = true;
+        try {
+          if (!guildWeeks[id]) await guildItemsRef.update({ [`weeks/${id}`]: true });
+          if (!weekDialog.open) return;
+          guildWeeks[id] = true;
+          guildWeekId = id;
+          renderGuildWeeks();
+          renderGuildItems();
+          weekDialog.close();
+        } catch (error) {
+          console.warn("Guild week save failed:", error);
+          showToast("Không thêm được tuần. Vui lòng thử lại.");
+        } finally {
+          weekSave.disabled = false;
+        }
+      });
       rows.addEventListener("click", event => {
         const button = event.target.closest("button");
         if (button?.dataset.guildImage) openPhoto(button.dataset.guildImage);
@@ -10513,7 +10594,8 @@
           diamonds: fields.diamonds.value === "" ? null : fields.diamonds.valueAsNumber,
           payment: fields.payment.value,
           buyer: fields.buyer.value.trim(),
-          valueTier: fields.valueTier.value || null
+          valueTier: fields.valueTier.value || null,
+          notes: fields.notes.value.trim() || null
         };
         if (!item.name) {
           error.textContent = "Nhập tên vật phẩm.";
@@ -10555,7 +10637,7 @@
             }
             if (image) updates[`${itemPath}/hasImage`] = true;
           } else {
-            updates[itemPath] = { ...item, hasImage: Boolean(image), createdAt: getNow() };
+            updates[itemPath] = { ...item, weekId: itemWeekId, hasImage: Boolean(image), createdAt: getNow() };
           }
           if (image) updates[`images/${id}`] = image;
           if (Object.keys(updates).length) await guildItemsRef.update(updates);
@@ -10588,6 +10670,7 @@
         return;
       }
       closeGuildItemMenu();
+      document.getElementById("guildWeekDialog").close();
       document.getElementById("guildItemDialog").close();
       document.getElementById("guildImageDialog").close();
       const isAtt = (view === "attendance" || view === "salary" || view === "attendance-salary");
