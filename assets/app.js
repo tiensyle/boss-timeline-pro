@@ -5658,6 +5658,7 @@
         if (document.getElementById("discordSettingsModal")?.classList.contains("open")) closeDiscordModal();
         if (document.getElementById("attWeekModal")?.classList.contains("open")) closeAttendanceWeekModal();
         if (document.getElementById("attMemberModal")?.classList.contains("open")) closeAttendanceMemberModal();
+        if (document.getElementById("attBulkMemberModal")?.classList.contains("open")) closeAttendanceBulkMemberModal();
         if (document.getElementById("attActivityModal")?.classList.contains("open")) closeAttendanceActivityModal();
         if (document.getElementById("attRoleBonusModal")?.classList.contains("open")) closeAttendanceRoleBonusModal();
         if (document.getElementById("attCombatPowerModal")?.classList.contains("open")) closeAttendanceCombatPowerModal();
@@ -8160,10 +8161,18 @@
 
       const activities = currWeek.activities || [];
       const adminMode = isAdmin("attendance");
+      const visibleIds = new Set(filteredMembers.map(member => member.id));
+      if (!adminMode || attendanceSelectionWeekId !== currWeek.id) attendanceSelectedMemberIds.clear();
+      attendanceSelectionWeekId = currWeek.id;
+      for (const id of attendanceSelectedMemberIds) {
+        if (!visibleIds.has(id)) attendanceSelectedMemberIds.delete(id);
+      }
 
       let headHtml = `<tr>
         <th class="col-sticky col-stt">#</th>
-        <th class="col-sticky col-name">Thành viên</th>
+        <th class="col-sticky col-name"><span class="att-member-select-stack">Thành viên${adminMode
+          ? `<input type="checkbox" id="attSelectVisibleMembers" aria-label="Chọn tất cả thành viên đang hiển thị" title="Chọn tất cả thành viên đang hiển thị"${filteredMembers.length ? "" : " disabled"}>`
+          : ""}</span></th>
         <th class="col-sticky col-server" title="Lọc theo Server">
           <div class="att-header-server-wrap">
             <select class="att-header-server-select" id="attHeaderServerSelect" title="Chọn Server để lọc">
@@ -8267,9 +8276,12 @@
         bodyHtml += `<tr data-member-id="${escapeHtml(m.id)}">
           <td class="col-sticky col-stt">${idx + 1}</td>
           <td class="col-sticky col-name">
+            <div class="att-member-name-cell">
+              ${adminMode ? `<input type="checkbox" data-att-select-member aria-label="Chọn ${escapeHtml(m.name)}">` : ""}
             <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px;">
               <span class="member-display-name" style="${m.color ? `color: ${escapeHtml(m.color)} !important; text-shadow: 0 0 10px ${escapeHtml(m.color)}55;` : ''}">${escapeHtml(m.name)}</span>
               ${m.role ? `<span class="member-role-badge" style="${m.roleColor ? `color: ${escapeHtml(m.roleColor)} !important; background: ${escapeHtml(m.roleColor)}22 !important; border-color: ${escapeHtml(m.roleColor)}55 !important;` : ''}">${escapeHtml(m.role)}</span>` : ""}
+            </div>
             </div>
           </td>
           <td class="col-sticky col-server">
@@ -8389,6 +8401,126 @@
     }
 
     let closeAttendanceMemberMenu = () => {};
+    const attendanceSelectedMemberIds = new Set();
+    let attendanceSelectionWeekId = null;
+    let attendanceBulkMemberTarget = null;
+
+    function updateAttendanceMemberSelection() {
+      const boxes = [...document.querySelectorAll("#attTableBody [data-att-select-member]")];
+      let selected = 0;
+      for (const box of boxes) {
+        const row = box.closest("tr");
+        box.checked = attendanceSelectedMemberIds.has(row.dataset.memberId);
+        row.classList.toggle("att-member-selected", box.checked);
+        if (box.checked) selected++;
+      }
+      const all = document.getElementById("attSelectVisibleMembers");
+      if (all) {
+        all.checked = selected > 0 && selected === boxes.length;
+        all.indeterminate = selected > 0 && selected < boxes.length;
+      }
+    }
+
+    function openAttendanceBulkMemberModal(week, members) {
+      const form = document.getElementById("attBulkMemberForm");
+      form.reset();
+      form.elements.serverId.replaceChildren(new Option("Giữ nguyên", ""),
+        ...serverList.map(server => new Option(server.name || server.id, server.id)));
+      document.getElementById("attBulkMemberError").hidden = true;
+      document.getElementById("attBulkMemberSummary").textContent =
+        `${members.length} thành viên đã chọn. Chỉ các ô được điền mới thay đổi.`;
+      attendanceBulkMemberTarget = { weekId: week.id, ids: members.map(member => member.id) };
+      document.getElementById("attBulkMemberModal").classList.add("open");
+      syncModalScrollLock();
+      form.elements.serverId.focus();
+    }
+
+    function closeAttendanceBulkMemberModal() {
+      attendanceBulkMemberTarget = null;
+      document.getElementById("attBulkMemberModal").classList.remove("open");
+      syncModalScrollLock();
+    }
+
+    function saveAttendanceBulkMembers(event) {
+      event.preventDefault();
+      if (!isAdmin("attendance") || !attendanceBulkMemberTarget) return;
+      const { weekId, ids } = attendanceBulkMemberTarget;
+      const week = getActiveWeek();
+      const members = week.members.filter(member => ids.includes(member.id));
+      const error = document.getElementById("attBulkMemberError");
+      const fail = message => {
+        error.textContent = message;
+        error.hidden = false;
+      };
+      if (week.id !== weekId || members.length !== ids.length) {
+        fail("Danh sách thành viên đã thay đổi. Hãy đóng cửa sổ và chọn lại.");
+        return;
+      }
+      const patch = {};
+      for (const [key, value] of new FormData(event.currentTarget)) {
+        const text = value.trim();
+        if (!text) continue;
+        patch[key] = key === "multiplier" || key === "roleBonusPercent" ? Number(text) : text;
+      }
+      if (!Object.keys(patch).length) {
+        fail("Hãy điền ít nhất một thông tin cần thay đổi.");
+        return;
+      }
+      if (patch.combatPower !== undefined) {
+        const raw = patch.combatPower;
+        patch.combatPower = parseCombatPowerInput(/(?:k|m|tr)$/i.test(raw) ? raw.replace(",", ".") : raw);
+        if (!/^(?:\d+(?:[.,]\d+)?\s*(?:k|m|tr)|\d{1,3}(?:[, ]\d{3})+|\d+)$/i.test(raw)
+          || !Number.isSafeInteger(patch.combatPower)) {
+          fail("Nhập lực chiến dạng số nguyên hoặc viết tắt, ví dụ 18500000, 18.5M hoặc 900k.");
+          return;
+        }
+      }
+      if (patch.serverId) {
+        if (!serverList.some(server => server.id === patch.serverId)) {
+          fail("Server đã chọn không còn tồn tại.");
+          return;
+        }
+        const destinationNames = new Set(week.members.filter(member => getMemberServerId(member) === patch.serverId)
+          .map(member => attendanceMemberNameKey(member.name)));
+        for (const member of members) {
+          if (getMemberServerId(member) === patch.serverId) continue;
+          const key = attendanceMemberNameKey(member.name);
+          if (destinationNames.has(key)) {
+            fail(`Tên “${member.name}” bị trùng trên ${getServerNameById(patch.serverId)}. Hãy sửa tên trước khi chuyển Server.`);
+            return;
+          }
+          destinationNames.add(key);
+        }
+      }
+      for (const member of members) Object.assign(member, patch);
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceBulkMemberModal();
+      renderAttendanceTable();
+      showToast(`Đã cập nhật ${members.length} thành viên.`);
+    }
+
+    async function confirmAttendanceBulkMemberDeletion(week, members) {
+      if (!isAdmin("attendance")) return;
+      const uid = firebaseAuth.currentUser.uid;
+      const ids = new Set(members.map(member => member.id));
+      const confirmed = await showConfirmModal({
+        title: `Xóa ${ids.size} thành viên?`,
+        subtitle: week.name,
+        message: "Các thành viên đã chọn và dữ liệu điểm danh của họ trong tuần này sẽ bị xóa.",
+        confirmText: "Xóa hàng loạt"
+      });
+      if (!confirmed || !isAdmin("attendance") || firebaseAuth.currentUser.uid !== uid) return;
+      const current = attendanceState?.weeks.find(item => item.id === week.id);
+      if (!current) return;
+      const remaining = current.members.filter(member => !ids.has(member.id));
+      const count = current.members.length - remaining.length;
+      if (!count) return;
+      current.members = remaining;
+      if (attendanceSelectionWeekId === week.id) for (const id of ids) attendanceSelectedMemberIds.delete(id);
+      saveAttendanceState(attendanceState, true);
+      renderAttendanceTable();
+      showToast(`Đã xóa ${count} thành viên.`);
+    }
 
     function renderAttendanceMemberDuplicates(week) {
       const panel = document.getElementById("attMemberDuplicates");
@@ -8435,26 +8567,51 @@
       const week = getActiveWeek();
       const member = week?.members.find(item => item.id === memberId);
       if (!member) return;
+      const selected = attendanceSelectionWeekId === week.id && attendanceSelectedMemberIds.has(memberId)
+        ? week.members.filter(item => attendanceSelectedMemberIds.has(item.id)) : [];
+      const batch = selected.length > 0;
       const menu = document.createElement("div");
       menu.className = "row-context-menu att-member-context-menu";
       menu.setAttribute("role", "menu");
       menu.setAttribute("aria-label", "Thao tác thành viên");
-      menu.innerHTML = `<div class="row-context-name">${escapeHtml(member.name)}</div>
-        <button type="button" role="menuitem" class="att-edit-member-btn">✏️ Chỉnh sửa thành viên</button>
-        <button type="button" role="menuitem" class="att-del-member-btn row-context-danger">🗑️ Xóa thành viên</button>`;
+      menu.innerHTML = `<div class="row-context-name">${batch ? `${selected.length} thành viên đã chọn` : escapeHtml(member.name)}</div>
+        <button type="button" role="menuitem" class="att-edit-member-btn">✏️ ${batch ? "Chỉnh sửa hàng loạt" : "Chỉnh sửa thành viên"}</button>
+        <button type="button" role="menuitem" class="att-del-member-btn row-context-danger">🗑️ ${batch ? "Xóa hàng loạt" : "Xóa thành viên"}</button>`;
       closeAttendanceMemberMenu = showRowContextMenu(menu, x, y, row);
       menu.querySelector(".att-edit-member-btn").addEventListener("click", () => {
         closeAttendanceMemberMenu();
-        if (isAdmin("attendance")) openAttendanceMemberModal(memberId);
+        if (!isAdmin("attendance")) return;
+        if (batch) openAttendanceBulkMemberModal(week, selected);
+        else openAttendanceMemberModal(memberId);
       });
       menu.querySelector(".att-del-member-btn").addEventListener("click", async () => {
         closeAttendanceMemberMenu();
-        await confirmAttendanceMemberDeletion(member, week.id);
+        if (batch) await confirmAttendanceBulkMemberDeletion(week, selected);
+        else await confirmAttendanceMemberDeletion(member, week.id);
       });
     }
 
     function bindAttendanceTableEvents() {
       const adminMode = isAdmin("attendance");
+      const selectBoxes = document.querySelectorAll("#attTableBody [data-att-select-member]");
+      for (const box of selectBoxes) {
+        box.addEventListener("change", () => {
+          if (!isAdmin("attendance")) return;
+          const id = box.closest("tr").dataset.memberId;
+          if (box.checked) attendanceSelectedMemberIds.add(id);
+          else attendanceSelectedMemberIds.delete(id);
+          updateAttendanceMemberSelection();
+        });
+      }
+      document.getElementById("attSelectVisibleMembers")?.addEventListener("change", event => {
+        if (!isAdmin("attendance")) return;
+        attendanceSelectedMemberIds.clear();
+        if (event.target.checked) {
+          for (const box of selectBoxes) attendanceSelectedMemberIds.add(box.closest("tr").dataset.memberId);
+        }
+        updateAttendanceMemberSelection();
+      });
+      updateAttendanceMemberSelection();
 
       // Header Server select
       const headServerSelect = document.getElementById("attHeaderServerSelect");
@@ -10299,6 +10456,10 @@
       // The Boss timer calls this every second; refresh Attendance only when permissions change.
       if (attendanceRoleUIMode === adminMode) return;
       attendanceRoleUIMode = adminMode;
+      if (!adminMode) {
+        attendanceSelectedMemberIds.clear();
+        closeAttendanceBulkMemberModal();
+      }
 
       const addMemBtn = document.getElementById("attAddMemberBtn");
       if (addMemBtn) addMemBtn.style.display = adminMode ? "inline-flex" : "none";
@@ -11016,6 +11177,11 @@
     }
 
     function initAttendanceEvents() {
+      document.getElementById("attBulkMemberForm").addEventListener("submit", saveAttendanceBulkMembers);
+      const bulkMemberModal = document.getElementById("attBulkMemberModal");
+      bulkMemberModal.addEventListener("click", event => {
+        if (event.target === bulkMemberModal || event.target.closest("[data-att-bulk-close]")) closeAttendanceBulkMemberModal();
+      });
       // Back to Boss Tracker
       const backBtn = document.getElementById("attBackToBossBtn");
       if (backBtn) {

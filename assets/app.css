@@ -3914,6 +3914,19 @@
     }
     .col-sticky { position: sticky; z-index: 5; background: var(--surface); }
     .col-stt { width: 38px; min-width: 38px; max-width: 38px; left: 0; font-weight: 700; }
+    .att-member-select-stack { display: grid; justify-items: center; gap: 3px; }
+    .att-member-name-cell { display: flex; align-items: center; gap: 8px; }
+    .att-member-select-stack input, .att-member-name-cell > input {
+      flex: 0 0 auto;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      accent-color: var(--cyan);
+      cursor: pointer;
+    }
+    .att-table tbody tr.att-member-selected > :is(td, th) {
+      background: color-mix(in srgb, var(--surface) 86%, var(--cyan));
+    }
     .col-name { width: 140px; min-width: 140px; max-width: 170px; left: 38px; text-align: left !important; font-weight: 600; }
     .col-server { width: 120px; min-width: 120px; left: 178px; font-weight: 700; color: var(--amber); }
     .col-cp { width: 100px; min-width: 100px; left: 298px; font-weight: 700; color: #f59e0b; white-space: nowrap; }
