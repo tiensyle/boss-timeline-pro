@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261108-19">
+  <link rel="stylesheet" href="assets/app.css?v=20261108-20">
 </head>
 <body>
   <div class="app-shell">
@@ -1471,6 +1471,27 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="attBulkMemberModal" role="dialog" aria-modal="true" aria-labelledby="attBulkMemberTitle" style="z-index:10005">
+    <form class="modal att-activity-modal" id="attBulkMemberForm">
+      <div class="modal-head">
+        <div><h2 id="attBulkMemberTitle">Chỉnh sửa hàng loạt</h2><p id="attBulkMemberSummary"></p></div>
+        <button type="button" class="icon-button" data-att-bulk-close aria-label="Đóng">✕</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-field"><label for="attBulkMemberServer">Server</label><select id="attBulkMemberServer" name="serverId"></select></div>
+        <div class="form-field"><label for="attBulkMemberRole">Chức danh</label><input id="attBulkMemberRole" name="role" maxlength="80" placeholder="Giữ nguyên"></div>
+        <div class="form-field"><label for="attBulkMemberCp">Lực chiến</label><input id="attBulkMemberCp" name="combatPower" placeholder="Giữ nguyên"></div>
+        <div class="form-field"><label for="attBulkMemberMultiplier">Hệ số lương</label><input type="number" id="attBulkMemberMultiplier" name="multiplier" min="0.1" max="10" step="any" placeholder="Giữ nguyên"></div>
+        <div class="form-field"><label for="attBulkMemberBonus">Thưởng vị trí (%)</label><input type="number" id="attBulkMemberBonus" name="roleBonusPercent" min="0" max="100" step="any" placeholder="Giữ nguyên"></div>
+        <p class="guild-full-field guild-form-error" id="attBulkMemberError" role="alert" hidden></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="button-ghost" data-att-bulk-close>Hủy</button>
+        <button type="submit" class="button-primary">Lưu hàng loạt</button>
+      </div>
+    </form>
+  </div>
+
   <!-- MODAL: THÊM / SỬA BOSS HOẶC HOẠT ĐỘNG CHẤM CÔNG -->
   <div class="modal-backdrop" id="attActivityModal" role="dialog" aria-modal="true" aria-labelledby="attActivityModalTitle" style="z-index: 10005;">
     <div class="modal" style="max-width: 480px;">
@@ -1935,7 +1956,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261108-19"></script>
+  <script src="assets/app.js?v=20261108-21"></script>
 
 </body>
 </html>

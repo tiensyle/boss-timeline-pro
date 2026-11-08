@@ -7536,11 +7536,12 @@
       }
     }
 
-    function handleAttendanceSyncError(err) {
+    function handleAttendanceSyncError(err, { subscriptionFailed = false } = {}) {
       const permissionDenied = /permission[_ -]denied/i.test(String(err?.code || err?.message || ""));
-      if (permissionDenied && attendanceRemotePermissionDenied) return;
-      if (permissionDenied) attendanceRemotePermissionDenied = true;
-      attendancePendingRemoteSave = false;
+      if (subscriptionFailed && permissionDenied) {
+        if (attendanceRemotePermissionDenied) return;
+        attendanceRemotePermissionDenied = true;
+      }
       console.error("Firebase attendance sync error:", err);
       showToast(permissionDenied
         ? "Attendance chưa đồng bộ: Firebase từ chối quyền truy cập. Dữ liệu vẫn được lưu trên trình duyệt này."
@@ -7591,15 +7592,13 @@
       } catch (err) {
         if (generation === attendanceSyncGeneration && isAdmin("attendance")) handleAttendanceSyncError(err);
       } finally {
-
-
         if (generation === attendanceSyncGeneration) {
           attendanceRemoteSaveInFlight = false;
           attendanceDeferredRemoteData = null;
           const savePending = attendancePendingRemoteSave;
           attendancePendingRemoteSave = !saved || savePending;
-          if (saved && (savePending || JSON.stringify(attendanceSyncBase) !== JSON.stringify(getAttendanceSyncData(attendanceState)))) {
-            pushAttendanceToFirebase();
+          if (savePending || (saved && JSON.stringify(attendanceSyncBase) !== JSON.stringify(getAttendanceSyncData(attendanceState)))) {
+            pushAttendanceToFirebase(!saved && seedOnly, seedBase);
           }
         }
       }
@@ -7671,7 +7670,7 @@
         applyAttendanceRemoteData(remoteData);
         if (isAdmin("attendance")) pushAttendanceToFirebase();
       }, err => {
-        if (generation === attendanceSyncGeneration) handleAttendanceSyncError(err);
+        if (generation === attendanceSyncGeneration) handleAttendanceSyncError(err, { subscriptionFailed: true });
       });
     }
 
