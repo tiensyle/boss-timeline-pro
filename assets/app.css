@@ -3231,24 +3231,42 @@
       margin-right: auto;
     }
 
-    .guild-week-toolbar label {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
+    .guild-week-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     .guild-week-card {
-      position: relative;
       display: flex;
-      align-items: center;
-      gap: 12px;
+      min-width: 0;
       max-width: 100%;
-      padding: 7px 12px;
-      border: 1px solid var(--cyan);
+      border: 1px solid var(--line);
       border-radius: var(--radius);
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .guild-week-card.is-active {
+      border-color: var(--cyan);
       background: var(--cyan-soft);
       color: var(--cyan);
+    }
+
+    .guild-week-card button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .guild-week-select {
+      min-width: 0;
+      padding: 7px 12px;
+      border-radius: var(--radius);
+      text-align: left;
       line-height: 1.3;
+      overflow-wrap: anywhere;
     }
 
     .guild-week-card strong { display: block; font-size: 13px; }
@@ -3263,19 +3281,24 @@
       font-size: 11px;
     }
 
-    .guild-week-chevron { width: 15px; height: 15px; flex-shrink: 0; }
-
-    .guild-week-card select {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-      font: inherit;
+    .guild-week-actions {
+      display: flex;
+      align-items: center;
+      margin: 8px 6px 8px 0;
+      padding-left: 4px;
+      border-left: 1px solid var(--line);
     }
 
-    .guild-week-card:has(select:focus-visible) { box-shadow: inset 0 0 0 1px var(--cyan); }
+    .guild-week-actions button {
+      width: 27px;
+      height: 27px;
+      padding: 4px;
+      border-radius: 4px;
+    }
+
+    .guild-week-actions svg { width: 15px; height: 15px; }
+    .guild-week-actions button:hover { background: var(--cyan-soft); }
+    .guild-week-actions [data-guild-week-delete]:hover { background: var(--red-soft); color: var(--red); }
     #guildAddWeek { min-height: 38px; border-color: var(--red); color: var(--red); }
     #guildAddWeek:hover { background: var(--red-soft); border-color: var(--red); }
 
@@ -3368,6 +3391,35 @@
 
     .guild-items-table .guild-item-notes { min-width: 145px; text-align: left; white-space: pre-wrap; }
 
+    .guild-editable-cell {
+      position: relative;
+      display: grid;
+      align-items: center;
+      min-height: 28px;
+      padding-inline: 31px;
+    }
+
+    .guild-cell-edit {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%);
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 0;
+      border-left: 1px solid var(--line);
+      border-radius: 0 4px 4px 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .guild-cell-edit:hover { background: var(--cyan-soft); color: var(--cyan); }
+    .guild-cell-edit svg { width: 15px; height: 15px; }
+
     .guild-items-table tbody th {
       width: 18%;
     }
@@ -3427,6 +3479,29 @@
       background: var(--amber-soft);
       color: var(--amber);
     }
+
+    .guild-payment-edit {
+      position: relative;
+      padding: 0;
+    }
+
+    .guild-payment-edit select {
+      appearance: none;
+      width: 100%;
+      min-height: 32px;
+      padding: 4px 22px;
+      border: 0;
+      border-radius: inherit;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .guild-payment-edit option { background: var(--surface); color: var(--text); }
+    .guild-payment-edit select:disabled { opacity: .6; cursor: wait; }
+    .guild-payment-edit svg { position: absolute; right: 7px; width: 13px; height: 13px; pointer-events: none; }
 
     #guildItemsStatus, #guildImageStatus {
       padding: 14px 18px;
@@ -4671,6 +4746,12 @@
     .att-management-role-badge { display:inline-flex; max-width:100px; padding:2px 6px; border-radius:999px; overflow:hidden; color:#7c3aed; background:rgba(124,58,237,.1); font-size:10px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
     .att-management-role-badge.is-empty { color:var(--muted); background:var(--surface-2); font-weight:500; }
     .att-cp-image-import { margin:9px 0 11px; }
+    #attMemberImageImport [hidden] { display:none !important; }
+    #attMemberImageImport .att-cp-image-drop:focus-within { outline:2px solid var(--cyan); outline-offset:2px; }
+    .att-member-image-status, #attMemberImageResults p { margin:7px 0; color:var(--muted); font-size:12px; }
+    #attMemberImageRows { display:grid; gap:5px; max-height:210px; overflow:auto; margin-bottom:8px; }
+    #attMemberImageRows input { min-width:0; }
+    #attMemberImageRows .att-cp-image-value[data-member-image-name] { color:var(--text); text-align:left; }
     .att-cp-image-drop { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px dashed rgba(245,158,11,.55); border-radius:8px; color:var(--text); background:rgba(245,158,11,.06); cursor:pointer; transition:border-color .15s,background .15s; }
     .att-cp-image-drop:hover, .att-cp-image-drop.is-dragging { border-color:#f59e0b; background:rgba(245,158,11,.12); }
     .att-cp-image-drop input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }

@@ -9185,6 +9185,9 @@
       const delBtn = document.getElementById("attDeleteMemberBtn");
       const errEl = document.getElementById("attMemberModalError");
 
+      resetAttendanceMemberImages();
+      document.getElementById("attMemberImageImport").hidden = Boolean(memberId);
+      if (!memberId) attendanceMemberImageWeekId = getActiveWeek().id;
       if (errEl) errEl.style.display = "none";
 
       if (memberId) {
@@ -9227,10 +9230,11 @@
     function closeAttendanceMemberModal() {
       const modal = document.getElementById("attMemberModal");
       if (modal) modal.classList.remove("open");
+      resetAttendanceMemberImages();
       syncModalScrollLock();
     }
 
-    function saveAttendanceMember() {
+    function saveAttendanceMember(imported = null) {
       if (!isAdmin("attendance")) return;
       const nameInput = document.getElementById("attMemberNameInput");
       const serverSelect = document.getElementById("attMemberServerSelect");
@@ -9254,7 +9258,7 @@
       const bonusRaw = (bonusInput?.value || "").trim();
       const customBonus = bonusRaw !== "" && !isNaN(Number(bonusRaw)) ? Math.max(0, Math.min(100, Number(bonusRaw))) : null;
 
-      if (!name) {
+      if (!name && imported === null) {
         if (errEl) {
           errEl.textContent = "Vui lòng nhập tên thành viên.";
           errEl.style.display = "block";
@@ -9271,6 +9275,10 @@
       }
 
       const currWeek = getActiveWeek();
+      if ((imported || attendanceMemberImageFilled) && (editId || currWeek.id !== attendanceMemberImageWeekId)) {
+        showToast("Tuần chấm công đã thay đổi. Hãy mở lại Thêm thành viên để nhập ảnh.");
+        return;
+      }
       if (editId) {
         const member = currWeek.members.find(m => m.id === editId);
         if (member) {
@@ -9289,23 +9297,35 @@
           showToast(`✅ Đã cập nhật thành viên: ${name}`);
         }
       } else {
-        const newId = "m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        const newMem = {
-          id: newId,
-          name,
-          serverId,
-          multiplier: mult,
-          combatPower,
-          role,
-          color,
-          roleColor,
-          records: {}
-        };
-        if (customBonus !== null) {
-          newMem.roleBonusPercent = customBonus;
+        const candidates = imported || [{ name, combatPower }];
+        const existing = imported || attendanceMemberImageFilled ? new Set(currWeek.members.filter(member => member.serverId === serverId)
+          .map(member => attendanceMemberNameKey(member.name))) : null;
+        const newMembers = [];
+        for (const candidate of candidates) {
+          const key = attendanceMemberNameKey(candidate.name);
+          if (existing && (!key || existing.has(key) || !Number.isSafeInteger(candidate.combatPower) || candidate.combatPower <= 0)) {
+            errEl.textContent = `Kiểm tra dòng “${candidate.name || "chưa có tên"}”. Tên phải khác các thành viên đã có trên Server này và lực chiến phải lớn hơn 0.`;
+            errEl.style.display = "block";
+            errEl.scrollIntoView({ block: "nearest" });
+            return;
+          }
+          existing?.add(key);
+          const newMem = {
+            id: "m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            name: candidate.name,
+            serverId,
+            multiplier: mult,
+            combatPower: candidate.combatPower,
+            role,
+            color,
+            roleColor,
+            records: {}
+          };
+          if (customBonus !== null) newMem.roleBonusPercent = customBonus;
+          newMembers.push(newMem);
         }
-        currWeek.members.push(newMem);
-        showToast(`✅ Đã thêm thành viên mới: ${name}`);
+        currWeek.members.push(...newMembers);
+        showToast(imported ? `✅ Đã thêm ${newMembers.length} thành viên từ ảnh.` : `✅ Đã thêm thành viên mới: ${name}`);
       }
 
       saveAttendanceState(attendanceState, true);
@@ -9653,6 +9673,120 @@
       return { matched: [...matched.values()], unmatched };
     }
 
+    async function recognizeAttendanceCpImage(Tesseract, file, logger) {
+      const { canvas, context } = await prepareAttendanceOcrCanvas(file);
+      const contrast = document.createElement("canvas");
+      contrast.width = canvas.width;
+      contrast.height = canvas.height;
+      const contrastContext = contrast.getContext("2d");
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      for (let pixel = 0; pixel < pixels.data.length; pixel += 4) {
+        const luminance = pixels.data[pixel] * 0.2126 + pixels.data[pixel + 1] * 0.7152 + pixels.data[pixel + 2] * 0.0722;
+        const value = 255 - Math.max(0, Math.min(255, (luminance - 45) * 5));
+        pixels.data[pixel] = pixels.data[pixel + 1] = pixels.data[pixel + 2] = value;
+      }
+      contrastContext.putImageData(pixels, 0, 0);
+      const result = await Tesseract.recognize(contrast, "eng", { tessedit_pageseg_mode: "11", logger });
+      return collectAttendanceOcrWords(result?.data);
+    }
+
+    let attendanceMemberImageSession = 0;
+    let attendanceMemberImageQueue = Promise.resolve();
+    let attendanceMemberImageWeekId = null;
+    let attendanceMemberImageFilled = false;
+
+    function attendanceMemberNameKey(name) {
+      return name.trim().normalize("NFC").toLocaleLowerCase("vi");
+    }
+
+    function extractAttendanceNewMembers(words) {
+      return buildAttendanceCpOcrRows(words).flatMap(row => {
+        const line = row.words.map(word => String(word.text).trim()).join(" ")
+          .replace(/\s+[x×]\s*\d+(?:[.,]\d+)?$/iu, "");
+        const match = line.match(/^(.+?)\s+(\d+(?:[.,]\d+)?\s*(?:tr|[km])|\d{1,3}(?:[., ]\d{3})+|\d+)\s*(?:CP)?$/iu);
+        if (!match) return [];
+        const name = match[1].replace(/^#?\d{1,3}[.)]?\s+(?=\p{L})/u, "")
+          .replace(/(?:\s+(?:CP|lực chiến))?\s*[:|]?\s*$/iu, "").trim();
+        const amount = /(?:tr|[km])$/i.test(match[2]) ? match[2].replace(",", ".") : match[2].replace(/[., ]/g, "");
+        const combatPower = parseCombatPowerInput(amount);
+        return /\p{L}/u.test(name) && name.length <= 40 && Number.isSafeInteger(combatPower) && combatPower > 0
+          ? [{ name, combatPower }] : [];
+      });
+    }
+
+    function resetAttendanceMemberImages() {
+      attendanceMemberImageSession++;
+      attendanceMemberImageQueue = Promise.resolve();
+      attendanceMemberImageWeekId = null;
+      attendanceMemberImageFilled = false;
+      document.getElementById("attMemberImageRows").replaceChildren();
+      document.getElementById("attMemberImageInput").value = "";
+      document.getElementById("attMemberImageStatus").hidden = true;
+      document.getElementById("attMemberImageResults").hidden = true;
+    }
+
+    function queueAttendanceMemberImages(files) {
+      const imageFiles = Array.from(files).filter(file => ["image/png", "image/jpeg", "image/webp"].includes(file.type));
+      const modal = document.getElementById("attMemberModal");
+      if (!isAdmin("attendance") || !modal.classList.contains("open") || !attendanceMemberImageWeekId) return;
+      const status = document.getElementById("attMemberImageStatus");
+      status.hidden = false;
+      if (!imageFiles.length) {
+        status.textContent = "Hãy chọn ảnh PNG, JPG hoặc WebP.";
+        return;
+      }
+      const session = attendanceMemberImageSession;
+      const current = () => session === attendanceMemberImageSession && modal.classList.contains("open")
+        && isAdmin("attendance") && getActiveWeek().id === attendanceMemberImageWeekId;
+      const rows = document.getElementById("attMemberImageRows");
+      status.textContent = "Đang chờ đọc ảnh…";
+      attendanceMemberImageQueue = attendanceMemberImageQueue.then(async () => {
+        if (!current()) return;
+        const Tesseract = await loadAttendanceOcrLibrary();
+        const seen = new Set(Array.from(rows.querySelectorAll("[data-member-image-name]"), input => attendanceMemberNameKey(input.value)));
+        let failures = 0;
+        for (const [index, file] of imageFiles.entries()) {
+          if (!current()) return;
+          status.textContent = `Đang đọc ảnh ${index + 1}/${imageFiles.length}…`;
+          try {
+            const words = await recognizeAttendanceCpImage(Tesseract, file);
+            if (!current()) return;
+            for (const item of extractAttendanceNewMembers(words)) {
+              const key = attendanceMemberNameKey(item.name);
+              if (seen.has(key)) continue;
+              seen.add(key);
+              rows.insertAdjacentHTML("beforeend", `<div class="att-cp-image-match-row">
+                <input type="checkbox" checked aria-label="Chọn ${escapeHtml(item.name)}">
+                <input type="text" class="att-cp-image-value" data-member-image-name maxlength="40" aria-label="Tên thành viên từ ảnh" value="${escapeHtml(item.name)}">
+                <input type="text" class="att-cp-image-value" data-member-image-cp aria-label="Lực chiến từ ảnh" value="${item.combatPower}">
+              </div>`);
+            }
+          } catch (error) {
+            failures++;
+            console.warn("Member image OCR failed:", error);
+          }
+        }
+        if (!current()) return;
+        const count = rows.childElementCount;
+        document.getElementById("attMemberImageResults").hidden = !count;
+        status.textContent = count ? `Đã nhận diện ${count} dòng. Hãy kiểm tra trước khi lưu.` : "Chưa nhận diện được tên và lực chiến. Hãy thử ảnh rõ hơn.";
+        if (failures) status.textContent += ` Không đọc được ${failures} ảnh.`;
+        const name = document.getElementById("attMemberNameInput");
+        const cp = document.getElementById("attMemberCpInput");
+        if (count === 1 && !name.value.trim() && !cp.value.trim()) {
+          const candidate = rows.querySelector("[data-member-image-name]").value;
+          const server = document.getElementById("attMemberServerSelect").value;
+          if (getActiveWeek().members.some(member => member.serverId === server && attendanceMemberNameKey(member.name) === attendanceMemberNameKey(candidate))) return;
+          name.value = candidate;
+          cp.value = rows.querySelector("[data-member-image-cp]").value;
+          attendanceMemberImageFilled = true;
+          updateMemberModalPreview();
+        }
+      }).catch(error => {
+        if (current()) status.textContent = error.message || "Không thể nhận diện ảnh. Vui lòng thử lại.";
+      });
+    }
+
     function setAttendanceCpImageProgress(percent, text) {
       const wrap = document.getElementById("attCpImageProgress");
       const bar = document.getElementById("attCpImageProgressBar");
@@ -9716,28 +9850,13 @@
         const Tesseract = await loadAttendanceOcrLibrary();
         for (let index = 0; index < imageFiles.length; index++) {
           setAttendanceCpImageProgress(index / imageFiles.length * 100, `Đang đọc ảnh ${index + 1}/${imageFiles.length}…`);
-          const { canvas, context } = await prepareAttendanceOcrCanvas(imageFiles[index]);
-          const contrast = document.createElement("canvas");
-          contrast.width = canvas.width;
-          contrast.height = canvas.height;
-          const contrastContext = contrast.getContext("2d");
-          const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-          for (let pixel = 0; pixel < pixels.data.length; pixel += 4) {
-            const luminance = pixels.data[pixel] * 0.2126 + pixels.data[pixel + 1] * 0.7152 + pixels.data[pixel + 2] * 0.0722;
-            const value = 255 - Math.max(0, Math.min(255, (luminance - 45) * 5));
-            pixels.data[pixel] = pixels.data[pixel + 1] = pixels.data[pixel + 2] = value;
-          }
-          contrastContext.putImageData(pixels, 0, 0);
-          const result = await Tesseract.recognize(contrast, "eng", {
-            tessedit_pageseg_mode: "11",
-            logger: message => {
-              if (message.status !== "recognizing text") return;
-              const percent = ((index + (message.progress || 0)) / imageFiles.length) * 100;
-              setAttendanceCpImageProgress(percent, `Đang đối chiếu ảnh ${index + 1}/${imageFiles.length} · ${Math.round((message.progress || 0) * 100)}%`);
-            }
+          const words = await recognizeAttendanceCpImage(Tesseract, imageFiles[index], message => {
+            if (session !== attendanceCpOcrSession || message.status !== "recognizing text") return;
+            const percent = ((index + (message.progress || 0)) / imageFiles.length) * 100;
+            setAttendanceCpImageProgress(percent, `Đang đối chiếu ảnh ${index + 1}/${imageFiles.length} · ${Math.round((message.progress || 0) * 100)}%`);
           });
           if (session !== attendanceCpOcrSession) return;
-          const extracted = extractAttendanceCpOcrEntries(collectAttendanceOcrWords(result?.data), members);
+          const extracted = extractAttendanceCpOcrEntries(words, members);
           extracted.matched.forEach(item => {
             // Ảnh nhập sau được ưu tiên để có thể cập nhật Lực Chiến mới của cùng thành viên.
             allMatched.set(item.member.id, { ...item, checked: true });
@@ -10232,10 +10351,13 @@
 
     const guildItemsPath = "boss_timeline_guild_items";
     const guildImageLimit = 600000;
+    const guildEditIcon = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5H5v14h14v-7M10 14l1-4 7-7 3 3-7 7-4 1Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+    const guildPaymentLabels = { paid: "Đã thanh toán", pending: "Chưa thanh toán", unsold: "Chưa bán" };
+    const guildPaymentSaving = new Set();
     let guildItemsRef = null;
     let guildItems = {};
     let guildWeeks = {};
-    let guildWeekId = null;
+    let guildWeekId = "all";
     let guildWeeksReady = false;
     let guildItemsStatus = "Đang tải danh sách vật phẩm…";
     let guildItemsRenderedCanEdit;
@@ -10262,34 +10384,43 @@
       });
     }
 
+    function getGuildWeekName(id) {
+      return guildWeeks[id]?.name || `Tuần bắt đầu ${id.slice(8, 10)}/${id.slice(5, 7)}`;
+    }
+
     function renderGuildWeeks() {
-      const select = document.getElementById("guildWeekSelect");
-      const weeks = Object.keys(guildWeeks).sort().reverse();
-      if (guildWeekId === null) guildWeekId = weeks[0] || "";
-      const options = weeks.map(id => {
+      const weeks = Object.keys(guildWeeks).filter(id => !guildWeeks[id]?.archived).sort();
+      if (!weeks.includes(guildWeekId)) guildWeekId = "all";
+      const canEdit = isAdmin("guildItems");
+      const card = (id, name, dates = "") => {
+        const selected = guildWeekId === id;
+        return `<div class="guild-week-card${selected ? " is-active" : ""}">
+          <button type="button" class="guild-week-select" data-guild-week-select="${id}" aria-pressed="${selected}">
+            <strong>${escapeHtml(name)}</strong>${dates ? `<span>${dates}</span>` : ""}
+          </button>
+          ${canEdit && id !== "all" ? `<div class="guild-week-actions">
+            <button type="button" data-guild-week-edit="${id}" aria-label="Sửa tuần ${escapeHtml(name)}" title="Sửa tuần">
+              ${guildEditIcon}
+            </button>
+            <button type="button" data-guild-week-delete="${id}" aria-label="Xóa tuần ${escapeHtml(name)}" title="Xóa tuần">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>` : ""}
+        </div>`;
+      };
+      document.getElementById("guildWeekCards").innerHTML = card("all", "Xem tất cả") + weeks.map(id => {
         const [startYear, startMonth, startDay] = id.split("-");
         const end = new Date(Date.parse(id) + 6 * 86400000);
         const [endYear, endMonth, endDay] = end.toISOString().slice(0, 10).split("-");
         const startLabel = `${startDay}/${startMonth}` + (startYear === endYear ? "" : "/" + startYear);
-        const dates = `${startLabel} – ${endDay}/${endMonth}/${endYear}`;
-        const option = new Option(`Tuần ${dates}`, id);
-        option.dataset.title = `Tuần bắt đầu ${startDay}/${startMonth}`;
-        option.dataset.dates = dates;
-        return option;
-      });
-      const all = new Option("Xem tất cả", "all");
-      all.dataset.title = "Xem tất cả";
-      all.dataset.dates = "Mọi tuần và vật phẩm chưa xếp tuần";
-      select.replaceChildren(all, ...options, new Option("Vật phẩm trước đây", ""));
-      select.value = guildWeekId;
-      const selected = select.selectedOptions[0];
-      document.getElementById("guildWeekTitle").textContent = selected?.dataset.title || "Vật phẩm trước đây";
-      document.getElementById("guildWeekDates").textContent = selected?.dataset.dates || "Các món chưa xếp tuần";
+        return card(id, getGuildWeekName(id), `${startLabel} – ${endDay}/${endMonth}/${endYear}`);
+      }).join("");
     }
 
     function renderGuildItems() {
       closeGuildItemMenu();
       const canEdit = isAdmin("guildItems");
+      if (canEdit !== guildItemsRenderedCanEdit) renderGuildWeeks();
       guildItemsRenderedCanEdit = canEdit;
       const entries = Object.entries(guildItems).filter(([, item]) => guildWeekId === "all" || (item.weekId || "") === (guildWeekId || ""))
         .sort(([, a], [, b]) => b.createdAt - a.createdAt);
@@ -10301,10 +10432,13 @@
         paid: { VND: 0, USDT: 0, diamonds: 0 },
         pending: { VND: 0, USDT: 0, diamonds: 0 }
       };
-      const paymentLabels = { paid: "Đã thanh toán", pending: "Chưa thanh toán", unsold: "Chưa bán" };
+      const editableName = content => canEdit ? `<div class="guild-editable-cell">
+        <span>${content}</span>
+        <button type="button" class="guild-cell-edit" data-guild-edit-item aria-label="Sửa vật phẩm" title="Sửa vật phẩm">${guildEditIcon}</button>
+      </div>` : content;
       const rows = entries.map(([id, item]) => {
         const itemId = escapeHtml(id);
-        const payment = Object.hasOwn(paymentLabels, item.payment) ? item.payment : "pending";
+        const payment = Object.hasOwn(guildPaymentLabels, item.payment) ? item.payment : "pending";
         const valueTier = item.valueTier === "high" || item.valueTier === "low" ? item.valueTier : "";
         const currency = item.currency === "USDT" ? "USDT" : "VND";
         if (payment !== "unsold") {
@@ -10313,11 +10447,16 @@
           total.diamonds += item.diamonds ?? 0;
         }
         return `<tr data-guild-item="${itemId}"${canEdit ? ' tabindex="0" title="Bấm chuột phải để sửa hoặc xóa vật phẩm"' : ""}>
-          <th scope="row"${valueTier ? ` class="guild-value-${valueTier}" title="Giá trị ${valueTier === "high" ? "cao" : "thấp"}"` : ""}>${escapeHtml(item.name)}</th>
+          <th scope="row"${valueTier ? ` class="guild-value-${valueTier}" title="Giá trị ${valueTier === "high" ? "cao" : "thấp"}"` : ""}>${editableName(escapeHtml(item.name))}</th>
           <td>${item.hasImage ? `<button type="button" class="button-ghost guild-row-button" data-guild-image="${itemId}"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/></svg>Xem ảnh</button>` : "—"}</td>
           <td>${item.money == null ? "—" : `${format.format(item.money)} ${currency === "VND" ? "VNĐ" : currency}`}</td>
           <td>${item.diamonds == null ? "—" : format.format(item.diamonds)}</td>
-          <td><span class="guild-payment is-${payment}">${paymentLabels[payment]}</span></td>
+          <td>${canEdit ? `<span class="guild-payment guild-payment-edit is-${payment}">
+            <select data-guild-payment aria-label="Trạng thái của ${escapeHtml(item.name)}"${guildPaymentSaving.has(id) ? " disabled" : ""}>
+              ${Object.entries(guildPaymentLabels).map(([value, label]) => `<option value="${value}"${payment === value ? " selected" : ""}>${label}</option>`).join("")}
+            </select>
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>` : `<span class="guild-payment is-${payment}">${guildPaymentLabels[payment]}</span>`}</td>
           <td>${escapeHtml(item.buyer) || "—"}</td>
           <td class="guild-item-notes">${escapeHtml(item.notes) || "—"}</td>
         </tr>`;
@@ -10354,7 +10493,9 @@
       const editor = byId("guildItemDialog");
       const weekDialog = byId("guildWeekDialog");
       const weekStart = byId("guildWeekStart");
+      const weekName = byId("guildWeekName");
       const weekSave = byId("guildWeekSave");
+      let editingWeekId = null;
       const rows = byId("guildItemsRows");
       const form = byId("guildItemForm");
       const photo = byId("guildImageDialog");
@@ -10362,6 +10503,7 @@
       const photoStatus = byId("guildImageStatus");
       const error = byId("guildItemError");
       const save = byId("guildSaveItem");
+      const deleteButton = byId("guildDeleteItem");
       const formFields = form.querySelector(".form-grid");
       const imageInput = byId("guildItemImage");
       const imageHint = byId("guildItemImageHint");
@@ -10375,6 +10517,7 @@
         valueTier: byId("guildItemValueTier"), notes: byId("guildItemNotes")
       };
       let editId = null;
+      let confirmingEditorDelete = false;
       let itemWeekId = null;
       let original = null;
       let imageRequest = 0;
@@ -10405,13 +10548,14 @@
       }
 
       function openEditor(id = null) {
-        if (!isAdmin("guildItems") || save.disabled || (id && (!guildItems[id] || deletingItems.has(id)))) return;
+        if (!isAdmin("guildItems") || save.disabled || confirmingEditorDelete || (id && (!guildItems[id] || deletingItems.has(id)))) return;
         editId = id;
         itemWeekId = guildWeekId === "all" ? null : guildWeekId || null;
         original = id ? guildItems[id] : null;
         form.reset();
         setDraftImage(null);
         error.hidden = true;
+        deleteButton.hidden = !original;
         byId("guildItemDialogTitle").textContent = original ? "Sửa vật phẩm" : "Thêm vật phẩm";
         for (const [key, field] of Object.entries(fields)) {
           field.value = original?.[key] ?? field.value;
@@ -10441,6 +10585,7 @@
         try {
           await guildItemsRef.update({ [`items/${id}`]: null, [`images/${id}`]: null });
           showToast("Đã xóa vật phẩm.");
+          return true;
         } catch (deleteError) {
           console.warn("Guild item deletion failed:", deleteError);
           showToast("Không xóa được vật phẩm. Vui lòng thử lại.");
@@ -10500,12 +10645,7 @@
       }
 
       byId("guildAddItem").addEventListener("click", () => openEditor());
-      byId("guildWeekSelect").addEventListener("change", event => {
-        guildWeekId = event.target.value;
-        renderGuildWeeks();
-        renderGuildItems();
-      });
-      byId("guildAddWeek").addEventListener("click", () => {
+      function openWeekEditor(id = null) {
         if (!isAdmin("guildItems") || weekSave.disabled) return;
         if (!guildWeeksReady || !firebaseRealtimeConnected) {
           showToast("Chưa kết nối được danh sách tuần. Vui lòng thử lại.");
@@ -10513,19 +10653,68 @@
         }
         const today = new Date();
         today.setDate(today.getDate() - (today.getDay() + 1) % 7);
-        weekStart.value = dateToYMD(today);
+        editingWeekId = id;
+        weekStart.value = id || dateToYMD(today);
+        weekStart.disabled = Boolean(id);
+        weekName.value = id ? guildWeeks[id]?.name || "" : "";
+        byId("guildWeekDialogTitle").textContent = id ? "Sửa tên tuần" : "Thêm tuần mới";
+        weekSave.textContent = id ? "Lưu tên tuần" : "Thêm tuần";
         weekDialog.showModal();
+        if (id) weekName.focus();
+      }
+
+      async function deleteGuildWeek(id) {
+        if (!isAdmin("guildItems") || !guildWeeks[id] || guildWeeks[id].archived || !firebaseRealtimeConnected) return;
+        const adminUid = firebaseAuth.currentUser.uid;
+        const name = getGuildWeekName(id);
+        const confirmed = await showConfirmModal({
+          title: `Xóa “${name}”?`,
+          subtitle: "Tuần này sẽ biến mất khỏi danh sách chọn tuần.",
+          message: "Các vật phẩm và ảnh của tuần này vẫn có thể xem trong mục Xem tất cả.",
+          confirmText: "Xóa tuần này"
+        });
+        if (!confirmed || !isAdmin("guildItems") || firebaseAuth.currentUser.uid !== adminUid || !firebaseRealtimeConnected
+          || guildWeeks[id]?.archived) return;
+        try {
+          await guildItemsRef.update({ [`weeks/${id}/archived`]: true });
+          showToast("Đã xóa tuần khỏi danh sách.");
+        } catch (error) {
+          console.warn("Guild week deletion failed:", error);
+          showToast("Không xóa được tuần. Vui lòng thử lại.");
+        }
+      }
+
+      byId("guildWeekCards").addEventListener("click", event => {
+        const button = event.target.closest("button");
+        if (!button) return;
+        const { guildWeekSelect, guildWeekEdit, guildWeekDelete } = button.dataset;
+        if (guildWeekSelect) {
+          guildWeekId = guildWeekSelect;
+          renderGuildWeeks();
+          renderGuildItems();
+          byId("guildWeekCards").querySelector(`[data-guild-week-select="${guildWeekId}"]`)?.focus();
+        } else if (guildWeekEdit) {
+          openWeekEditor(guildWeekEdit);
+        } else if (guildWeekDelete) {
+          deleteGuildWeek(guildWeekDelete);
+        }
       });
+      byId("guildAddWeek").addEventListener("click", () => openWeekEditor());
       byId("guildWeekCancel").addEventListener("click", () => weekDialog.close());
       byId("guildWeekForm").addEventListener("submit", async event => {
         event.preventDefault();
         if (!isAdmin("guildItems") || weekSave.disabled || !guildWeeksReady || !firebaseRealtimeConnected) return;
-        const id = weekStart.value;
+        const id = editingWeekId || weekStart.value;
+        const name = weekName.value.trim();
+        if (guildWeeks[id]?.archived) {
+          showToast("Tuần có ngày bắt đầu này đã bị xóa. Hãy chọn ngày khác.");
+          return;
+        }
         weekSave.disabled = true;
         try {
-          if (!guildWeeks[id]) await guildItemsRef.update({ [`weeks/${id}`]: true });
+          if (editingWeekId) await guildItemsRef.update({ [`weeks/${id}/name`]: name });
+          else if (!guildWeeks[id]) await guildItemsRef.update({ [`weeks/${id}`]: name ? { name } : true });
           if (!weekDialog.open) return;
-          guildWeeks[id] = true;
           guildWeekId = id;
           renderGuildWeeks();
           renderGuildItems();
@@ -10540,6 +10729,31 @@
       rows.addEventListener("click", event => {
         const button = event.target.closest("button");
         if (button?.dataset.guildImage) openPhoto(button.dataset.guildImage);
+        if (button?.hasAttribute("data-guild-edit-item")) openEditor(button.closest("tr").dataset.guildItem);
+      });
+      rows.addEventListener("change", async event => {
+        const select = event.target.closest("select[data-guild-payment]");
+        if (!select) return;
+        const id = select.closest("tr").dataset.guildItem;
+        const payment = select.value;
+        if (!isAdmin("guildItems") || !guildItems[id] || !Object.hasOwn(guildPaymentLabels, payment)
+          || guildPaymentSaving.has(id)) return;
+        if (!guildItemsRef || !firebaseRealtimeConnected || guildItemsStatus) {
+          select.value = guildItems[id].payment;
+          showToast("Kho vật phẩm chưa sẵn sàng. Hãy kiểm tra kết nối rồi thử lại.");
+          return;
+        }
+        guildPaymentSaving.add(id);
+        select.disabled = true;
+        try {
+          await guildItemsRef.update({ [`items/${id}/payment`]: payment });
+        } catch (error) {
+          console.warn("Guild item payment update failed:", error);
+          showToast("Không lưu được trạng thái. Vui lòng thử lại.");
+        } finally {
+          guildPaymentSaving.delete(id);
+          renderGuildItems();
+        }
       });
       rows.addEventListener("contextmenu", event => {
         const row = event.target.closest("tr[data-guild-item]");
@@ -10563,7 +10777,27 @@
         if (save.disabled) event.preventDefault();
       });
       editor.addEventListener("close", () => {
-        if (!editor.open) setDraftImage(null);
+        if (!editor.open && !confirmingEditorDelete) setDraftImage(null);
+      });
+      deleteButton.addEventListener("click", async () => {
+        if (!editId || save.disabled || confirmingEditorDelete || !isAdmin("guildItems")) return;
+        const id = editId;
+        const adminUid = firebaseAuth.currentUser.uid;
+        confirmingEditorDelete = true;
+        editor.close();
+        try {
+          const pending = deleteItem(id);
+          if (byId("customConfirmModal").classList.contains("open")) byId("confirmModalCancelBtn").focus();
+          const removed = await pending;
+          if (!removed && isAdmin("guildItems") && firebaseAuth.currentUser.uid === adminUid
+            && guildItems[id] && !byId("item-guild").hidden) {
+            editor.showModal();
+            deleteButton.focus();
+          }
+        } finally {
+          confirmingEditorDelete = false;
+          if (!editor.open) setDraftImage(null);
+        }
       });
       imageInput.addEventListener("change", () => setDraftImage(imageInput.files[0]));
       byId("guildImageDraftClear").addEventListener("click", () => {
@@ -10606,6 +10840,7 @@
         const file = draftImage;
         const adminUid = firebaseAuth.currentUser.uid;
         save.disabled = true;
+        deleteButton.disabled = true;
         formFields.inert = true;
         try {
           let image = null;
@@ -10649,6 +10884,7 @@
           error.hidden = false;
         } finally {
           save.disabled = false;
+          deleteButton.disabled = false;
           formFields.inert = false;
         }
       });
@@ -10870,7 +11106,25 @@
       // Member Modal Events
       document.getElementById("closeAttMemberModal")?.addEventListener("click", closeAttendanceMemberModal);
       document.getElementById("attCancelMemberBtn")?.addEventListener("click", closeAttendanceMemberModal);
-      document.getElementById("attSaveMemberBtn")?.addEventListener("click", saveAttendanceMember);
+      document.getElementById("attSaveMemberBtn")?.addEventListener("click", () => saveAttendanceMember());
+      document.getElementById("attMemberImageInput").addEventListener("change", event => {
+        if (event.target.files.length) queueAttendanceMemberImages(event.target.files);
+        event.target.value = "";
+      });
+      document.getElementById("attMemberAddImageResults").addEventListener("click", () => {
+        const selected = [...document.querySelectorAll("#attMemberImageRows input[type=checkbox]:checked")];
+        if (!selected.length) {
+          showToast("Hãy chọn thành viên cần thêm.");
+          return;
+        }
+        saveAttendanceMember(selected.map(checkbox => {
+          const row = checkbox.parentElement;
+          return {
+            name: row.querySelector("[data-member-image-name]").value.trim(),
+            combatPower: parseCombatPowerInput(row.querySelector("[data-member-image-cp]").value)
+          };
+        }));
+      });
       document.getElementById("attDeleteMemberBtn")?.addEventListener("click", () => {
         const editId = document.getElementById("attMemberEditId")?.value;
         if (editId) deleteAttendanceMember(editId);
@@ -10979,6 +11233,12 @@
           .map(item => item.getAsFile())
           .filter(Boolean);
         if (!files.length) return;
+        if (document.getElementById("attMemberModal").classList.contains("open")
+          && !document.getElementById("attMemberImageImport").hidden) {
+          event.preventDefault();
+          queueAttendanceMemberImages(files);
+          return;
+        }
         if (document.getElementById("attOcrModal")?.classList.contains("open")) {
           event.preventDefault();
           queueAttendanceOcrFiles(files);
@@ -11062,8 +11322,9 @@
         event.target.value = "";
       });
       document.getElementById("attCpApplyImageResultsBtn")?.addEventListener("click", applyAttendanceCpImageReview);
-      const cpImageDrop = document.querySelector(".att-cp-image-drop");
-      if (cpImageDrop) {
+      for (const [selector, onDrop] of [["#attCombatPowerModal", analyzeAttendanceCpImages], ["#attMemberImageImport", queueAttendanceMemberImages]]) {
+        const cpImageDrop = document.querySelector(`${selector} .att-cp-image-drop`);
+        if (!cpImageDrop) continue;
         ["dragenter", "dragover"].forEach(type => cpImageDrop.addEventListener(type, event => {
           event.preventDefault();
           cpImageDrop.classList.add("is-dragging");
@@ -11071,7 +11332,7 @@
         ["dragleave", "drop"].forEach(type => cpImageDrop.addEventListener(type, event => {
           event.preventDefault();
           cpImageDrop.classList.remove("is-dragging");
-          if (type === "drop") analyzeAttendanceCpImages(event.dataTransfer?.files || []);
+          if (type === "drop") onDrop(event.dataTransfer?.files || []);
         }));
       }
 
@@ -11082,6 +11343,7 @@
           modalEl.addEventListener("click", (e) => {
             if (e.target === modalEl) {
               if (modalId === "attEvidenceModal") closeAttendanceEvidenceModal();
+              else if (modalId === "attMemberModal") closeAttendanceMemberModal();
               else {
                 modalEl.classList.remove("open");
                 syncModalScrollLock();

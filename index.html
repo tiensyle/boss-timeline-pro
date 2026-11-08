@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261108-13">
+  <link rel="stylesheet" href="assets/app.css?v=20261108-18">
 </head>
 <body>
   <div class="app-shell">
@@ -473,16 +473,8 @@
       </section>
       <section id="item-guild" class="guild-items" aria-label="ITEM GUILD" hidden>
         <div class="guild-items-heading">
-          <div class="guild-week-toolbar">
-            <label for="guildWeekSelect">Chọn tuần</label>
-            <div class="guild-week-card">
-              <div aria-hidden="true">
-                <strong id="guildWeekTitle">Vật phẩm trước đây</strong>
-                <span id="guildWeekDates">Các món chưa xếp tuần</span>
-              </div>
-              <svg class="guild-week-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <select id="guildWeekSelect"><option value="">Vật phẩm trước đây</option></select>
-            </div>
+          <div class="guild-week-toolbar" role="group" aria-label="Chọn tuần ITEM GUILD">
+            <div class="guild-week-cards" id="guildWeekCards"></div>
             <button type="button" class="button-ghost" id="guildAddWeek" hidden>+ Thêm tuần mới</button>
           </div>
           <div class="guild-heading-actions">
@@ -527,6 +519,10 @@
     <form id="guildWeekForm">
       <div class="modal-head"><h2 id="guildWeekDialogTitle">Thêm tuần mới</h2></div>
       <div class="form-grid">
+        <div class="form-field guild-full-field">
+          <label for="guildWeekName">Tên tuần (tùy chọn)</label>
+          <input id="guildWeekName" maxlength="80" placeholder="Ví dụ: Tuần 2">
+        </div>
         <div class="form-field guild-full-field">
           <label for="guildWeekStart">Ngày bắt đầu tuần</label>
           <input type="date" id="guildWeekStart" min="1900-01-01" max="9999-12-25" required autofocus>
@@ -602,7 +598,10 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="button-ghost" data-guild-close>Hủy</button>
-        <button type="submit" class="button-primary" id="guildSaveItem">Lưu vật phẩm</button>
+        <div class="modal-actions-right">
+          <button type="button" class="button-danger" id="guildDeleteItem" hidden>Xóa vật phẩm</button>
+          <button type="submit" class="button-primary" id="guildSaveItem">Lưu vật phẩm</button>
+        </div>
       </div>
     </form>
   </dialog>
@@ -1350,6 +1349,20 @@
       </div>
       <div style="padding: 18px 20px;">
         <input type="hidden" id="attMemberEditId" value="">
+        <div class="att-cp-image-import" id="attMemberImageImport">
+          <label class="att-cp-image-drop" for="attMemberImageInput">
+            <span class="att-cp-image-icon" aria-hidden="true">📷</span>
+            <span><strong>Nhập tên và lực chiến từ ảnh</strong><small>Chọn nhiều ảnh, kéo thả hoặc nhấn Ctrl+V để dán ảnh đã sao chép.</small></span>
+            <span class="att-cp-image-action">Chọn ảnh</span>
+            <input type="file" id="attMemberImageInput" aria-label="Chọn ảnh thành viên" accept="image/png,image/jpeg,image/webp" multiple>
+          </label>
+          <p id="attMemberImageStatus" class="att-member-image-status" role="status" hidden></p>
+          <div id="attMemberImageResults" class="att-cp-image-results" hidden>
+            <p>Kiểm tra và sửa tên hoặc lực chiến trước khi thêm. Các dòng đã chọn dùng chung Server và thiết lập bên dưới.</p>
+            <div id="attMemberImageRows"></div>
+            <button type="button" class="button-ghost" id="attMemberAddImageResults">Thêm các thành viên đã chọn</button>
+          </div>
+        </div>
         <div class="form-field" style="margin-bottom: 14px;">
           <label for="attMemberNameInput">Tên Thành Viên <span style="color: var(--red);">*</span></label>
           <input type="text" id="attMemberNameInput" required maxlength="40" placeholder="Ví dụ: Venarius, Ông3Bi, ...">
@@ -1916,7 +1929,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261108-13"></script>
+  <script src="assets/app.js?v=20261108-18"></script>
 
 </body>
 </html>
