@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261108-5">
+  <link rel="stylesheet" href="assets/app.css?v=20261108-8">
 </head>
 <body>
   <div class="app-shell">
@@ -474,6 +474,18 @@
       <section id="item-guild" class="guild-items" aria-labelledby="guildItemsTitle" hidden>
         <div class="guild-items-heading">
           <h1 id="guildItemsTitle">ITEM GUILD</h1>
+          <div class="guild-items-totals" id="guildItemsTotals" aria-label="Tổng giá trị vật phẩm" hidden>
+            <section class="guild-total-card" id="guildPaidTotal" aria-labelledby="guildPaidTotalLabel">
+              <h2 id="guildPaidTotalLabel">Tổng đã thanh toán</h2>
+              <div class="guild-total-values"></div>
+              <small></small>
+            </section>
+            <section class="guild-total-card" id="guildPendingTotal" aria-labelledby="guildPendingTotalLabel">
+              <h2 id="guildPendingTotalLabel">Tổng chưa thanh toán</h2>
+              <div class="guild-total-values"></div>
+              <small></small>
+            </section>
+          </div>
           <button type="button" class="button-primary" id="guildAddItem" hidden>+ Thêm vật phẩm</button>
         </div>
         <div class="guild-items-scroll" tabindex="0" role="region" aria-label="Bảng vật phẩm Guild">
@@ -483,7 +495,7 @@
                 <th rowspan="2" scope="col">Tên vật phẩm</th>
                 <th rowspan="2" scope="col">Hình đính kèm</th>
                 <th colspan="2" scope="colgroup">Giá trị</th>
-                <th rowspan="2" scope="col">Trạng thái thu</th>
+                <th rowspan="2" scope="col">Trạng thái</th>
                 <th rowspan="2" scope="col">Người mua</th>
               </tr>
               <tr>
@@ -492,16 +504,6 @@
               </tr>
             </thead>
             <tbody id="guildItemsRows"></tbody>
-            <tfoot id="guildItemsTotals" hidden>
-              <tr id="guildPaidTotal">
-                <th scope="row" colspan="2">Tổng đã thu</th>
-                <td></td><td></td><td colspan="2"></td>
-              </tr>
-              <tr id="guildPendingTotal">
-                <th scope="row" colspan="2">Tổng chưa thu</th>
-                <td></td><td></td><td colspan="2"></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
         <p id="guildItemsStatus" role="status"></p>
@@ -533,12 +535,16 @@
           <input id="guildItemDiamonds" type="number" min="0" max="999999999999" step="1">
         </div>
         <div class="form-field">
-          <label for="guildItemPayment">Trạng thái thu</label>
-          <select id="guildItemPayment"><option value="pending">Chưa thu</option><option value="paid">Đã thu</option></select>
+          <label for="guildItemPayment">Trạng thái</label>
+          <select id="guildItemPayment">
+            <option value="pending">Chưa thanh toán</option>
+            <option value="paid">Đã thanh toán</option>
+            <option value="unsold">Chưa bán</option>
+          </select>
         </div>
         <div class="form-field">
           <label for="guildItemBuyer">Người mua</label>
-          <input id="guildItemBuyer" maxlength="160" list="guildItemBuyers" placeholder="Chọn thành viên hoặc nhập tên">
+          <input id="guildItemBuyer" maxlength="160" list="guildItemBuyers" placeholder="Chọn thành viên, chợ hoặc nhập tên">
           <datalist id="guildItemBuyers"></datalist>
         </div>
         <div class="form-field">
@@ -1877,7 +1883,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261108-6"></script>
+  <script src="assets/app.js?v=20261108-8"></script>
 
 </body>
 </html>

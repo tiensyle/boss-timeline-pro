@@ -3215,8 +3215,8 @@
     }
 
     .guild-items-heading {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 12px;
       padding: 20px;
@@ -3224,28 +3224,54 @@
     }
 
     .guild-items-heading h1 {
-      grid-column: 2;
-      margin: 0;
+      margin: 0 auto 0 0;
       color: var(--text);
       font-size: clamp(1.75rem, 3.2vw, 2.5rem);
       line-height: 1.2;
-      text-align: center;
     }
 
-    .guild-items-heading button {
-      grid-column: 3;
-      justify-self: end;
+    .guild-items-totals {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      width: clamp(290px, 32vw, 460px);
     }
 
-    @media (max-width: 850px) {
+    .guild-total-card {
+      padding: 8px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+
+    .guild-total-card h2 {
+      margin: 0 0 4px;
+      color: var(--green);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    #guildPendingTotal h2 { color: var(--amber); }
+    .guild-total-card small { color: var(--muted); }
+
+    .guild-total-values {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .guild-total-values span { overflow-wrap: anywhere; }
+
+    @media (max-width: 1050px) {
       .guild-items-heading {
-        grid-template-columns: 1fr;
-        justify-items: center;
+        padding: 14px;
       }
 
-      .guild-items-heading h1, .guild-items-heading button {
-        grid-column: 1;
-        justify-self: center;
+      .guild-items-totals {
+        order: 1;
+        width: 100%;
       }
     }
 
@@ -3276,15 +3302,6 @@
     }
 
     .guild-items-table thead tr + tr th { color: var(--muted); }
-
-    .guild-items-table tfoot {
-      background: var(--surface-2);
-      font-weight: 700;
-    }
-
-    .guild-items-table tfoot tr:first-child > * { border-top: 2px solid var(--line); }
-    .guild-items-table tfoot th { text-transform: uppercase; }
-    .guild-items-table tfoot td span { display: block; }
 
     .guild-items-table tbody th {
       width: 24%;
@@ -3332,6 +3349,11 @@
     .guild-payment.is-paid {
       background: var(--green-soft);
       color: var(--green);
+    }
+
+    .guild-payment.is-unsold {
+      background: var(--amber-soft);
+      color: var(--amber);
     }
 
     #guildItemsStatus, #guildImageStatus {

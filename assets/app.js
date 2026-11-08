@@ -10264,30 +10264,34 @@
         paid: { VND: 0, USDT: 0, diamonds: 0, count: 0 },
         pending: { VND: 0, USDT: 0, diamonds: 0, count: 0 }
       };
+      const paymentLabels = { paid: "Đã thanh toán", pending: "Chưa thanh toán", unsold: "Chưa bán" };
       document.getElementById("guildItemsRows").innerHTML = entries.map(([id, item]) => {
         const itemId = escapeHtml(id);
-        const paid = item.payment === "paid";
+        const payment = Object.hasOwn(paymentLabels, item.payment) ? item.payment : "pending";
         const valueTier = item.valueTier === "high" || item.valueTier === "low" ? item.valueTier : "";
         const currency = item.currency === "USDT" ? "USDT" : "VND";
-        const total = paid ? totals.paid : totals.pending;
-        total[currency] += Math.round((item.money ?? 0) * 100);
-        total.diamonds += item.diamonds ?? 0;
-        total.count++;
+        if (payment !== "unsold") {
+          const total = totals[payment];
+          total[currency] += Math.round((item.money ?? 0) * 100);
+          total.diamonds += item.diamonds ?? 0;
+          total.count++;
+        }
         return `<tr data-guild-item="${itemId}"${canEdit ? ' tabindex="0" title="Bấm chuột phải để sửa hoặc xóa vật phẩm"' : ""}>
           <th scope="row"${valueTier ? ` class="guild-value-${valueTier}" title="Giá trị ${valueTier === "high" ? "cao" : "thấp"}"` : ""}>${escapeHtml(item.name)}</th>
           <td>${item.hasImage ? `<button type="button" class="button-ghost guild-row-button" data-guild-image="${itemId}"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/></svg>Xem ảnh</button>` : "—"}</td>
           <td>${item.money == null ? "—" : `${format.format(item.money)} ${currency === "VND" ? "VNĐ" : currency}`}</td>
           <td>${item.diamonds == null ? "—" : format.format(item.diamonds)}</td>
-          <td><span class="guild-payment ${paid ? "is-paid" : ""}">${paid ? "Đã thu" : "Chưa thu"}</span></td>
+          <td><span class="guild-payment is-${payment}">${paymentLabels[payment]}</span></td>
           <td>${escapeHtml(item.buyer) || "—"}</td>
         </tr>`;
       }).join("");
       document.getElementById("guildItemsTotals").hidden = !entries.length;
-      for (const [rowId, total] of [["guildPaidTotal", totals.paid], ["guildPendingTotal", totals.pending]]) {
-        const [, money, diamonds, count] = document.getElementById(rowId).cells;
-        money.innerHTML = `<span>${format.format(total.VND / 100)} VNĐ</span><span>${format.format(total.USDT / 100)} USDT</span>`;
-        diamonds.textContent = format.format(total.diamonds);
-        count.textContent = `${format.format(total.count)} vật phẩm`;
+      for (const [cardId, total] of [["guildPaidTotal", totals.paid], ["guildPendingTotal", totals.pending]]) {
+        const card = document.getElementById(cardId);
+        card.querySelector(".guild-total-values").innerHTML = `<span>${format.format(total.VND / 100)} VNĐ</span>
+          <span>${format.format(total.USDT / 100)} USDT</span>
+          <span>${format.format(total.diamonds)} kim cương</span>`;
+        card.querySelector("small").textContent = `${format.format(total.count)} vật phẩm`;
       }
     }
 
@@ -10370,8 +10374,8 @@
         }
         imageHint.textContent = original?.hasImage ? `${imageInstructions} Ảnh mới sẽ thay ảnh hiện tại.` : imageInstructions;
         const members = canViewAdminArea("attendance") ? getActiveWeek().members : [];
-        byId("guildItemBuyers").replaceChildren(...[...new Set(members.map(member => member.name))]
-          .sort((a, b) => a.localeCompare(b, "vi")).map(name => new Option(name, name)));
+        const buyerOptions = new Set(["Bán lên chợ", ...members.map(member => member.name).sort((a, b) => a.localeCompare(b, "vi"))]);
+        byId("guildItemBuyers").replaceChildren(...Array.from(buyerOptions, name => new Option(name, name)));
         editor.showModal();
       }
 
