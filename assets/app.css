@@ -3703,6 +3703,93 @@
     }
     .att-eligibility.eligible { color: var(--green); background: var(--green-soft); }
     .att-eligibility.ineligible { color: var(--red); background: var(--red-soft); }
+    .col-payout { width: 85px; min-width: 85px; text-align: center; }
+    .att-payout-checkbox {
+      width: 17px;
+      height: 17px;
+      cursor: pointer;
+      vertical-align: middle;
+      accent-color: #0284c7;
+    }
+    .att-payout-badge,
+    .att-payout-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      line-height: 1.2;
+      box-sizing: border-box;
+      text-decoration: none;
+    }
+    .att-payout-check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .is-paid .att-payout-check {
+      background: var(--green);
+      color: #fff;
+    }
+    .is-unpaid .att-payout-check {
+      background: var(--red);
+      color: #fff;
+    }
+    .att-payout-btn {
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+      user-select: none;
+    }
+    .att-payout-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    }
+    .att-payout-btn:active {
+      transform: translateY(0);
+    }
+    .att-payout-badge {
+      border: 1px solid transparent;
+      cursor: default;
+    }
+    .att-payout-badge.is-paid,
+    .att-payout-btn.is-paid {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: rgba(55, 183, 122, .35);
+    }
+    .att-payout-badge.is-unpaid,
+    .att-payout-btn.is-unpaid {
+      color: var(--red);
+      background: var(--red-soft);
+      border-color: rgba(226, 87, 76, .35);
+    }
+    .att-payout-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .is-paid .att-payout-dot {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+    .is-unpaid .att-payout-dot {
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+    }
     .col-percent .att-badge { display: inline-block; max-width: 75px; white-space: normal; overflow-wrap: anywhere; }
     .att-toolbar {
       --att-toolbar-control-height: 48px;
@@ -4907,6 +4994,8 @@
 .att-column-options-list button { grid-column:1 / -1; justify-content:center; margin-top:6px; }
 .att-table .col-eligibility { width:72px; min-width:72px; }
 .att-table .att-eligibility { font-size:16px; padding:2px 7px; }
+.att-table .col-payout { width:75px; min-width:75px; }
+.att-table .att-payout-badge, .att-table .att-payout-btn { font-size:11px; padding:2px 7px; }
 
 /* Day/night activity editor */
 .att-activity-modal { max-width:560px; }

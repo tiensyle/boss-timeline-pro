@@ -425,6 +425,8 @@
             <span><strong>Ghi chú:</strong></span>
             <span class="legend-item"><span class="badge-dot badge-red"></span> Không đạt ngưỡng nhận thưởng</span>
             <span class="legend-item"><span class="badge-dot badge-blue"></span> Đủ điều kiện nhận thưởng</span>
+            <span class="legend-item"><span class="badge-dot" style="background:var(--green); box-shadow:0 0 5px var(--green);"></span> Đã nhận lương</span>
+            <span class="legend-item"><span class="badge-dot" style="background:var(--red); box-shadow:0 0 5px var(--red);"></span> Chưa nhận lương</span>
           </div>
         </div>
       </section>
@@ -1483,6 +1485,7 @@
         <div class="form-field"><label for="attBulkMemberCp">Lực chiến</label><input id="attBulkMemberCp" name="combatPower" placeholder="Giữ nguyên"></div>
         <div class="form-field"><label for="attBulkMemberMultiplier">Hệ số lương</label><input type="number" id="attBulkMemberMultiplier" name="multiplier" min="0.1" max="10" step="any" placeholder="Giữ nguyên"></div>
         <div class="form-field"><label for="attBulkMemberBonus">Thưởng vị trí (%)</label><input type="number" id="attBulkMemberBonus" name="roleBonusPercent" min="0" max="100" step="any" placeholder="Giữ nguyên"></div>
+        <div class="form-field"><label for="attBulkMemberPaid">Phát lương</label><select id="attBulkMemberPaid" name="paid"><option value="">Giữ nguyên</option><option value="false">🔴 Chưa nhận</option><option value="true">🟢 Đã nhận</option></select></div>
         <p class="guild-full-field guild-form-error" id="attBulkMemberError" role="alert" hidden></p>
       </div>
       <div class="modal-actions">

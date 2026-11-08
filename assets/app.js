@@ -6668,6 +6668,7 @@
     const attendanceFilterColumns = [
       ["name", "Thành viên", "text"], ["combatPower", "Lực chiến", "number"],
       ["multiplier", "Hệ số", "number"], ["bonusPercent", "Thưởng vị trí (%)", "number"],
+      ["paid", "Phát Lương", "boolean"],
       ["usdt", "USDT", "number"], ["dias", "DIAS", "number"],
       ["pPoints", "P.Point thực tế", "number"], ["rawPoints", "Điểm thô", "number"],
       ["percent", "% tham gia", "number"], ["eligiblePPoints", "Reward P.Point", "number"],
@@ -6919,6 +6920,7 @@
         role: source.role || "Member",
         color: source.color || "",
         roleColor: source.roleColor || "",
+        paid: Boolean(source.paid),
         records: source.records && typeof source.records === "object" ? { ...source.records } : {}
       };
 
@@ -7347,11 +7349,15 @@
           });
         }
         if (currWeek) {
-          copiedMembers = (currWeek.members || []).map(m => ({
-            ...cloneRealtimeValue(m),
-            serverId: m.serverId || getDefaultAttendanceServerId(),
-            records: {} // New week starts with no attendance checks.
-          }));
+          copiedMembers = (currWeek.members || []).map(m => {
+            const copy = {
+              ...cloneRealtimeValue(m),
+              serverId: m.serverId || getDefaultAttendanceServerId(),
+              records: {} // New week starts with no attendance checks.
+            };
+            if (m.paid !== undefined) copy.paid = false;
+            return copy;
+          });
         }
 
         const newWeek = {
@@ -7970,8 +7976,8 @@
       popup.className = "att-column-filter-popup";
       popup.setAttribute("aria-label", `Lọc ${label}`);
       popup.innerHTML = `<strong>${escapeHtml(label)}</strong>
-        ${type === "text" ? `<label>Tìm tên / vai trò<input name="query" placeholder="Nhập để tìm…" value="${escapeHtml(current.query || "")}"></label>` : type === "boolean" ? `<label>Điều kiện<select name="value"><option value="">Tất cả</option><option value="true">Đủ điều kiện</option><option value="false">Không đạt</option></select></label>` : `<label>Từ<input name="min" type="number" step="any" value="${escapeHtml(current.min ?? "")}"></label><label>Đến<input name="max" type="number" step="any" value="${escapeHtml(current.max ?? "")}"></label>`}
-        <label>Sắp xếp<select name="sort"><option value="">Mặc định</option><option value="1">${type === "text" ? "Tên A → Z" : "Tăng dần"}</option><option value="-1">${type === "text" ? "Tên Z → A" : "Giảm dần"}</option></select></label>
+        ${type === "text" ? `<label>Tìm tên / vai trò<input name="query" placeholder="Nhập để tìm…" value="${escapeHtml(current.query || "")}"></label>` : type === "boolean" ? `<label>Điều kiện<select name="value"><option value="">Tất cả</option><option value="true">${key === "paid" ? "Đã phát" : "Đủ điều kiện"}</option><option value="false">${key === "paid" ? "Chưa phát" : "Không đạt"}</option></select></label>` : `<label>Từ<input name="min" type="number" step="any" value="${escapeHtml(current.min ?? "")}"></label><label>Đến<input name="max" type="number" step="any" value="${escapeHtml(current.max ?? "")}"></label>`}
+        <label>Sắp xếp<select name="sort"><option value="">Mặc định</option><option value="1">${type === "text" ? "Tên A → Z" : key === "paid" ? "Chưa nhận → Đã nhận" : "Tăng dần"}</option><option value="-1">${type === "text" ? "Tên Z → A" : key === "paid" ? "Đã nhận → Chưa nhận" : "Giảm dần"}</option></select></label>
         <div class="att-filter-buttons"><button type="button" data-clear>Bỏ lọc</button><button type="submit">Áp dụng</button></div>`;
       document.body.appendChild(popup);
       if (type === "boolean") popup.elements.value.value = current.value || "";
@@ -8183,6 +8189,7 @@
         <th class="col-sticky col-cp" title="Lực chiến thành viên (dùng để xếp hạng phân bổ hệ số lương)">Lực chiến</th>
         <th class="col-sticky col-mult">Hệ số</th>
         <th class="col-sticky col-bonus" title="Tỷ lệ % trích thưởng chức danh / vị trí từ tổng quỹ">Thưởng vị trí</th>
+        <th class="col-sticky col-payout">Phát Lương</th>
         <th class="col-sticky col-usdt">USDT</th>
         <th class="col-sticky col-dias">DIAS</th>
         <th class="col-sticky col-ppoints">P.Point<br>thực tế</th>
@@ -8224,7 +8231,7 @@
 
       headHtml += `</tr>`;
       headEl.innerHTML = headHtml;
-      const filterHeaders = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      const filterHeaders = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
       attendanceFilterColumns.forEach((column, index) => {
         const th = headEl.querySelectorAll("th")[filterHeaders[index]];
         const button = document.createElement("button");
@@ -8260,7 +8267,7 @@
       if (!bodyEl) return;
 
       if (filteredMembers.length === 0) {
-        const colSpanTotal = 13 + activities.length;
+        const colSpanTotal = 14 + activities.length;
         bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
           Không tìm thấy thành viên nào phù hợp.
         </td></tr>`;
@@ -8296,6 +8303,14 @@
             <span class="att-bonus-badge${bonusPct > 0 ? '' : ' zero'}" title="${bonusPct > 0 ? `Thưởng vị trí: +${bonusPct}% quỹ (${(m.roleBonusDias || 0).toLocaleString('vi-VN')} DIAS / ${(m.roleBonusUsdt || 0).toFixed(2)} USDT)` : 'Không có thưởng vị trí'}">
               ${bonusPct > 0 ? `+${bonusPct}%` : '—'}
             </span>
+          </td>
+          <td class="col-sticky col-payout${m.paid ? " is-paid" : ""}">
+            <input type="checkbox" class="att-checkbox att-payout-checkbox"
+              data-member-id="${escapeHtml(m.id)}"
+              ${m.paid ? "checked" : ""}
+              ${adminMode ? "" : "disabled"}
+              title="${escapeHtml(m.name)}: ${m.paid ? "Đã phát lương" : "Chưa phát lương"}"
+              aria-label="Phát lương ${escapeHtml(m.name)}">
           </td>
           <td class="col-sticky col-usdt">
             <span class="val-usdt" title="${bonusPct > 0 ? `Điểm danh: ${(m.attendanceUsdt || 0).toFixed(2)} + Thưởng VT: ${(m.roleBonusUsdt || 0).toFixed(2)}` : ''}">${m.usdt.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
@@ -8342,7 +8357,7 @@
     }
 
     function applyAttendanceColumnVisibility() {
-      const columns = [['col-stt','#'],['col-name','Thành viên'],['col-server','Server'],['col-cp','Lực chiến'],['col-mult','Hệ số'],['col-bonus','Thưởng vị trí'],['col-usdt','USDT'],['col-dias','DIAS'],['col-ppoints','P.Point thực tế'],['col-raw','Điểm thô'],['col-percent','% tham gia'],['col-reward-points','P.Point nhận thưởng'],['col-eligibility','Điều kiện thưởng']];
+      const columns = [['col-stt','#'],['col-name','Thành viên'],['col-server','Server'],['col-cp','Lực chiến'],['col-mult','Hệ số'],['col-bonus','Thưởng vị trí'],['col-payout','Phát Lương'],['col-usdt','USDT'],['col-dias','DIAS'],['col-ppoints','P.Point thực tế'],['col-raw','Điểm thô'],['col-percent','% tham gia'],['col-reward-points','P.Point nhận thưởng'],['col-eligibility','Điều kiện thưởng']];
       let hidden;
       try { hidden = JSON.parse(localStorage.getItem('attendanceHiddenColumns') || '[]'); } catch { hidden = []; }
       if (!Array.isArray(hidden)) hidden = [];
@@ -8459,7 +8474,11 @@
       for (const [key, value] of new FormData(event.currentTarget)) {
         const text = value.trim();
         if (!text) continue;
-        patch[key] = key === "multiplier" || key === "roleBonusPercent" ? Number(text) : text;
+        if (key === "paid") {
+          patch.paid = text === "true";
+        } else {
+          patch[key] = key === "multiplier" || key === "roleBonusPercent" ? Number(text) : text;
+        }
       }
       if (!Object.keys(patch).length) {
         fail("Hãy điền ít nhất một thông tin cần thay đổi.");
@@ -8575,6 +8594,7 @@
       menu.setAttribute("aria-label", "Thao tác thành viên");
       menu.innerHTML = `<div class="row-context-name">${batch ? `${selected.length} thành viên đã chọn` : escapeHtml(member.name)}</div>
         <button type="button" role="menuitem" class="att-edit-member-btn">✏️ ${batch ? "Chỉnh sửa hàng loạt" : "Chỉnh sửa thành viên"}</button>
+        <button type="button" role="menuitem" class="att-payout-toggle-btn">${batch ? "💵 Đổi trạng thái Phát Lương" : (member.paid ? "❌ Đổi sang: Chưa nhận lương" : "✅ Đổi sang: Đã nhận lương")}</button>
         <button type="button" role="menuitem" class="att-del-member-btn row-context-danger">🗑️ ${batch ? "Xóa hàng loạt" : "Xóa thành viên"}</button>`;
       closeAttendanceMemberMenu = showRowContextMenu(menu, x, y, row);
       menu.querySelector(".att-edit-member-btn").addEventListener("click", () => {
@@ -8582,6 +8602,20 @@
         if (!isAdmin("attendance")) return;
         if (batch) openAttendanceBulkMemberModal(week, selected);
         else openAttendanceMemberModal(memberId);
+      });
+      menu.querySelector(".att-payout-toggle-btn")?.addEventListener("click", () => {
+        closeAttendanceMemberMenu();
+        if (!isAdmin("attendance")) return;
+        if (batch) {
+          const hasUnpaid = selected.some(m => !m.paid);
+          const targetState = hasUnpaid;
+          selected.forEach(m => { m.paid = targetState; });
+          saveAttendanceState(attendanceState, true);
+          renderAttendanceTable();
+          showToast(targetState ? `✅ Đã chuyển ${selected.length} thành viên sang: ĐÃ NHẬN` : `ℹ️ Đã chuyển ${selected.length} thành viên sang: CHƯA NHẬN`);
+        } else {
+          toggleAttendancePayout(memberId);
+        }
       });
       menu.querySelector(".att-del-member-btn").addEventListener("click", async () => {
         closeAttendanceMemberMenu();
@@ -8705,6 +8739,22 @@
           }
         });
       });
+    }
+
+    function toggleAttendancePayout(memberId, forceState = null) {
+      if (!attendanceState) return;
+      if (!isAdmin("attendance")) {
+        showToast("Chỉ Quản trị viên (Admin) mới có quyền đổi trạng thái phát lương.");
+        requestAdminLogin();
+        return;
+      }
+      const currWeek = getActiveWeek();
+      const member = currWeek.members.find(m => m.id === memberId);
+      if (!member) return;
+      member.paid = forceState !== null ? Boolean(forceState) : !Boolean(member.paid);
+      saveAttendanceState(attendanceState, true);
+      renderAttendanceTable();
+      showToast(member.paid ? `✅ ${member.name}: ĐÃ PHÁT lương` : `ℹ️ ${member.name}: CHƯA PHÁT lương`);
     }
 
     function toggleAttendanceCheck(memberId, actId, isChecked) {
@@ -9391,6 +9441,8 @@
         if (multInput) multInput.value = member.multiplier || 1.0;
         if (roleInput) roleInput.value = member.role || "";
         if (bonusInput) bonusInput.value = (member.roleBonusPercent !== undefined && member.roleBonusPercent !== null) ? member.roleBonusPercent : "";
+        const paidSelect = document.getElementById("attMemberPaidSelect");
+        if (paidSelect) paidSelect.value = member.paid ? "true" : "false";
         if (delBtn) delBtn.style.display = "inline-flex";
 
         selectMemberColor(member.color || "");
@@ -9404,6 +9456,8 @@
         if (multInput) multInput.value = "1.0";
         if (roleInput) roleInput.value = "";
         if (bonusInput) bonusInput.value = "";
+        const paidSelect = document.getElementById("attMemberPaidSelect");
+        if (paidSelect) paidSelect.value = "false";
         if (delBtn) delBtn.style.display = "none";
 
         selectMemberColor("");
@@ -9444,6 +9498,8 @@
       const color = (colorValInput?.value || "").trim();
       const roleColor = (roleColorValInput?.value || "").trim();
       const editId = (editIdInput?.value || "").trim();
+      const paidSelect = document.getElementById("attMemberPaidSelect");
+      const paid = paidSelect ? paidSelect.value === "true" : false;
       const bonusRaw = (bonusInput?.value || "").trim();
       const customBonus = bonusRaw !== "" && !isNaN(Number(bonusRaw)) ? Math.max(0, Math.min(100, Number(bonusRaw))) : null;
 
@@ -9503,6 +9559,7 @@
           member.role = role;
           member.color = color;
           member.roleColor = roleColor;
+          member.paid = paid;
           if (customBonus !== null) {
             member.roleBonusPercent = customBonus;
           } else {
@@ -9522,6 +9579,7 @@
             role,
             color,
             roleColor,
+            paid,
             records: {}
           };
           if (customBonus !== null) newMem.roleBonusPercent = customBonus;
@@ -10429,10 +10487,11 @@
         const pct = (`${formatParticipationPercent(m.percent)}%`).padEnd(10, " ");
         const pPts = formatPoints(m.pPoints).padEnd(7, " ");
         const rewardPts = formatPoints(m.eligiblePPoints).padEnd(7, " ");
-        const eligibility = m.eligible ? "✅ Đủ điều kiện" : "❌ Không đạt";
+        const eligibility = (m.eligible ? "✅ Đủ điều kiện" : "❌ Không đạt").padEnd(14, " ");
+        const payout = (m.paid ? "🟢 Đã nhận" : "🔴 Chưa nhận").padEnd(10, " ");
         const dias = String(m.dias).padEnd(5, " ");
         const usdt = m.usdt.toFixed(2).padEnd(5, " ");
-        md += `${stt} | ${name} | ${server} | ${cp} | ${mult} | ${bonus} | ${pct} | ${pPts} | ${rewardPts} | ${eligibility} | ${dias} | ${usdt}\n`;
+        md += `${stt} | ${name} | ${server} | ${cp} | ${mult} | ${bonus} | ${payout} | ${pct} | ${pPts} | ${rewardPts} | ${eligibility} | ${dias} | ${usdt}\n`;
       });
       md += `\`\`\`\n`;
       md += `*Thành viên tham gia dưới ${calc.minimumParticipationPercent}% không nhận DIAS/USDT; P.Point thực tế vẫn được giữ nguyên.*`;
