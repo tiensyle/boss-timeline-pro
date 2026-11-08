@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261108-18">
+  <link rel="stylesheet" href="assets/app.css?v=20261108-19">
 </head>
 <body>
   <div class="app-shell">
@@ -403,6 +403,12 @@
               </button>
             </div>
           </div>
+
+          <section class="att-member-duplicates" id="attMemberDuplicates" aria-labelledby="attMemberDuplicatesTitle" hidden>
+            <h3 id="attMemberDuplicatesTitle">Tên nhân vật bị trùng</h3>
+            <p>Các bản ghi cùng tên, cùng Server trong tuần đang xem. Hãy kiểm tra trước khi sửa hoặc xóa.</p>
+            <div id="attMemberDuplicateRows"></div>
+          </section>
 
           <!-- Spreadsheet Table Container -->
           <div class="att-table-scroll-wrap" id="attTableScrollWrap">
@@ -1929,7 +1935,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261108-18"></script>
+  <script src="assets/app.js?v=20261108-19"></script>
 
 </body>
 </html>

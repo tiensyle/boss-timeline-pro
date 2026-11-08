@@ -8051,6 +8051,7 @@
       renderWeekTabs();
 
       const currWeek = getActiveWeek();
+      renderAttendanceMemberDuplicates(currWeek);
       const guildCalc = calculateAttendanceData(attendanceState);
       renderAttendanceServerFilterOptions();
       const calc = getAttendanceScopeData(guildCalc, attendanceServerFilter);
@@ -8389,6 +8390,45 @@
 
     let closeAttendanceMemberMenu = () => {};
 
+    function renderAttendanceMemberDuplicates(week) {
+      const panel = document.getElementById("attMemberDuplicates");
+      if (!isAdmin("attendance")) {
+        panel.hidden = true;
+        return;
+      }
+      const groups = new Map();
+      for (const member of week.members) {
+        const name = attendanceMemberNameKey(member.name);
+        if (!name) continue;
+        const key = JSON.stringify([getMemberServerId(member), name]);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(member);
+      }
+      const rows = [...groups.values()].filter(group => group.length > 1).map(group => group.map((member, index) => {
+        const checkCount = Object.values(member.records || {}).filter(Boolean).length;
+        const details = [getServerNameById(getMemberServerId(member)), member.role,
+          `${Number(member.combatPower || 0).toLocaleString("vi-VN")} CP`, `${checkCount} lượt chấm công`].filter(Boolean);
+        return `<div class="att-duplicate-member-row" data-duplicate-member-id="${escapeHtml(member.id)}">
+          <span><strong>${escapeHtml(member.name)}</strong> · Bản ghi ${index + 1} · ${escapeHtml(details.join(" · "))}</span>
+          <button type="button" class="button-ghost" data-duplicate-edit>Sửa</button>
+          <button type="button" class="button-danger" data-duplicate-delete>Xóa</button>
+        </div>`;
+      }).join("")).join("");
+      document.getElementById("attMemberDuplicateRows").innerHTML = rows;
+      panel.hidden = !rows;
+    }
+
+    async function confirmAttendanceMemberDeletion(member, weekId, details = "") {
+      if (!isAdmin("attendance")) return;
+      const confirmed = await showConfirmModal({
+        title: "Xóa thành viên?",
+        subtitle: details || "Hành động này sẽ xóa thành viên khỏi bảng chấm công",
+        message: `Bạn có chắc muốn xóa thành viên “${member.name}”? Dữ liệu điểm của bản ghi này trong tuần sẽ bị mất.`,
+        confirmText: "Xóa thành viên"
+      });
+      if (confirmed && isAdmin("attendance")) deleteAttendanceMember(member.id, weekId);
+    }
+
     function openAttendanceMemberMenu(memberId, x, y, row) {
       closeAttendanceMemberMenu();
       if (!isAdmin("attendance")) return;
@@ -8409,14 +8449,7 @@
       });
       menu.querySelector(".att-del-member-btn").addEventListener("click", async () => {
         closeAttendanceMemberMenu();
-        if (!isAdmin("attendance")) return;
-        const confirmed = await showConfirmModal({
-          title: "Xóa thành viên?",
-          subtitle: "Hành động này sẽ xóa thành viên khỏi bảng chấm công",
-          message: `Bạn có chắc muốn xóa thành viên "${member.name}"? Dữ liệu điểm của thành viên này trong tuần sẽ bị mất.`,
-          confirmText: "Xóa thành viên", cancelText: "Hủy bỏ", isDanger: true
-        });
-        if (confirmed && isAdmin("attendance")) deleteAttendanceMember(memberId, week.id);
+        await confirmAttendanceMemberDeletion(member, week.id);
       });
     }
 
@@ -9279,8 +9312,33 @@
         showToast("Tuần chấm công đã thay đổi. Hãy mở lại Thêm thành viên để nhập ảnh.");
         return;
       }
+      const editedMember = editId ? currWeek.members.find(member => member.id === editId) : null;
+      if (editId && !editedMember) {
+        showToast("Bản ghi thành viên này đã bị xóa.");
+        return;
+      }
+      const candidates = imported || [{ name, combatPower }];
+      const existing = new Set(currWeek.members.filter(member => member.id !== editId && getMemberServerId(member) === serverId)
+        .map(member => attendanceMemberNameKey(member.name)));
+      const identityUnchanged = editedMember && getMemberServerId(editedMember) === serverId
+        && attendanceMemberNameKey(editedMember.name) === attendanceMemberNameKey(name);
+      for (const candidate of candidates) {
+        const key = attendanceMemberNameKey(candidate.name);
+        if (!identityUnchanged && existing.has(key)) {
+          errEl.textContent = `Trùng tên nhân vật “${candidate.name}” trên ${getServerNameById(serverId)} trong tuần này. Hãy sửa tên hoặc bỏ dòng bị trùng trước khi lưu.`;
+        } else if ((imported || attendanceMemberImageFilled)
+          && (!key || !Number.isSafeInteger(candidate.combatPower) || candidate.combatPower <= 0)) {
+          errEl.textContent = `Kiểm tra dòng “${candidate.name || "chưa có tên"}”. Cần có tên và lực chiến lớn hơn 0.`;
+        } else {
+          existing.add(key);
+          continue;
+        }
+        errEl.style.display = "block";
+        errEl.scrollIntoView({ block: "nearest" });
+        return;
+      }
       if (editId) {
-        const member = currWeek.members.find(m => m.id === editId);
+        const member = editedMember;
         if (member) {
           member.name = name;
           member.serverId = serverId;
@@ -9297,19 +9355,8 @@
           showToast(`✅ Đã cập nhật thành viên: ${name}`);
         }
       } else {
-        const candidates = imported || [{ name, combatPower }];
-        const existing = imported || attendanceMemberImageFilled ? new Set(currWeek.members.filter(member => member.serverId === serverId)
-          .map(member => attendanceMemberNameKey(member.name))) : null;
         const newMembers = [];
         for (const candidate of candidates) {
-          const key = attendanceMemberNameKey(candidate.name);
-          if (existing && (!key || existing.has(key) || !Number.isSafeInteger(candidate.combatPower) || candidate.combatPower <= 0)) {
-            errEl.textContent = `Kiểm tra dòng “${candidate.name || "chưa có tên"}”. Tên phải khác các thành viên đã có trên Server này và lực chiến phải lớn hơn 0.`;
-            errEl.style.display = "block";
-            errEl.scrollIntoView({ block: "nearest" });
-            return;
-          }
-          existing?.add(key);
           const newMem = {
             id: "m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             name: candidate.name,
@@ -9696,7 +9743,7 @@
     let attendanceMemberImageFilled = false;
 
     function attendanceMemberNameKey(name) {
-      return name.trim().normalize("NFC").toLocaleLowerCase("vi");
+      return name.trim().replace(/\s+/g, " ").normalize("NFC").toLocaleLowerCase("vi");
     }
 
     function extractAttendanceNewMembers(words) {
@@ -11107,6 +11154,16 @@
       document.getElementById("closeAttMemberModal")?.addEventListener("click", closeAttendanceMemberModal);
       document.getElementById("attCancelMemberBtn")?.addEventListener("click", closeAttendanceMemberModal);
       document.getElementById("attSaveMemberBtn")?.addEventListener("click", () => saveAttendanceMember());
+      document.getElementById("attMemberDuplicateRows").addEventListener("click", event => {
+        const button = event.target.closest("button");
+        if (!button || !isAdmin("attendance")) return;
+        const row = button.closest("[data-duplicate-member-id]");
+        const week = getActiveWeek();
+        const member = week.members.find(item => item.id === row.dataset.duplicateMemberId);
+        if (!member) return;
+        if (button.hasAttribute("data-duplicate-edit")) openAttendanceMemberModal(member.id);
+        else if (button.hasAttribute("data-duplicate-delete")) confirmAttendanceMemberDeletion(member, week.id, row.querySelector("span").textContent);
+      });
       document.getElementById("attMemberImageInput").addEventListener("change", event => {
         if (event.target.files.length) queueAttendanceMemberImages(event.target.files);
         event.target.value = "";

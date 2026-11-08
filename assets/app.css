@@ -4752,6 +4752,25 @@
     #attMemberImageRows { display:grid; gap:5px; max-height:210px; overflow:auto; margin-bottom:8px; }
     #attMemberImageRows input { min-width:0; }
     #attMemberImageRows .att-cp-image-value[data-member-image-name] { color:var(--text); text-align:left; }
+    .att-member-duplicates {
+      margin: 10px 0;
+      padding: 12px;
+      border: 1px solid var(--amber);
+      border-radius: var(--radius);
+      background: var(--amber-soft);
+    }
+    .att-member-duplicates h3 { margin: 0; color: var(--amber); font-size: 14px; }
+    .att-member-duplicates p { margin: 4px 0 8px; color: var(--muted); font-size: 12px; }
+    .att-duplicate-member-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 8px;
+      padding: 5px 0;
+      font-size: 13px;
+    }
+    .att-duplicate-member-row span { flex: 1 1 200px; overflow-wrap: anywhere; }
+    .att-duplicate-member-row button { min-height: 28px; }
     .att-cp-image-drop { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px dashed rgba(245,158,11,.55); border-radius:8px; color:var(--text); background:rgba(245,158,11,.06); cursor:pointer; transition:border-color .15s,background .15s; }
     .att-cp-image-drop:hover, .att-cp-image-drop.is-dragging { border-color:#f59e0b; background:rgba(245,158,11,.12); }
     .att-cp-image-drop input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
