@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261108-2">
+  <link rel="stylesheet" href="assets/app.css?v=20261108-5">
 </head>
 <body>
   <div class="app-shell">
@@ -492,6 +492,16 @@
               </tr>
             </thead>
             <tbody id="guildItemsRows"></tbody>
+            <tfoot id="guildItemsTotals" hidden>
+              <tr id="guildPaidTotal">
+                <th scope="row" colspan="2">Tổng đã thu</th>
+                <td></td><td></td><td colspan="2"></td>
+              </tr>
+              <tr id="guildPendingTotal">
+                <th scope="row" colspan="2">Tổng chưa thu</th>
+                <td></td><td></td><td colspan="2"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <p id="guildItemsStatus" role="status"></p>
@@ -526,15 +536,28 @@
           <label for="guildItemPayment">Trạng thái thu</label>
           <select id="guildItemPayment"><option value="pending">Chưa thu</option><option value="paid">Đã thu</option></select>
         </div>
-        <div class="form-field guild-full-field">
+        <div class="form-field">
           <label for="guildItemBuyer">Người mua</label>
           <input id="guildItemBuyer" maxlength="160" list="guildItemBuyers" placeholder="Chọn thành viên hoặc nhập tên">
           <datalist id="guildItemBuyers"></datalist>
         </div>
+        <div class="form-field">
+          <label for="guildItemValueTier">Màu tên theo mức giá trị</label>
+          <select id="guildItemValueTier">
+            <option value="">Thường · Mặc định</option>
+            <option value="low">Thấp · Xám</option>
+            <option value="high">Cao · Vàng</option>
+          </select>
+        </div>
         <div class="form-field guild-full-field">
           <label for="guildItemImage">Hình đính kèm</label>
           <input id="guildItemImage" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="guildItemImageHint">
-          <small id="guildItemImageHint">PNG, JPG hoặc WebP, tối đa 10 MB.</small>
+          <small id="guildItemImageHint">Chọn tệp hoặc nhấn Ctrl+V để dán ảnh. PNG, JPG hoặc WebP, tối đa 10 MB.</small>
+          <div class="guild-image-draft" id="guildImageDraft" hidden>
+            <img id="guildImageDraftPreview" alt="Ảnh đính kèm sẽ lưu">
+            <small id="guildImageDraftName" role="status"></small>
+            <button type="button" class="button-ghost" id="guildImageDraftClear">Bỏ ảnh mới</button>
+          </div>
         </div>
         <p class="guild-full-field guild-form-error" id="guildItemError" role="alert" hidden></p>
       </div>
@@ -1854,7 +1877,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261108-3"></script>
+  <script src="assets/app.js?v=20261108-6"></script>
 
 </body>
 </html>

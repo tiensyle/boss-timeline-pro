@@ -714,9 +714,13 @@
 
     /* ── Sound & Voice Notification Engine ── */
     const STORAGE_SOUND_KEY = "bossTimelinePro.soundEnabled";
+    const STORAGE_VOICE_KEY = "bossTimelinePro.alertVoice";
     let isSoundEnabled = localStorage.getItem(STORAGE_SOUND_KEY) !== "false";
     let audioCtx = null;
-    const activeSoundNotified = {};
+    let alertVoice = null;
+    let alertVoiceTimer = null;
+    const localBossMilestones = new Map();
+    const discordBossMilestones = {};
 
     function getAudioContext() {
       if (!audioCtx) {
@@ -744,13 +748,6 @@
           gain.gain.setValueAtTime(0.3, now);
           gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
           osc.start(now); osc.stop(now + 0.45);
-        } else if (type === "5m") {
-          osc.type = "triangle";
-          osc.frequency.setValueAtTime(659.25, now);
-          osc.frequency.setValueAtTime(783.99, now + 0.12);
-          gain.gain.setValueAtTime(0.3, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-          osc.start(now); osc.stop(now + 0.4);
         } else {
           osc.type = "sine";
           osc.frequency.setValueAtTime(523.25, now);
@@ -762,31 +759,31 @@
       } catch (e) { console.warn("AudioContext error:", e); }
     }
 
-    // ── Web Speech API (giọng nữ trình duyệt) ──
     function speakText(text) {
-      if (!isSoundEnabled) return;
-      if (!("speechSynthesis" in window)) return;
+      if (!isSoundEnabled || !("speechSynthesis" in window)) return false;
       try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.25;
-        utterance.volume = 1.0;
-        const voices = window.speechSynthesis.getVoices();
-        let femaleVoice = voices.find((v) => {
-          const name = (v.name || "").toLowerCase();
-          return (v.lang.startsWith("vi") || v.lang.startsWith("en")) &&
-                 (name.includes("female") || name.includes("hoaimy") || name.includes("zira") ||
-                  name.includes("google") || name.includes("aria") || name.includes("jenny") ||
-                  name.includes("natural") || name.includes("nhien") || name.includes("linh"));
-        });
-        if (!femaleVoice) {
-          femaleVoice = voices.find((v) => v.lang && (v.lang === "vi-VN" || v.lang.startsWith("vi"))) ||
-                        voices.find((v) => (v.name || "").toLowerCase().includes("female"));
+        if (!alertVoice) {
+          const voices = window.speechSynthesis.getVoices();
+          let savedVoice;
+          try { savedVoice = localStorage.getItem(STORAGE_VOICE_KEY); } catch {}
+          const vietnamese = voices.filter(voice => /^vi(?:-|$)/i.test(voice.lang));
+          alertVoice = voices.find(voice => voice.voiceURI === savedVoice)
+            || vietnamese.find(voice => /hoài\s*my|hoai\s*my/i.test(voice.name))
+            || vietnamese[0]
+            || voices.find(voice => /^en(?:-|$)/i.test(voice.lang))
+            || voices[0];
+          if (!alertVoice) return false;
+          try { localStorage.setItem(STORAGE_VOICE_KEY, alertVoice.voiceURI); } catch {}
         }
-        if (femaleVoice) utterance.voice = femaleVoice;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.voice = alertVoice;
+        utterance.lang = alertVoice.lang;
         window.speechSynthesis.speak(utterance);
-      } catch (e) { console.warn("SpeechSynthesis error:", e); }
+        return true;
+      } catch (e) {
+        console.warn("SpeechSynthesis error:", e);
+        return false;
+      }
     }
 
     let STORAGE_DISCORD_KEY = `bossTimelinePro.discordConfig_${currentServerId}`;
@@ -1362,30 +1359,44 @@
       return;
     }
 
-    function notifyBossAlert(boss, milestoneType, eventTime = null, sendDiscord = true, playLocal = true) {
-      if (isSoundEnabled && playLocal) {
-        let toastMsg = "";
-        if (milestoneType === "10m") {
-          playChime("10m");
-          toastMsg = `⏳ [10 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
-        } else if (milestoneType === "5m") {
-          playChime("5m");
-          toastMsg = `⏳ [5 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
-        } else if (milestoneType === "1m") {
-          playChime("5m");
-          toastMsg = `🚨 [1 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`;
-        } else if (milestoneType === "0m") {
-          playChime("spawn");
-          toastMsg = `⚔️ [BOSS XUẤT HIỆN] ${boss.name} đã ra tại ${boss.map}`;
-        }
-        if (toastMsg) showToast(toastMsg);
-        window.setTimeout(() => speakText("BOSS BOSS"), 300);
-      }
-      if (sendDiscord) sendDiscordBossAlert(boss, milestoneType, eventTime);
+    function playBossMilestone(boss, milestone, eventTime) {
+      const key = JSON.stringify([currentServerId, boss.id, milestone]);
+      if (localBossMilestones.get(key) === eventTime) return;
+      localBossMilestones.set(key, eventTime);
+      const spawning = milestone === "0m";
+      showToast(spawning
+        ? `⚔️ [BOSS XUẤT HIỆN] ${boss.name} đã ra tại ${boss.map}`
+        : `⏳ [10 PHÚT] ${boss.name} sắp xuất hiện tại ${boss.map}`);
+      if (alertVoiceTimer !== null) return;
+      playChime(spawning ? "spawn" : "10m");
+      alertVoiceTimer = window.setTimeout(() => {
+        alertVoiceTimer = null;
+        speakText("BOSS BOSS");
+      }, 300);
     }
 
     function checkBossSoundAlerts(now) {
-      if (!isSoundEnabled && !discordConfig.enabled) return;
+      if (!isSoundEnabled) return;
+      const tenMinutes = 10 * 60 * 1000;
+      const grace = 15 * 1000;
+      for (const boss of state.bosses) {
+        const fixed = boss.spawnMode === "fixed";
+        const timer = boss.diedAt ? boss.respawnsAt : null;
+        const warning = fixed ? getNextFixedSpawnTime(boss, now + tenMinutes - grace) : timer;
+        if (warning && warning <= now + tenMinutes && warning > now + tenMinutes - grace) {
+          playBossMilestone(boss, "10m", warning);
+        }
+
+        // Another client can confirm a respawn before this tab sees its timer expire.
+        const recent = fixed ? getPreviousFixedSpawnTime(boss, now) : (timer || state.history.find(entry =>
+          entry.bossId === boss.id && entry.type === "respawn" && entry.source === "automatic"
+          && entry.time === boss.lastRespawnAt)?.time);
+        if (recent && recent <= now && recent > now - grace) playBossMilestone(boss, "0m", recent);
+      }
+    }
+
+    function checkBossDiscordAlerts(now) {
+      if (!discordConfig.enabled) return;
       state.bosses.forEach((boss) => {
         let eventTime = null;
         let eventKey = "";
@@ -1405,9 +1416,8 @@
             && Number(confirmedBoss.revision || 0) === Number(boss.revision || 0)
             && confirmedBoss.diedAt === boss.diedAt
             && confirmedBoss.respawnsAt === boss.respawnsAt;
-          // Keep local sound available for an optimistic timer, but never publish
-          // Discord alerts until this exact timer cycle exists in a Firebase snapshot.
-          if (!timerConfirmed && !isSoundEnabled) return;
+          // Only publish Discord alerts for a timer confirmed by Firebase.
+          if (!timerConfirmed) return;
           eventTime = boss.respawnsAt;
           eventKey = boss.id + "_" + boss.respawnsAt;
         }
@@ -1417,17 +1427,9 @@
 
         const deliverMilestone = milestoneType => {
           const confirmedKey = `${eventKey}_${milestoneType}`;
-          const localKey = `${confirmedKey}_local`;
-          if (!timerConfirmed) {
-            if (isSoundEnabled && !activeSoundNotified[localKey]) {
-              activeSoundNotified[localKey] = true;
-              notifyBossAlert(boss, milestoneType, eventTime, false, true);
-            }
-            return;
-          }
-          if (activeSoundNotified[confirmedKey]) return;
-          activeSoundNotified[confirmedKey] = true;
-          notifyBossAlert(boss, milestoneType, eventTime, true, !activeSoundNotified[localKey]);
+          if (discordBossMilestones[confirmedKey]) return;
+          discordBossMilestones[confirmedKey] = true;
+          sendDiscordBossAlert(boss, milestoneType, eventTime);
         };
 
         // Mốc 10 phút (kích hoạt trong khoảng 7.5 phút - 10.5 phút)
@@ -1470,9 +1472,11 @@
       updateSoundUI();
       if (isSoundEnabled) {
         getAudioContext();
-        speakText("Đã bật âm thanh thông báo.");
+        window.speechSynthesis?.getVoices();
         showToast("🔊 Đã BẬT âm thanh và giọng đọc thông báo.");
       } else {
+        window.clearTimeout(alertVoiceTimer);
+        alertVoiceTimer = null;
         if ("speechSynthesis" in window) window.speechSynthesis.cancel();
         showToast("🔇 Đã TẮT âm thanh thông báo.");
       }
@@ -1485,9 +1489,8 @@
         try { localStorage.setItem(STORAGE_SOUND_KEY, "true"); } catch (e) {}
         updateSoundUI();
       }
-      playChime("5m");
-      window.setTimeout(() => speakText("BOSS BOSS"), 350);
-      showToast("📢 Đang thử giọng nữ thông báo: BOSS BOSS");
+      if (speakText("BOSS BOSS")) showToast("📢 Đang thử giọng đọc thông báo.");
+      else showToast("Chưa có giọng đọc trên trình duyệt. Vui lòng thử lại.");
     }
 
     function syncModalScrollLock() {
@@ -2692,9 +2695,9 @@
             confirmedCandidates.forEach(candidate => {
               const boss = state.bosses.find(item => item.id === candidate.bossId);
               if (!boss || (Number(boss.revision) || 0) !== candidate.revision) return;
-              if (!activeSoundNotified[candidate.targetKey + "_0m"]) {
-                activeSoundNotified[candidate.targetKey + "_0m"] = true;
-                notifyBossAlert(boss, "0m", candidate.eventTime);
+              if (!discordBossMilestones[candidate.targetKey + "_0m"]) {
+                discordBossMilestones[candidate.targetKey + "_0m"] = true;
+                sendDiscordBossAlert(boss, "0m", candidate.eventTime);
               }
             });
             const isEn = currentLang === "en";
@@ -2707,11 +2710,12 @@
     }
 
     function render() {
-      autoResolveRespawns();
       const now = getNow();
+      checkBossSoundAlerts(now);
+      autoResolveRespawns();
       updateRoleUI();
       updateSoundUI();
-      checkBossSoundAlerts(now);
+      checkBossDiscordAlerts(now);
       checkDailyScheduleAlert(now);
       renderClocks(now);
       renderMetrics(now);
@@ -10256,25 +10260,38 @@
       status.hidden = !status.textContent;
       document.getElementById("guildAddItem").hidden = !canEdit;
       const format = new Intl.NumberFormat(currentLang === "en" ? "en" : "vi-VN", { maximumFractionDigits: 2 });
+      const totals = {
+        paid: { VND: 0, USDT: 0, diamonds: 0, count: 0 },
+        pending: { VND: 0, USDT: 0, diamonds: 0, count: 0 }
+      };
       document.getElementById("guildItemsRows").innerHTML = entries.map(([id, item]) => {
         const itemId = escapeHtml(id);
-        const currency = item.currency === "USDT" ? "USDT" : "VNĐ";
         const paid = item.payment === "paid";
+        const valueTier = item.valueTier === "high" || item.valueTier === "low" ? item.valueTier : "";
+        const currency = item.currency === "USDT" ? "USDT" : "VND";
+        const total = paid ? totals.paid : totals.pending;
+        total[currency] += Math.round((item.money ?? 0) * 100);
+        total.diamonds += item.diamonds ?? 0;
+        total.count++;
         return `<tr data-guild-item="${itemId}"${canEdit ? ' tabindex="0" title="Bấm chuột phải để sửa hoặc xóa vật phẩm"' : ""}>
-          <th scope="row">${escapeHtml(item.name)}</th>
-          <td>${item.hasImage ? `<button type="button" class="button-ghost guild-row-button" data-guild-image="${itemId}">Xem ảnh</button>` : "—"}</td>
-          <td>${item.money == null ? "—" : `${format.format(item.money)} ${currency}`}</td>
+          <th scope="row"${valueTier ? ` class="guild-value-${valueTier}" title="Giá trị ${valueTier === "high" ? "cao" : "thấp"}"` : ""}>${escapeHtml(item.name)}</th>
+          <td>${item.hasImage ? `<button type="button" class="button-ghost guild-row-button" data-guild-image="${itemId}"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/></svg>Xem ảnh</button>` : "—"}</td>
+          <td>${item.money == null ? "—" : `${format.format(item.money)} ${currency === "VND" ? "VNĐ" : currency}`}</td>
           <td>${item.diamonds == null ? "—" : format.format(item.diamonds)}</td>
           <td><span class="guild-payment ${paid ? "is-paid" : ""}">${paid ? "Đã thu" : "Chưa thu"}</span></td>
           <td>${escapeHtml(item.buyer) || "—"}</td>
         </tr>`;
       }).join("");
+      document.getElementById("guildItemsTotals").hidden = !entries.length;
+      for (const [rowId, total] of [["guildPaidTotal", totals.paid], ["guildPendingTotal", totals.pending]]) {
+        const [, money, diamonds, count] = document.getElementById(rowId).cells;
+        money.innerHTML = `<span>${format.format(total.VND / 100)} VNĐ</span><span>${format.format(total.USDT / 100)} USDT</span>`;
+        diamonds.textContent = format.format(total.diamonds);
+        count.textContent = `${format.format(total.count)} vật phẩm`;
+      }
     }
 
     async function prepareGuildImage(file) {
-      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
-        throw new Error("Chọn ảnh PNG, JPG hoặc WebP có dung lượng tối đa 10 MB.");
-      }
       const image = await loadAttendanceOcrImage(file);
       const canvas = document.createElement("canvas");
       for (const maxSide of [1800, 1200]) {
@@ -10300,28 +10317,58 @@
       const error = byId("guildItemError");
       const save = byId("guildSaveItem");
       const formFields = form.querySelector(".form-grid");
+      const imageInput = byId("guildItemImage");
+      const imageHint = byId("guildItemImageHint");
+      const draft = byId("guildImageDraft");
+      const draftPreview = byId("guildImageDraftPreview");
+      const draftName = byId("guildImageDraftName");
+      const imageInstructions = "Chọn tệp hoặc nhấn Ctrl+V để dán ảnh. PNG, JPG hoặc WebP, tối đa 10 MB.";
       const fields = {
         name: byId("guildItemName"), money: byId("guildItemMoney"), currency: byId("guildItemCurrency"),
-        diamonds: byId("guildItemDiamonds"), payment: byId("guildItemPayment"), buyer: byId("guildItemBuyer")
+        diamonds: byId("guildItemDiamonds"), payment: byId("guildItemPayment"), buyer: byId("guildItemBuyer"),
+        valueTier: byId("guildItemValueTier")
       };
       let editId = null;
       let original = null;
       let imageRequest = 0;
+      let draftImage = null;
+      let draftImageUrl = "";
       const deletingItems = new Set();
+
+      function setDraftImage(file, pasted = false) {
+        if (draftImageUrl) URL.revokeObjectURL(draftImageUrl);
+        draftImageUrl = "";
+        draftImage = null;
+        draftPreview.removeAttribute("src");
+        draft.hidden = true;
+        draftName.textContent = "";
+        if (!file) return;
+        error.hidden = true;
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+          imageInput.value = "";
+          error.textContent = "Chọn ảnh PNG, JPG hoặc WebP có dung lượng tối đa 10 MB.";
+          error.hidden = false;
+          return;
+        }
+        draftImage = file;
+        draftImageUrl = URL.createObjectURL(file);
+        draftPreview.src = draftImageUrl;
+        draft.hidden = false;
+        draftName.textContent = pasted ? "Đã dán ảnh" : file.name;
+      }
 
       function openEditor(id = null) {
         if (!isAdmin("guildItems") || save.disabled || (id && (!guildItems[id] || deletingItems.has(id)))) return;
         editId = id;
         original = id ? guildItems[id] : null;
         form.reset();
+        setDraftImage(null);
         error.hidden = true;
         byId("guildItemDialogTitle").textContent = original ? "Sửa vật phẩm" : "Thêm vật phẩm";
         for (const [key, field] of Object.entries(fields)) {
           field.value = original?.[key] ?? field.value;
         }
-        byId("guildItemImageHint").textContent = original?.hasImage
-          ? "Chọn ảnh mới để thay ảnh hiện tại. PNG, JPG hoặc WebP, tối đa 10 MB."
-          : "PNG, JPG hoặc WebP, tối đa 10 MB.";
+        imageHint.textContent = original?.hasImage ? `${imageInstructions} Ảnh mới sẽ thay ảnh hiện tại.` : imageInstructions;
         const members = canViewAdminArea("attendance") ? getActiveWeek().members : [];
         byId("guildItemBuyers").replaceChildren(...[...new Set(members.map(member => member.name))]
           .sort((a, b) => a.localeCompare(b, "vi")).map(name => new Option(name, name)));
@@ -10430,6 +10477,22 @@
       editor.addEventListener("cancel", event => {
         if (save.disabled) event.preventDefault();
       });
+      editor.addEventListener("close", () => {
+        if (!editor.open) setDraftImage(null);
+      });
+      imageInput.addEventListener("change", () => setDraftImage(imageInput.files[0]));
+      byId("guildImageDraftClear").addEventListener("click", () => {
+        imageInput.value = "";
+        setDraftImage(null);
+        imageInput.focus();
+      });
+      editor.addEventListener("paste", event => {
+        const file = Array.from(event.clipboardData?.files || []).find(candidate => candidate.type.startsWith("image/"));
+        if (!file || !isAdmin("guildItems") || save.disabled) return;
+        event.preventDefault();
+        imageInput.value = "";
+        setDraftImage(file, true);
+      });
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (!isAdmin("guildItems") || save.disabled) return;
@@ -10445,7 +10508,8 @@
           currency: fields.currency.value,
           diamonds: fields.diamonds.value === "" ? null : fields.diamonds.valueAsNumber,
           payment: fields.payment.value,
-          buyer: fields.buyer.value.trim()
+          buyer: fields.buyer.value.trim(),
+          valueTier: fields.valueTier.value || null
         };
         if (!item.name) {
           error.textContent = "Nhập tên vật phẩm.";
@@ -10453,7 +10517,7 @@
           fields.name.focus();
           return;
         }
-        const file = byId("guildItemImage").files[0];
+        const file = draftImage;
         const adminUid = firebaseAuth.currentUser.uid;
         save.disabled = true;
         formFields.inert = true;
