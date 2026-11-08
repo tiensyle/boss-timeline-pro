@@ -508,6 +508,7 @@
       const active = currentRole === "admin" && currentUserIsAdmin && Boolean(firebaseAuth?.currentUser);
       if (!active || !scope) return active;
       if (currentUserIsSuperAdmin) return true;
+      if (scope === "guildItems") return currentAdminPermissions?.guildItems === "edit";
       // Existing approved accounts retain access until the owner assigns a policy.
       return currentAdminPermissions === null || currentAdminPermissions?.[scope] === "edit";
     }
@@ -520,9 +521,11 @@
 
     function normalizeAdminPermissions(value) {
       const levels = { bosses: ["none", "view", "edit"], attendance: ["none", "view", "edit"],
-        servers: ["view", "edit"], discord: ["none", "edit"] };
-      return Object.fromEntries(Object.entries(levels).map(([key, allowed]) => [key,
-        value == null ? "edit" : (allowed.includes(value[key]) ? value[key] : (key === "servers" ? "view" : "none"))]));
+        servers: ["view", "edit"], discord: ["none", "edit"], guildItems: ["view", "edit"] };
+      return Object.fromEntries(Object.entries(levels).map(([key, allowed]) => {
+        if (key === "guildItems") return [key, value?.[key] === "edit" ? "edit" : "view"];
+        return [key, value == null ? "edit" : (allowed.includes(value[key]) ? value[key] : (key === "servers" ? "view" : "none"))];
+      }));
     }
 
     async function getFirebaseAdminAccess(user, forceRefresh = false) {
@@ -564,6 +567,9 @@
             currentAdminPermissions = next;
             closeModal();
             closeDiscordModal();
+            if (document.getElementById("customConfirmModal").classList.contains("open")) {
+              document.getElementById("confirmModalCancelBtn").click();
+            }
             document.querySelectorAll(".modal-backdrop.open").forEach(modal => modal.classList.remove("open"));
             syncModalScrollLock();
             lastRenderedGridKey = "";
@@ -701,6 +707,9 @@
       if (typeof updateAttendanceRoleUI === "function") {
         updateAttendanceRoleUI();
       }
+      const canEditGuildItems = isAdmin("guildItems");
+      if (!canEditGuildItems) document.getElementById("guildItemDialog").close();
+      if (document.body.classList.contains("view-mode-item-guild") && canEditGuildItems !== guildItemsRenderedCanEdit) renderGuildItems();
     }
 
     /* ── Sound & Voice Notification Engine ── */
@@ -5202,6 +5211,7 @@
       const fields = [
         ["bosses", "Boss, điểm, ghi chú, lịch hồi sinh", [["none", "Không xem"], ["view", "Chỉ xem"], ["edit", "Chỉnh sửa"]]],
         ["attendance", "Chấm công và lương", [["none", "Không xem"], ["view", "Chỉ xem"], ["edit", "Chỉnh sửa"]]],
+        ["guildItems", "ITEM GUILD", [["view", "Chỉ xem"], ["edit", "Thêm, sửa, xóa"]]],
         ["servers", "Quản lý Server", [["view", "Chỉ xem"], ["edit", "Thêm, sửa, xóa"]]],
         ["discord", "Discord", [["none", "Không truy cập"], ["edit", "Cấu hình và gửi"]]]
       ];
@@ -5370,7 +5380,7 @@
               name: request.name || request.email || "Admin phụ",
               approvedAt: firebase.database.ServerValue.TIMESTAMP,
               approvedBy: firebaseAuth.currentUser.uid
-              ,permissions: { bosses: "view", attendance: "view", servers: "view", discord: "none" }
+              ,permissions: { bosses: "view", attendance: "view", servers: "view", discord: "none", guildItems: "view" }
             },
             [`admin_requests/${uid}`]: null
           });
@@ -5589,6 +5599,11 @@
     document.querySelectorAll(".nav-item").forEach((link) => {
       link.addEventListener("click", (e) => {
         const href = link.getAttribute("href");
+        if (href === "#item-guild") {
+          e.preventDefault();
+          switchPageView("item-guild");
+          return;
+        }
         if (href === "#attendance-salary" || href === "#attendance") {
           e.preventDefault();
           if (typeof switchPageView === "function") switchPageView("attendance");
@@ -8335,6 +8350,36 @@
       });
     }
 
+    function showRowContextMenu(menu, x, y, row) {
+      document.body.appendChild(menu);
+      const rect = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
+      menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
+      const controller = new AbortController();
+      const options = { signal: controller.signal };
+      const closeMenu = () => {
+        controller.abort();
+        menu.remove();
+      };
+      document.addEventListener("pointerdown", event => {
+        if (!menu.contains(event.target)) closeMenu();
+      }, options);
+      window.addEventListener("resize", closeMenu, options);
+      document.addEventListener("scroll", closeMenu, { ...options, capture: true });
+      menu.addEventListener("keydown", event => {
+        const buttons = [...menu.querySelectorAll("button")];
+        if (event.key === "Escape" || event.key === "Tab") {
+          closeMenu();
+          if (event.key === "Escape") { event.preventDefault(); row.focus({ preventScroll: true }); }
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          buttons[(buttons.indexOf(document.activeElement) + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length].focus();
+        }
+      });
+      menu.querySelector("button").focus({ preventScroll: true });
+      return closeMenu;
+    }
+
     let closeAttendanceMemberMenu = () => {};
 
     function openAttendanceMemberMenu(memberId, x, y, row) {
@@ -8344,37 +8389,13 @@
       const member = week?.members.find(item => item.id === memberId);
       if (!member) return;
       const menu = document.createElement("div");
-      menu.className = "att-member-context-menu";
+      menu.className = "row-context-menu att-member-context-menu";
       menu.setAttribute("role", "menu");
       menu.setAttribute("aria-label", "Thao tác thành viên");
-      menu.innerHTML = `<div class="att-context-name">${escapeHtml(member.name)}</div>
+      menu.innerHTML = `<div class="row-context-name">${escapeHtml(member.name)}</div>
         <button type="button" role="menuitem" class="att-edit-member-btn">✏️ Chỉnh sửa thành viên</button>
-        <button type="button" role="menuitem" class="att-del-member-btn">🗑️ Xóa thành viên</button>`;
-      document.body.appendChild(menu);
-      const rect = menu.getBoundingClientRect();
-      menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
-      menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
-      const controller = new AbortController();
-      const options = { signal: controller.signal };
-      closeAttendanceMemberMenu = () => {
-        controller.abort();
-        menu.remove();
-      };
-      document.addEventListener("pointerdown", event => {
-        if (!menu.contains(event.target)) closeAttendanceMemberMenu();
-      }, options);
-      window.addEventListener("resize", closeAttendanceMemberMenu, options);
-      document.addEventListener("scroll", closeAttendanceMemberMenu, { ...options, capture: true });
-      menu.addEventListener("keydown", event => {
-        const buttons = [...menu.querySelectorAll("button")];
-        if (event.key === "Escape" || event.key === "Tab") {
-          closeAttendanceMemberMenu();
-          if (event.key === "Escape") { event.preventDefault(); row.focus({ preventScroll: true }); }
-        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-          event.preventDefault();
-          buttons[(buttons.indexOf(document.activeElement) + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length].focus();
-        }
-      });
+        <button type="button" role="menuitem" class="att-del-member-btn row-context-danger">🗑️ Xóa thành viên</button>`;
+      closeAttendanceMemberMenu = showRowContextMenu(menu, x, y, row);
       menu.querySelector(".att-edit-member-btn").addEventListener("click", () => {
         closeAttendanceMemberMenu();
         if (isAdmin("attendance")) openAttendanceMemberModal(memberId);
@@ -8390,7 +8411,6 @@
         });
         if (confirmed && isAdmin("attendance")) deleteAttendanceMember(memberId, week.id);
       });
-      menu.querySelector("button").focus({ preventScroll: true });
     }
 
     function bindAttendanceTableEvents() {
@@ -10203,7 +10223,305 @@
       }
     }
 
+    const guildItemsPath = "boss_timeline_guild_items";
+    const guildImageLimit = 600000;
+    let guildItemsRef = null;
+    let guildItems = {};
+    let guildItemsStatus = "Đang tải danh sách vật phẩm…";
+    let guildItemsRenderedCanEdit;
+    let closeGuildItemMenu = () => {};
+
+    function loadGuildItems() {
+      if (!firebaseDb) guildItemsStatus = "Chưa kết nối với kho vật phẩm Guild.";
+      if (!firebaseDb || guildItemsRef) return;
+      guildItemsRef = firebaseDb.ref(guildItemsPath);
+      guildItemsRef.child("items").on("value", snapshot => {
+        guildItems = snapshot.val() || {};
+        guildItemsStatus = "";
+        renderGuildItems();
+      }, () => {
+        guildItems = {};
+        guildItemsStatus = "Không tải được danh sách vật phẩm. Vui lòng thử tải lại trang.";
+        renderGuildItems();
+      });
+    }
+
+    function renderGuildItems() {
+      closeGuildItemMenu();
+      const canEdit = isAdmin("guildItems");
+      guildItemsRenderedCanEdit = canEdit;
+      const entries = Object.entries(guildItems).sort(([, a], [, b]) => b.createdAt - a.createdAt);
+      const status = document.getElementById("guildItemsStatus");
+      status.textContent = guildItemsStatus || (entries.length ? "" : "Chưa có vật phẩm nào.");
+      status.hidden = !status.textContent;
+      document.getElementById("guildAddItem").hidden = !canEdit;
+      const format = new Intl.NumberFormat(currentLang === "en" ? "en" : "vi-VN", { maximumFractionDigits: 2 });
+      document.getElementById("guildItemsRows").innerHTML = entries.map(([id, item]) => {
+        const itemId = escapeHtml(id);
+        const currency = item.currency === "USDT" ? "USDT" : "VNĐ";
+        const paid = item.payment === "paid";
+        return `<tr data-guild-item="${itemId}"${canEdit ? ' tabindex="0" title="Bấm chuột phải để sửa hoặc xóa vật phẩm"' : ""}>
+          <th scope="row">${escapeHtml(item.name)}</th>
+          <td>${item.hasImage ? `<button type="button" class="button-ghost guild-row-button" data-guild-image="${itemId}">Xem ảnh</button>` : "—"}</td>
+          <td>${item.money == null ? "—" : `${format.format(item.money)} ${currency}`}</td>
+          <td>${item.diamonds == null ? "—" : format.format(item.diamonds)}</td>
+          <td><span class="guild-payment ${paid ? "is-paid" : ""}">${paid ? "Đã thu" : "Chưa thu"}</span></td>
+          <td>${escapeHtml(item.buyer) || "—"}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function prepareGuildImage(file) {
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+        throw new Error("Chọn ảnh PNG, JPG hoặc WebP có dung lượng tối đa 10 MB.");
+      }
+      const image = await loadAttendanceOcrImage(file);
+      const canvas = document.createElement("canvas");
+      for (const maxSide of [1800, 1200]) {
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        const webp = canvas.toDataURL("image/webp", 0.82);
+        const encoded = webp.startsWith("data:image/webp;") ? webp : canvas.toDataURL("image/jpeg", 0.82);
+        if (encoded.length <= guildImageLimit) return encoded;
+      }
+      throw new Error("Ảnh vẫn quá lớn sau khi nén. Hãy chọn ảnh nhỏ hơn.");
+    }
+
+    function initGuildItemsEvents() {
+      const byId = id => document.getElementById(id);
+      const editor = byId("guildItemDialog");
+      const rows = byId("guildItemsRows");
+      const form = byId("guildItemForm");
+      const photo = byId("guildImageDialog");
+      const preview = byId("guildImagePreview");
+      const photoStatus = byId("guildImageStatus");
+      const error = byId("guildItemError");
+      const save = byId("guildSaveItem");
+      const formFields = form.querySelector(".form-grid");
+      const fields = {
+        name: byId("guildItemName"), money: byId("guildItemMoney"), currency: byId("guildItemCurrency"),
+        diamonds: byId("guildItemDiamonds"), payment: byId("guildItemPayment"), buyer: byId("guildItemBuyer")
+      };
+      let editId = null;
+      let original = null;
+      let imageRequest = 0;
+      const deletingItems = new Set();
+
+      function openEditor(id = null) {
+        if (!isAdmin("guildItems") || save.disabled || (id && (!guildItems[id] || deletingItems.has(id)))) return;
+        editId = id;
+        original = id ? guildItems[id] : null;
+        form.reset();
+        error.hidden = true;
+        byId("guildItemDialogTitle").textContent = original ? "Sửa vật phẩm" : "Thêm vật phẩm";
+        for (const [key, field] of Object.entries(fields)) {
+          field.value = original?.[key] ?? field.value;
+        }
+        byId("guildItemImageHint").textContent = original?.hasImage
+          ? "Chọn ảnh mới để thay ảnh hiện tại. PNG, JPG hoặc WebP, tối đa 10 MB."
+          : "PNG, JPG hoặc WebP, tối đa 10 MB.";
+        const members = canViewAdminArea("attendance") ? getActiveWeek().members : [];
+        byId("guildItemBuyers").replaceChildren(...[...new Set(members.map(member => member.name))]
+          .sort((a, b) => a.localeCompare(b, "vi")).map(name => new Option(name, name)));
+        editor.showModal();
+      }
+
+      async function deleteItem(id) {
+        const item = guildItems[id];
+        if (!isAdmin("guildItems") || !item || deletingItems.has(id)) return;
+        const adminUid = firebaseAuth.currentUser.uid;
+        const confirmed = await showConfirmModal({
+          title: "Xóa vật phẩm?",
+          message: `Vật phẩm “${item.name}” và ảnh đính kèm sẽ bị xóa khỏi bảng ITEM GUILD.`,
+          confirmText: "Xóa vật phẩm"
+        });
+        if (!confirmed || !isAdmin("guildItems") || firebaseAuth.currentUser.uid !== adminUid || !guildItems[id]) return;
+        if (!guildItemsRef || !firebaseRealtimeConnected || guildItemsStatus) {
+          showToast("Kho vật phẩm chưa sẵn sàng. Hãy kiểm tra kết nối rồi thử lại.");
+          return;
+        }
+        deletingItems.add(id);
+        try {
+          await guildItemsRef.update({ [`items/${id}`]: null, [`images/${id}`]: null });
+          showToast("Đã xóa vật phẩm.");
+        } catch (deleteError) {
+          console.warn("Guild item deletion failed:", deleteError);
+          showToast("Không xóa được vật phẩm. Vui lòng thử lại.");
+        } finally {
+          deletingItems.delete(id);
+        }
+      }
+
+      function openItemMenu(row, x, y) {
+        closeGuildItemMenu();
+        const id = row.dataset.guildItem;
+        const item = guildItems[id];
+        if (!isAdmin("guildItems") || !item || deletingItems.has(id)) return;
+        const menu = document.createElement("div");
+        menu.className = "row-context-menu guild-item-context-menu";
+        menu.setAttribute("role", "menu");
+        menu.setAttribute("aria-label", "Thao tác vật phẩm");
+        menu.innerHTML = `<div class="row-context-name">${escapeHtml(item.name)}</div>
+          <button type="button" role="menuitem" data-guild-edit>Chỉnh sửa vật phẩm</button>
+          <button type="button" role="menuitem" class="row-context-danger" data-guild-delete>Xóa vật phẩm</button>`;
+        menu.addEventListener("click", event => {
+          const button = event.target.closest("button");
+          if (!button) return;
+          closeGuildItemMenu();
+          row.focus({ preventScroll: true });
+          if (button.hasAttribute("data-guild-edit")) openEditor(id);
+          else deleteItem(id);
+        });
+        closeGuildItemMenu = showRowContextMenu(menu, x, y, row);
+      }
+
+      async function openPhoto(id) {
+        const request = ++imageRequest;
+        const name = guildItems[id].name;
+        byId("guildImageTitle").textContent = name;
+        photoStatus.textContent = "Đang tải ảnh…";
+        photoStatus.hidden = false;
+        preview.hidden = true;
+        preview.removeAttribute("src");
+        preview.alt = `Ảnh vật phẩm ${name}`;
+        photo.showModal();
+        try {
+          const snapshot = await guildItemsRef.child("images").child(id).once("value");
+          if (!photo.open || request !== imageRequest) return;
+          const src = snapshot.val();
+          if (typeof src !== "string" || !/^data:image\/(webp|jpeg);base64,[A-Za-z0-9+/=]+$/.test(src)) {
+            throw new Error("Invalid guild item image");
+          }
+          preview.src = src;
+          await preview.decode();
+          if (!photo.open || request !== imageRequest) return;
+          preview.hidden = false;
+          photoStatus.hidden = true;
+        } catch {
+          if (photo.open && request === imageRequest) photoStatus.textContent = "Không mở được ảnh. Vui lòng thử lại.";
+        }
+      }
+
+      byId("guildAddItem").addEventListener("click", () => openEditor());
+      rows.addEventListener("click", event => {
+        const button = event.target.closest("button");
+        if (button?.dataset.guildImage) openPhoto(button.dataset.guildImage);
+      });
+      rows.addEventListener("contextmenu", event => {
+        const row = event.target.closest("tr[data-guild-item]");
+        if (!row || !isAdmin("guildItems")) return;
+        event.preventDefault();
+        openItemMenu(row, event.clientX, event.clientY);
+      });
+      rows.addEventListener("keydown", event => {
+        const row = event.target.closest("tr[data-guild-item]");
+        if (!row || !isAdmin("guildItems") || (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10"))) return;
+        event.preventDefault();
+        const rect = row.getBoundingClientRect();
+        openItemMenu(row, rect.left, rect.top);
+      });
+      for (const dialog of [editor, photo]) {
+        dialog.addEventListener("click", event => {
+          if ((dialog !== editor || !save.disabled) && (event.target === dialog || event.target.closest("[data-guild-close]"))) dialog.close();
+        });
+      }
+      editor.addEventListener("cancel", event => {
+        if (save.disabled) event.preventDefault();
+      });
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (!isAdmin("guildItems") || save.disabled) return;
+        error.hidden = true;
+        if (!guildItemsRef || !firebaseRealtimeConnected || guildItemsStatus) {
+          error.textContent = "Kho vật phẩm chưa sẵn sàng. Hãy kiểm tra kết nối rồi thử lại.";
+          error.hidden = false;
+          return;
+        }
+        const item = {
+          name: fields.name.value.trim(),
+          money: fields.money.value === "" ? null : fields.money.valueAsNumber,
+          currency: fields.currency.value,
+          diamonds: fields.diamonds.value === "" ? null : fields.diamonds.valueAsNumber,
+          payment: fields.payment.value,
+          buyer: fields.buyer.value.trim()
+        };
+        if (!item.name) {
+          error.textContent = "Nhập tên vật phẩm.";
+          error.hidden = false;
+          fields.name.focus();
+          return;
+        }
+        const file = byId("guildItemImage").files[0];
+        const adminUid = firebaseAuth.currentUser.uid;
+        save.disabled = true;
+        formFields.inert = true;
+        try {
+          let image = null;
+          if (file) {
+            try {
+              image = await prepareGuildImage(file);
+            } catch (imageError) {
+              error.textContent = imageError.message;
+              error.hidden = false;
+              return;
+            }
+          }
+          if (!editor.open || !isAdmin("guildItems") || firebaseAuth.currentUser.uid !== adminUid) return;
+          if (editId && !guildItems[editId]) {
+            error.textContent = "Vật phẩm đã bị xóa khỏi bảng.";
+            error.hidden = false;
+            return;
+          }
+          const id = editId || guildItemsRef.child("items").push().key;
+          const itemPath = `items/${id}`;
+          const updates = {};
+          if (original) {
+            for (const [key, value] of Object.entries(item)) {
+              if ((original[key] ?? null) !== value) updates[`${itemPath}/${key}`] = value;
+            }
+            if ((original.money ?? null) !== item.money || original.currency !== item.currency) {
+              updates[`${itemPath}/money`] = item.money;
+              updates[`${itemPath}/currency`] = item.currency;
+            }
+            if (image) updates[`${itemPath}/hasImage`] = true;
+          } else {
+            updates[itemPath] = { ...item, hasImage: Boolean(image), createdAt: getNow() };
+          }
+          if (image) updates[`images/${id}`] = image;
+          if (Object.keys(updates).length) await guildItemsRef.update(updates);
+          editor.close();
+          showToast(original ? "Đã cập nhật vật phẩm." : "Đã thêm vật phẩm.");
+        } catch (saveError) {
+          console.warn("Guild item save failed:", saveError);
+          error.textContent = "Không lưu được vật phẩm. Vui lòng thử lại.";
+          error.hidden = false;
+        } finally {
+          save.disabled = false;
+          formFields.inert = false;
+        }
+      });
+    }
+
     function switchPageView(view) {
+      const isGuildItems = view === "item-guild";
+      document.body.classList.toggle("view-mode-item-guild", isGuildItems);
+      document.getElementById("item-guild").hidden = !isGuildItems;
+      if (isGuildItems) {
+        document.body.classList.remove("view-mode-attendance");
+        document.querySelectorAll(".nav .nav-item").forEach(item => {
+          item.classList.toggle("active", item.getAttribute("href") === "#item-guild");
+        });
+        if (window.location.hash !== "#item-guild") history.pushState(null, "", "#item-guild");
+        window.scrollTo({ top: 0 });
+        loadGuildItems();
+        renderGuildItems();
+        return;
+      }
+      closeGuildItemMenu();
+      document.getElementById("guildItemDialog").close();
+      document.getElementById("guildImageDialog").close();
       const isAtt = (view === "attendance" || view === "salary" || view === "attendance-salary");
       const dashboardTitle = document.querySelector("#dashboard h1");
       const dashboardEyebrow = document.querySelector("#dashboard .eyebrow");
@@ -10646,12 +10964,15 @@
     updateRoleUI();
     render();
     initAttendanceEvents();
+    initGuildItemsEvents();
     renderAttendanceTable();
     initAttendanceRealtimeSync();
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get("tab") || urlParams.get("page") || urlParams.get("view");
     const initialHash = window.location.hash.replace("#", "");
-    if (tabParam === "attendance" || tabParam === "salary" || initialHash === "attendance" || initialHash === "salary" || initialHash === "attendance-salary") {
+    if (initialHash === "item-guild" || tabParam === "item-guild") {
+      switchPageView("item-guild");
+    } else if (tabParam === "attendance" || tabParam === "salary" || initialHash === "attendance" || initialHash === "salary" || initialHash === "attendance-salary") {
       switchPageView("attendance");
     } else {
       switchPageView("boss");

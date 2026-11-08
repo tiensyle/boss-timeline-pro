@@ -3185,16 +3185,161 @@
       display: none !important;
     }
 
-    body.view-mode-attendance #metrics,
-    body.view-mode-attendance #boss-schedule,
-    body.view-mode-attendance #weekly-boss-schedule,
-    body.view-mode-attendance #boss-list,
-    body.view-mode-attendance #timeline {
+    body:is(.view-mode-attendance, .view-mode-item-guild)
+      :is(#metrics, #boss-schedule, #weekly-boss-schedule, #boss-list, #timeline) {
       display: none !important;
     }
 
-    body.view-mode-attendance #addBossBtn {
+    body:is(.view-mode-attendance, .view-mode-item-guild) #addBossBtn,
+    body.view-mode-item-guild #dashboard > :first-child {
       display: none !important;
+    }
+
+    body.view-mode-item-guild #dashboard {
+      justify-content: flex-end;
+    }
+
+    .guild-items {
+      min-width: 0;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+
+    .guild-items [hidden], .guild-dialog [hidden] {
+      display: none !important;
+    }
+
+    .guild-items-heading {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .guild-items-heading h1 {
+      grid-column: 2;
+      margin: 0;
+      color: var(--text);
+      font-size: clamp(1.65rem, 3vw, 2.25rem);
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .guild-items-heading button {
+      grid-column: 3;
+      justify-self: end;
+    }
+
+    @media (max-width: 850px) {
+      .guild-items-heading {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+
+      .guild-items-heading h1, .guild-items-heading button {
+        grid-column: 1;
+        justify-self: center;
+      }
+    }
+
+    .guild-items-scroll {
+      overflow-x: auto;
+    }
+
+    .guild-items-table {
+      width: 100%;
+      min-width: 710px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .guild-items-table th, .guild-items-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line-soft);
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .guild-items-table thead th {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--line-soft);
+      font-size: 14px;
+    }
+
+    .guild-items-table thead tr + tr th { color: var(--muted); }
+
+    .guild-items-table tbody th {
+      width: 24%;
+      text-align: left;
+    }
+
+    .guild-items-table tbody tr:nth-child(even) { background: var(--surface-2); }
+    .guild-items-table tr[tabindex]:hover, .guild-items-table tr[tabindex]:focus-within {
+      background: var(--cyan-soft);
+    }
+
+    .guild-row-button {
+      min-height: 34px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
+    .guild-payment {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--red-soft);
+      color: var(--red);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .guild-payment.is-paid {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    #guildItemsStatus, #guildImageStatus {
+      padding: 14px 18px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .guild-dialog {
+      width: min(560px, calc(100% - 24px));
+      padding: 0;
+      color: var(--text);
+    }
+
+    .guild-dialog::backdrop {
+      background: rgb(0 0 0 / 70%);
+    }
+
+    .guild-full-field { grid-column: 1 / -1; }
+    .guild-full-field small { color: var(--muted); }
+    .guild-form-error { margin: 0; color: var(--red); }
+    #guildItemImage { height: auto; padding: 10px 12px; }
+    #guildItemDialog .form-grid[inert] { opacity: .75; }
+
+    .guild-image-dialog {
+      width: min(1100px, calc(100% - 24px));
+      max-height: 94vh;
+    }
+
+    #guildImagePreview {
+      display: block;
+      width: 100%;
+      max-height: 78vh;
+      object-fit: contain;
+      background: #101112;
     }
 
     body.view-mode-attendance .attendance-panel {
@@ -4425,20 +4570,20 @@
     }
 
 
-/* Member actions opened from any attendance row cell. */
-.att-member-context-menu {
+/* Actions opened from a table row. */
+.row-context-menu {
   position: fixed; z-index: 10000; min-width: 225px; max-width: calc(100vw - 16px);
   padding: 6px; border: 1px solid var(--line, #dce3ef); border-radius: 10px;
   background: var(--surface, #fff); color: var(--text, #10254b);
   box-shadow: 0 8px 28px #0003;
 }
-.att-context-name { padding: 8px 10px; font-weight: 700; overflow-wrap: anywhere; }
-.att-member-context-menu button {
+.row-context-name { padding: 8px 10px; font-weight: 700; overflow-wrap: anywhere; }
+.row-context-menu button {
   display: block; width: 100%; padding: 10px; border: 0; border-radius: 6px;
   background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit;
 }
-.att-member-context-menu button:hover, .att-member-context-menu button:focus-visible { background: #168cff20; outline: none; }
-.att-member-context-menu .att-del-member-btn { color: #e53935; }
+.row-context-menu button:hover, .row-context-menu button:focus-visible { background: var(--cyan-soft); outline: none; }
+.row-context-menu .row-context-danger { color: var(--red); }
 
 .att-column-filter-btn { display:inline-block; margin:5px 0 0 5px; padding:0 5px; border:1px solid var(--line); border-radius:4px; background:var(--surface); color:var(--muted); cursor:pointer; }
 .att-column-filter-btn.is-active { color:var(--cyan); background:var(--cyan-soft); border-color:var(--cyan); }
