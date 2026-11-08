@@ -8654,8 +8654,8 @@
         });
       }
 
-      // Checkbox click
-      document.querySelectorAll(".att-table .att-checkbox").forEach(chk => {
+      // Boss activity checkbox click
+      document.querySelectorAll(".att-table .col-act-cell .att-checkbox").forEach(chk => {
         chk.addEventListener("change", (e) => {
           if (!adminMode) {
             e.preventDefault();
@@ -8666,6 +8666,20 @@
           const memberId = chk.dataset.memberId;
           const actId = chk.dataset.actId;
           toggleAttendanceCheck(memberId, actId, chk.checked);
+        });
+      });
+
+      // Payout checkbox click
+      document.querySelectorAll(".att-table .col-payout .att-payout-checkbox").forEach(chk => {
+        chk.addEventListener("change", (e) => {
+          if (!adminMode) {
+            e.preventDefault();
+            showToast("Chỉ Quản trị viên (Admin) mới có quyền đổi trạng thái phát lương.");
+            requestAdminLogin();
+            return;
+          }
+          const memberId = chk.dataset.memberId;
+          toggleAttendancePayout(memberId, chk.checked);
         });
       });
 
