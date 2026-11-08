@@ -5074,3 +5074,81 @@
 .admin-permission-status[data-result="error"] { color:var(--red); }
 .admin-permission-status[data-result="success"] { color:var(--green); }
 @media(max-width:540px) { .admin-account-actions { max-width:120px; } .admin-account-actions button { width:100%; } }
+
+    .guild-buyer-field {
+      position: relative;
+    }
+    .guild-buyer-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .guild-buyer-input-wrap input {
+      width: 100%;
+      padding-right: 36px;
+      box-sizing: border-box;
+    }
+    .guild-buyer-toggle {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: background .15s, color .15s;
+    }
+    .guild-buyer-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+    .guild-buyer-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      max-height: 220px;
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--line-soft);
+      z-index: 1000;
+      padding: 4px;
+    }
+    .guild-buyer-option {
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      transition: background .12s ease;
+    }
+    .guild-buyer-option:hover,
+    .guild-buyer-option.is-active {
+      background: rgba(59, 130, 246, 0.15);
+      color: #38bdf8;
+    }
+    .guild-buyer-option.is-market {
+      color: #fbbf24;
+      font-weight: 600;
+      border-bottom: 1px dashed var(--line-soft);
+      margin-bottom: 4px;
+    }
+    .guild-buyer-empty {
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 12.5px;
+      text-align: center;
+    }

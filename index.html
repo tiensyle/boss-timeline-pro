@@ -575,10 +575,16 @@
             <option value="unsold">Chưa bán</option>
           </select>
         </div>
-        <div class="form-field">
+        <div class="form-field guild-buyer-field">
           <label for="guildItemBuyer">Người mua</label>
-          <input id="guildItemBuyer" maxlength="160" list="guildItemBuyers" placeholder="Chọn thành viên, chợ hoặc nhập tên">
+          <div class="guild-buyer-input-wrap">
+            <input id="guildItemBuyer" maxlength="160" autocomplete="off" placeholder="Chọn thành viên, chợ hoặc nhập tên">
+            <button type="button" class="guild-buyer-toggle" id="guildItemBuyerToggle" aria-label="Mở danh sách người mua" title="Bấm để xem danh sách thành viên">▾</button>
+          </div>
           <datalist id="guildItemBuyers"></datalist>
+          <div class="guild-buyer-dropdown" id="guildItemBuyerDropdown" hidden>
+            <div class="guild-buyer-list" id="guildItemBuyerList"></div>
+          </div>
         </div>
         <div class="form-field">
           <label for="guildItemValueTier">Màu tên theo mức giá trị</label>

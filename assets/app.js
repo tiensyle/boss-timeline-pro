@@ -10796,6 +10796,112 @@
         diamonds: byId("guildItemDiamonds"), payment: byId("guildItemPayment"), buyer: byId("guildItemBuyer"),
         valueTier: byId("guildItemValueTier"), notes: byId("guildItemNotes")
       };
+      const buyerInput = byId("guildItemBuyer");
+      const buyerToggle = byId("guildItemBuyerToggle");
+      const buyerDropdown = byId("guildItemBuyerDropdown");
+      const buyerList = byId("guildItemBuyerList");
+
+      function getGuildBuyerOptions() {
+        const names = new Set();
+        names.add("Bán lên chợ");
+        if (!attendanceState) attendanceState = loadAttendanceState();
+        if (attendanceState && Array.isArray(attendanceState.weeks)) {
+          attendanceState.weeks.forEach(w => {
+            if (Array.isArray(w?.members)) {
+              w.members.forEach(m => {
+                if (m && m.name && m.name.trim()) names.add(m.name.trim());
+              });
+            }
+          });
+        }
+        if (Array.isArray(DEFAULT_ATT_MEMBERS)) {
+          DEFAULT_ATT_MEMBERS.forEach(m => {
+            if (m && m.name && m.name.trim()) names.add(m.name.trim());
+          });
+        }
+        const sorted = Array.from(names).filter(Boolean);
+        sorted.sort((a, b) => {
+          if (a === "Bán lên chợ") return -1;
+          if (b === "Bán lên chợ") return 1;
+          return a.localeCompare(b, "vi");
+        });
+        return sorted;
+      }
+
+      function renderBuyerDropdown(filterText = "") {
+        if (!buyerList) return;
+        const query = filterText.trim().toLowerCase();
+        const allBuyers = getGuildBuyerOptions();
+        const filtered = query
+          ? allBuyers.filter(name => name.toLowerCase().includes(query))
+          : allBuyers;
+
+        buyerList.innerHTML = "";
+        if (filtered.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "guild-buyer-empty";
+          empty.textContent = "Không tìm thấy thành viên phù hợp";
+          buyerList.appendChild(empty);
+          return;
+        }
+
+        filtered.forEach(name => {
+          const item = document.createElement("div");
+          item.className = "guild-buyer-option" + (name === "Bán lên chợ" ? " is-market" : "");
+          item.textContent = (name === "Bán lên chợ" ? "🏪 " : "👤 ") + name;
+          item.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            buyerInput.value = name;
+            buyerInput.dispatchEvent(new Event("input", { bubbles: true }));
+            closeBuyerDropdown();
+          });
+          buyerList.appendChild(item);
+        });
+      }
+
+      function openBuyerDropdown(filterText = "") {
+        if (!buyerDropdown) return;
+        renderBuyerDropdown(filterText);
+        buyerDropdown.hidden = false;
+      }
+
+      function closeBuyerDropdown() {
+        if (buyerDropdown) buyerDropdown.hidden = true;
+      }
+
+      if (buyerToggle) {
+        buyerToggle.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (buyerDropdown.hidden) {
+            openBuyerDropdown("");
+            buyerInput.focus();
+          } else {
+            closeBuyerDropdown();
+          }
+        });
+      }
+
+      if (buyerInput) {
+        buyerInput.addEventListener("focus", () => {
+          openBuyerDropdown("");
+        });
+        buyerInput.addEventListener("input", () => {
+          openBuyerDropdown(buyerInput.value);
+        });
+        buyerInput.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeBuyerDropdown();
+        });
+      }
+
+      document.addEventListener("click", (e) => {
+        if (buyerDropdown && !buyerDropdown.hidden) {
+          if (!buyerDropdown.contains(e.target) && e.target !== buyerInput && e.target !== buyerToggle) {
+            closeBuyerDropdown();
+          }
+        }
+      });
+
       let editId = null;
       let confirmingEditorDelete = false;
       let itemWeekId = null;
@@ -10841,9 +10947,9 @@
           field.value = original?.[key] ?? field.value;
         }
         imageHint.textContent = original?.hasImage ? `${imageInstructions} Ảnh mới sẽ thay ảnh hiện tại.` : imageInstructions;
-        const members = canViewAdminArea("attendance") ? getActiveWeek().members : [];
-        const buyerOptions = new Set(["Bán lên chợ", ...members.map(member => member.name).sort((a, b) => a.localeCompare(b, "vi"))]);
+        const buyerOptions = getGuildBuyerOptions();
         byId("guildItemBuyers").replaceChildren(...Array.from(buyerOptions, name => new Option(name, name)));
+        closeBuyerDropdown();
         editor.showModal();
       }
 
