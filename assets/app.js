@@ -1098,6 +1098,8 @@
           desc += `\n\n📝 **Ghi chú:** ${boss.notes.trim()}`;
         }
 
+        const bossAlertImage = await generateBossAlertImage(boss, spawnTimeStr);
+        const bossPortraitUrl = new URL(getBossPortrait(boss), document.baseURI).href;
         const payload = {
           username: "Boss Tracker Alert",
           avatar_url: thumbnailUrl,
@@ -1107,7 +1109,7 @@
               title: title,
               description: desc,
               color: color,
-              thumbnail: { url: thumbnailUrl },
+              ...(bossAlertImage ? { image: { url: "attachment://boss-alert.png" } } : { thumbnail: { url: bossPortraitUrl } }),
               footer: { text: "Boss Timeline Pro • Live Alert System" },
               timestamp: new Date().toISOString()
             }
@@ -1115,12 +1117,51 @@
         };
 
         await sendDiscordAlertOnce(alertId, 5 * 60 * 1000,
-          serverId => sendDiscordWebhook(payload, null, "image.png", serverId));
+          serverId => sendDiscordWebhook(payload, bossAlertImage, "boss-alert.png", serverId));
       } catch (err) {
         console.error("[Discord Bot] sendDiscordBossAlert error:", err);
       }
     }
 
+    async function generateBossAlertImage(boss, spawnTimeStr) {
+      try {
+        const portrait = await new Promise((resolve, reject) => {
+          const img = new Image();
+          const timeout = setTimeout(() => reject(new Error('Portrait timeout')), 5000);
+          img.onload = () => { clearTimeout(timeout); resolve(img); };
+          img.onerror = () => { clearTimeout(timeout); reject(new Error('Portrait unavailable')); };
+          img.src = new URL(getBossPortrait(boss), document.baseURI).href;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = 960; canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        ctx.fillStyle = '#17191e'; ctx.fillRect(0, 0, 960, 480);
+        ctx.fillStyle = '#f4c55b'; ctx.fillRect(0, 0, 6, 480);
+        const fitText = (text, y, size, color) => {
+          ctx.fillStyle = color;
+          ctx.font = `700 ${size}px Arial`;
+          while (ctx.measureText(text).width > 540 && size > 14) {
+            ctx.font = `700 ${--size}px Arial`;
+          }
+          ctx.fillText(text, 32, y);
+        };
+        fitText('BOSS · Lv. ' + (boss.level || 80), 64, 22, '#f4c55b');
+        fitText(String(boss.name || 'Boss'), 121, 36, '#ffffff');
+        fitText('MAP', 200, 18, '#9da8b9');
+        fitText(String(boss.map || 'Chưa rõ'), 240, 25, '#ffffff');
+        fitText('THỜI GIAN XUẤT HIỆN', 325, 18, '#9da8b9');
+        fitText(spawnTimeStr, 382, 44, '#ffffff');
+        // Contain preserves the complete portrait and its original proportions.
+        const scale = Math.min(336 / portrait.width, 448 / portrait.height);
+        const w = portrait.width * scale, h = portrait.height * scale;
+        ctx.drawImage(portrait, 608 + (336 - w) / 2, 16 + (448 - h) / 2, w, h);
+        return await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      } catch (err) {
+        console.warn('[Discord] Portrait card unavailable:', err);
+        return null;
+      }
+    }
     async function generateScheduleImageBlob(items, dateDisplay, now) {
       return new Promise((resolve) => {
         try {
@@ -3307,8 +3348,8 @@
 
       return `
         <article class="boss-card" data-id="${escapeHtml(boss.id)}">
+          <div class="boss-portrait"><img class="boss-portrait-image" src="${getBossPortrait(boss)}" alt="${escapeHtml(boss.name)}"><img class="boss-portrait-frame" src="assets/portraits/frame.png" alt="" aria-hidden="true"></div>
           <div class="boss-head">
-            <img class="boss-avatar" src="${getAvatarPath(boss.avatar)}" alt="">
             <div>
               <div class="boss-map">${escapeHtml(boss.map)} · <span class="level-badge">Lv. ${boss.level || 80}</span></div>
               <h3 class="boss-name" style="${boss.spawnMode === 'fixed' ? 'color: var(--fixed-boss-color);' : ''}">${boss.spawnMode === 'fixed' ? '⭐ ' : ''}${escapeHtml(boss.name)}</h3>
@@ -3340,6 +3381,13 @@
       `;
     }
 
+    function getBossPortrait(boss) {
+      const portraits = {"chaiflock":"chaiflock_384x512_v2.png","tumier":"tumier_384x512_moi.png","duplican":"duplican_384x512_v2.png","auraq":"auraq_384x512.png","secreta":"secreta_384x512.png","supore":"supore_384x512.png","ordo":"ordo_384x512.png","wannitas":"wannitas_384x512.png","ladydalia":"ladydalia_384x512.png","icaruthia":"icaruthia_384x512.png","benji":"benji_384x512.png","baronbraudmore":"BRADMORE_384x512.png","bradmore":"BRADMORE_384x512.png","kamalial":"KAMALIAl_384x512.png","nerukas":"NERUKAS_384x512.png","rakajeth":"rakajeth_384x512.png","libitina":"libitina_384x512.png","lucus":"lucus_384x512.png","saphirus":"saphirus_384x512.png","clemantis":"clemantis_384x512_v2.png","undomiel":"undomiel_384x512_moi.png","shuliar":"shuliar_384x512.png","catena":"catena_384x512_v2.png","titore":"titore_384x512.png","neutro":"neutro_384x512.png","venatus":"venatus_384x512_moi.png","milavy":"milavy_384x512.png","larba":"larba_384x512.png","roderick":"roderick_384x512.png","livera":"livera_384x512.png","nevaeh":"nevaeh_384x512.png","viorent":"viorent_384x512_moi.png","araneo":"araneo_384x512.png","ego":"ego_384x512_v2.png","generalaquleus":"laquleus_384x512.png","ringor":"ringor_384x512.png","amentis":"amentis_384x512.png","metus":"metus_384x512.png","asta":"asta_384x512.png","thymele":"thymele_384x512.png","motti":"motti_384x512.png","gareth":"gareth_384x512.png"};
+      const key = String(boss.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/[^a-z]/g, '');
+      const aliases = {baron:"baronbraudmore",laquleus:"generalaquleus",aquileus:"generalaquleus",quybadalia:'ladydalia',tuongaquileus:'generalaquleus',generalaquileus:'generalaquleus',namtuocbradmore:'baronbraudmore',baronbradmore:'baronbraudmore'};
+      const match = aliases[key] || Object.keys(portraits).find(name => key === name || key.endsWith(name));
+      return match && portraits[match] ? `assets/portraits/${portraits[match]}?v=20261109-avatar-4` : getAvatarPath(boss.avatar);
+    }
     function getAvatarPath(avatar) {
       const safe = ["ember", "frost", "void", "stone", "storm"].includes(avatar) ? avatar : "ember";
       return `assets/boss-${safe}.svg`;
@@ -11818,3 +11866,9 @@
         }
       } catch (e) {}
     }, 60000);
+
+
+
+
+
+
