@@ -1107,7 +1107,7 @@
           embeds: [
             {
               title: title,
-              description: desc,
+              description: bossAlertImage ? (boss.notes?.trim() ? `📝 ${boss.notes.trim()}` : undefined) : desc,
               color: color,
               ...(bossAlertImage ? { image: { url: "attachment://boss-alert.png" } } : { thumbnail: { url: bossPortraitUrl } }),
               footer: { text: "Boss Timeline Pro • Live Alert System" },
@@ -1125,37 +1125,51 @@
 
     async function generateBossAlertImage(boss, spawnTimeStr) {
       try {
-        const portrait = await new Promise((resolve, reject) => {
+        const loadImage = path => new Promise((resolve, reject) => {
           const img = new Image();
-          const timeout = setTimeout(() => reject(new Error('Portrait timeout')), 5000);
+          const timeout = setTimeout(() => reject(new Error('Image timeout')), 5000);
           img.onload = () => { clearTimeout(timeout); resolve(img); };
-          img.onerror = () => { clearTimeout(timeout); reject(new Error('Portrait unavailable')); };
-          img.src = new URL(getBossPortrait(boss), document.baseURI).href;
+          img.onerror = () => { clearTimeout(timeout); reject(new Error('Image unavailable')); };
+          img.src = new URL(path, document.baseURI).href;
         });
+        const [portrait, frame] = await Promise.all([
+          loadImage(getBossPortrait(boss)), loadImage('assets/portraits/frame.png')
+        ]);
         const canvas = document.createElement('canvas');
-        canvas.width = 960; canvas.height = 480;
+        canvas.width = 1000; canvas.height = 460;
         const ctx = canvas.getContext('2d');
         if (!ctx) return null;
-        ctx.fillStyle = '#17191e'; ctx.fillRect(0, 0, 960, 480);
-        ctx.fillStyle = '#f4c55b'; ctx.fillRect(0, 0, 6, 480);
-        const fitText = (text, y, size, color) => {
-          ctx.fillStyle = color;
-          ctx.font = `700 ${size}px Arial`;
-          while (ctx.measureText(text).width > 540 && size > 14) {
-            ctx.font = `700 ${--size}px Arial`;
-          }
-          ctx.fillText(text, 32, y);
+        const bg = ctx.createLinearGradient(0, 0, 1000, 460);
+        bg.addColorStop(0, '#111d30'); bg.addColorStop(1, '#07101d');
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, 1000, 460);
+        ctx.strokeStyle = '#294464'; ctx.lineWidth = 2;
+        ctx.strokeRect(12, 12, 976, 436);
+        ctx.fillStyle = '#53c9fa'; ctx.fillRect(36, 42, 5, 68);
+        const text = (value, x, y, size, color, maxWidth = 560) => {
+          ctx.fillStyle = color; ctx.font = `700 ${size}px Arial`;
+          while (ctx.measureText(value).width > maxWidth && size > 16) ctx.font = `700 ${--size}px Arial`;
+          ctx.fillText(value, x, y, maxWidth);
         };
-        fitText('BOSS · Lv. ' + (boss.level || 80), 64, 22, '#f4c55b');
-        fitText(String(boss.name || 'Boss'), 121, 36, '#ffffff');
-        fitText('MAP', 200, 18, '#9da8b9');
-        fitText(String(boss.map || 'Chưa rõ'), 240, 25, '#ffffff');
-        fitText('THỜI GIAN XUẤT HIỆN', 325, 18, '#9da8b9');
-        fitText(spawnTimeStr, 382, 44, '#ffffff');
-        // Contain preserves the complete portrait and its original proportions.
-        const scale = Math.min(336 / portrait.width, 448 / portrait.height);
-        const w = portrait.width * scale, h = portrait.height * scale;
-        ctx.drawImage(portrait, 608 + (336 - w) / 2, 16 + (448 - h) / 2, w, h);
+        text('BOSS  /  Lv. ' + (boss.level || 80), 58, 65, 22, '#79cffa');
+        text(String(boss.name || 'Boss').toUpperCase(), 58, 111, 40, '#ffffff');
+        ctx.fillStyle = '#20344c'; ctx.fillRect(40, 145, 554, 1);
+        text('ĐỊA ĐIỂM', 42, 195, 20, '#91a7c0');
+        const words = String(boss.map || 'Chưa rõ').split(/\s+/);
+        let lines = ['']; ctx.font = '700 28px Arial';
+        for (const word of words) {
+          const i = lines.length - 1, next = (lines[i] + ' ' + word).trim();
+          if (ctx.measureText(next).width > 550 && lines[i]) lines.push(word); else lines[i] = next;
+        }
+        lines.slice(0, 2).forEach((line, i) => text(line, 42, 235 + i * 34, 28, '#ecf3ff'));
+        text('GIỜ XUẤT HIỆN', 42, 333, 20, '#91a7c0');
+        text(spawnTimeStr, 40, 401, 58, '#7cddff');
+        // Draw the original frame without stretching; crop the portrait inside its opening.
+        const fw = 342, fh = fw * frame.height / frame.width, fx = 632, fy = 4;
+        const px = fx + fw * .14, py = fy + fh * .13, pw = fw * .72, ph = fh * .67;
+        const scale = Math.max(pw / portrait.width, ph / portrait.height);
+        const sw = pw / scale, sh = ph / scale;
+        ctx.drawImage(portrait, (portrait.width - sw) / 2, (portrait.height - sh) * .35, sw, sh, px, py, pw, ph);
+        ctx.drawImage(frame, fx, fy, fw, fh);
         return await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       } catch (err) {
         console.warn('[Discord] Portrait card unavailable:', err);
@@ -11866,6 +11880,7 @@
         }
       } catch (e) {}
     }, 60000);
+
 
 
 
