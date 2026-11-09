@@ -8114,6 +8114,36 @@
       return applyAttendanceColumnFilters(filtered);
     }
 
+    let attendanceOpenDay = "";
+    let attendanceDayWeekId = null;
+
+    function getAttendanceActivityDayKey(value) {
+      const label = String(value ?? "").trim().replace(/\s+/g, " ");
+      const date = label.match(/^(?:(?:T[2-7]|CN)\s+)?(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/i);
+      if (date) return "date:" + Number(date[1]) + "/" + Number(date[2]) + (date[3] ? "/" + date[3] : "");
+      return "label:" + label.normalize("NFC").toLocaleLowerCase("vi");
+    }
+
+    function setAttendanceOpenDay(key, headerButton = null) {
+      attendanceOpenDay = key;
+      renderAttendanceTable();
+      const dayKey = headerButton?.dataset.attDayKey || key;
+      const button = [...document.querySelectorAll("#attTableHead [data-att-day-key]")]
+        .find(item => item.dataset.attDayKey === dayKey);
+      const wrap = document.getElementById("attTableScrollWrap");
+      if (!button) {
+        wrap.scrollLeft = 0;
+        return;
+      }
+      const first = document.querySelector("#attTableHead .col-stt");
+      const name = document.querySelector("#attTableHead .col-name");
+      const left = wrap.getBoundingClientRect().left + first.offsetWidth + name.offsetWidth;
+      const dayHeader = button.closest("th");
+      const target = headerButton ? dayHeader : dayHeader.nextElementSibling || dayHeader;
+      wrap.scrollLeft += target.getBoundingClientRect().left - left;
+      if (headerButton) button.focus({ preventScroll: true });
+    }
+
     function renderAttendanceTable() {
       closeAttendanceMemberMenu();
       closeAttendanceColumnFilter();
@@ -8231,7 +8261,30 @@
       const headEl = document.getElementById("attTableHead");
       if (!headEl) return;
 
-      const activities = currWeek.activities || [];
+      const dayGroups = new Map();
+      for (const activity of currWeek.activities || []) {
+        const key = getAttendanceActivityDayKey(activity.date);
+        if (!dayGroups.has(key)) {
+          dayGroups.set(key, { key, label: String(activity.date ?? "").trim() || "Chưa ghi ngày", activities: [] });
+        }
+        dayGroups.get(key).activities.push(activity);
+      }
+      if (attendanceDayWeekId !== currWeek.id || !dayGroups.has(attendanceOpenDay)) attendanceOpenDay = "";
+      attendanceDayWeekId = currWeek.id;
+      const activityColumns = [];
+      for (const day of dayGroups.values()) {
+        activityColumns.push({ day });
+        if (day.key === attendanceOpenDay) {
+          for (const activity of day.activities) activityColumns.push({ activity });
+        }
+      }
+      const daySelect = document.getElementById("attActivityDaySelect");
+      daySelect.replaceChildren(new Option("Tổng quan theo ngày", ""));
+      for (const day of dayGroups.values()) {
+        daySelect.add(new Option(`${day.label} · ${day.activities.length} lượt`, day.key));
+      }
+      daySelect.value = attendanceOpenDay;
+      daySelect.disabled = !dayGroups.size;
       const adminMode = isAdmin("attendance");
       const visibleIds = new Set(filteredMembers.map(member => member.id));
       if (!adminMode || attendanceSelectionWeekId !== currWeek.id) attendanceSelectedMemberIds.clear();
@@ -8265,7 +8318,17 @@
         <th class="col-reward-points">P.Point<br>nhận thưởng</th>
         <th class="col-eligibility">Điều kiện thưởng</th>`;
 
-      activities.forEach((act) => {
+      for (const { day, activity: act } of activityColumns) {
+        if (day) {
+          const expanded = day.key === attendanceOpenDay;
+          headHtml += `<th class="col-att-day" scope="col">
+            <button type="button" class="att-day-toggle" data-att-day-key="${escapeHtml(day.key)}" aria-expanded="${expanded}">
+              <strong>${escapeHtml(day.label)}</strong>
+              <span>${day.activities.length} lượt · ${expanded ? "Thu gọn" : "Mở ▸"}</span>
+            </button>
+          </th>`;
+          continue;
+        }
         const allChecked = filteredMembers.length > 0 && filteredMembers.every(m => m.records && m.records[act.id]);
         headHtml += `<th class="col-act" data-act-id="${escapeHtml(act.id)}">
           <div class="act-card-header">
@@ -8294,7 +8357,7 @@
             </div>
           </div>
         </th>`;
-      });
+      }
 
       headHtml += `</tr>`;
       headEl.innerHTML = headHtml;
@@ -8334,7 +8397,7 @@
       if (!bodyEl) return;
 
       if (filteredMembers.length === 0) {
-        const colSpanTotal = 14 + activities.length;
+        const colSpanTotal = 14 + activityColumns.length;
         bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
           Không tìm thấy thành viên nào phù hợp.
         </td></tr>`;
@@ -8402,7 +8465,12 @@
           </td>`;
 
         const records = m.records || {};
-        activities.forEach(act => {
+        for (const { day, activity: act } of activityColumns) {
+          if (day) {
+            const attended = day.activities.filter(activity => records[activity.id]).length;
+            bodyHtml += `<td class="col-att-day att-day-count" title="Số lượt đã chấm / tổng lượt">${attended}/${day.activities.length}</td>`;
+            continue;
+          }
           const isChecked = Boolean(records[act.id]);
           bodyHtml += `<td class="col-act-cell ${isChecked ? "checked" : ""}">
             <input type="checkbox" class="att-checkbox"
@@ -8412,8 +8480,7 @@
               ${adminMode ? "" : "disabled"}
               title="${escapeHtml(m.name)} - ${escapeHtml(act.name)} (${act.points}đ)">
           </td>`;
-        });
-
+        }
 
         bodyHtml += `</tr>`;
       });
@@ -10551,7 +10618,7 @@
       currentWeek.activities.push(...pending);
       saveAttendanceState(attendanceState, true);
       closeAttendanceActivityModal();
-      renderAttendanceTable();
+      setAttendanceOpenDay(getAttendanceActivityDayKey(pending[0].date));
       showToast(`✅ Đã thêm ${pending.length} mục boss theo lịch ngày ${date.toLocaleDateString('vi-VN')} · Tự phân ngày/đêm, bỏ qua mục trùng.`);
     }
     function saveAttendanceActivity() {
@@ -10623,7 +10690,7 @@
 
       saveAttendanceState(attendanceState, true);
       closeAttendanceActivityModal();
-      renderAttendanceTable();
+      setAttendanceOpenDay(getAttendanceActivityDayKey(dateStr));
     }
 
     function deleteAttendanceActivity(actId, weekId = attendanceState?.activeWeekId) {
@@ -11616,6 +11683,13 @@
         thresholdInput.addEventListener("input", updateThreshold);
         thresholdInput.addEventListener("change", updateThreshold);
       }
+
+      const daySelect = document.getElementById("attActivityDaySelect");
+      daySelect.addEventListener("change", () => setAttendanceOpenDay(daySelect.value));
+      document.getElementById("attTableHead").addEventListener("click", event => {
+        const button = event.target.closest("button[data-att-day-key]");
+        if (button) setAttendanceOpenDay(button.dataset.attDayKey === attendanceOpenDay ? "" : button.dataset.attDayKey, button);
+      });
 
       // Search & Filter
       const searchInput = document.getElementById("attSearchInput");
