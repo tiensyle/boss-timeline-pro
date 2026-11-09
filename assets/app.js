@@ -1117,10 +1117,11 @@
           ]
         };
 
-        await sendDiscordAlertOnce(alertId, 5 * 60 * 1000,
+        return await sendDiscordAlertOnce(alertId, 24 * 60 * 60 * 1000,
           serverId => sendDiscordWebhook(payload, bossAlertImage, "boss-alert.png", serverId));
       } catch (err) {
         console.error("[Discord Bot] sendDiscordBossAlert error:", err);
+        return false;
       }
     }
 
@@ -1451,9 +1452,32 @@
       }
     }
 
+    const discordMilestoneRetryAt = new Map();
+    function deliverBossDiscordMilestone(boss, milestoneType, eventTime) {
+      if (!discordConfig.enabled || !isAdmin('discord')) return;
+      if (discordConfig['notify' + milestoneType] === false) return;
+      const notified = discordBossMilestones;
+      const key = `${boss.id}_${eventTime}_${milestoneType}`;
+      const retryKey = `${currentServerId}_${key}`;
+      if (notified[key] || (discordMilestoneRetryAt.get(retryKey) || 0) > Date.now()) return;
+      notified[key] = 'pending';
+      sendDiscordBossAlert(boss, milestoneType, eventTime).then(sent => {
+        if (sent) { notified[key] = true; discordMilestoneRetryAt.delete(retryKey); }
+        else { delete notified[key]; discordMilestoneRetryAt.set(retryKey, Date.now() + 30000); }
+      }).catch(() => { delete notified[key]; discordMilestoneRetryAt.set(retryKey, Date.now() + 30000); });
+    }
     function checkBossDiscordAlerts(now) {
-      if (!discordConfig.enabled) return;
+      if (!discordConfig.enabled || !isAdmin("discord")) return;
       state.bosses.forEach((boss) => {
+        // Fixed schedules do not require a recorded death. Synced automatic
+        // respawns may already have been resolved by another admin's tab.
+        const recentSpawn = boss.spawnMode === 'fixed'
+          ? getPreviousFixedSpawnTime(boss, now)
+          : (state.history || []).find(entry => entry.bossId === boss.id && entry.type === 'respawn'
+              && entry.source === 'automatic' && entry.time === boss.lastRespawnAt)?.time;
+        if (recentSpawn && recentSpawn <= now && now - recentSpawn <= 5 * 60 * 1000) {
+          deliverBossDiscordMilestone(boss, '0m', recentSpawn);
+        }
         let eventTime = null;
         let eventKey = "";
         let timerConfirmed = true;
@@ -1482,10 +1506,7 @@
         if (remaining <= 0) return; // Mốc 0m được autoResolveRespawns kích hoạt tự động
 
         const deliverMilestone = milestoneType => {
-          const confirmedKey = `${eventKey}_${milestoneType}`;
-          if (discordBossMilestones[confirmedKey]) return;
-          discordBossMilestones[confirmedKey] = true;
-          sendDiscordBossAlert(boss, milestoneType, eventTime);
+          deliverBossDiscordMilestone(boss, milestoneType, eventTime);
         };
 
         // Mốc 10 phút (kích hoạt trong khoảng 7.5 phút - 10.5 phút)
@@ -2751,10 +2772,7 @@
             confirmedCandidates.forEach(candidate => {
               const boss = state.bosses.find(item => item.id === candidate.bossId);
               if (!boss || (Number(boss.revision) || 0) !== candidate.revision) return;
-              if (!discordBossMilestones[candidate.targetKey + "_0m"]) {
-                discordBossMilestones[candidate.targetKey + "_0m"] = true;
-                sendDiscordBossAlert(boss, "0m", candidate.eventTime);
-              }
+              deliverBossDiscordMilestone(boss, "0m", candidate.eventTime);
             });
             const isEn = currentLang === "en";
             showToast(isEn ? "A boss respawn was confirmed and synchronized." : "Boss hồi sinh đã được Firebase xác nhận và đồng bộ.");
@@ -11985,6 +12003,7 @@
         }
       } catch (e) {}
     }, 60000);
+
 
 
 
