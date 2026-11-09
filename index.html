@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261109-confirm-theme">
+  <link rel="stylesheet" href="assets/app.css?v=20261109-attendance-scroll">
 </head>
 <body>
   <div class="app-shell">
@@ -263,32 +263,6 @@
 
       <!-- BẢNG CHẤM CÔNG & TỰ ĐỘNG TÍNH LƯƠNG HOẠT ĐỘNG / BOSS -->
       <section class="attendance-panel open" id="attendance-salary" aria-label="Chấm công và tính lương Boss, Hoạt động">
-        <div class="attendance-header" id="attendanceHeaderToggle">
-          <div class="attendance-title-wrap">
-            <div class="attendance-icon-badge">
-              <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-              </svg>
-            </div>
-            <div>
-              <div class="attendance-title-row">
-                <h2 class="attendance-title">Global Guild Attendance</h2>
-                <span class="attendance-badge-week" id="attWeekLabel">Tuần Này</span>
-                <span class="attendance-badge-server" id="attServerBadge">Toàn Guild • Tất cả Server</span>
-              </div>
-              <div class="attendance-subtitle" id="attSubtitle">Chấm công theo từng Server hoặc xem toàn Guild. Quỹ tuần được chia chung theo Reward P.Point.</div>
-            </div>
-          </div>
-          <div class="attendance-header-actions">
-            <button type="button" class="back-to-boss-btn" id="attBackToBossBtn" title="Quay lại Bảng theo dõi Boss">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-              <span>Quay lại Săn Boss</span>
-            </button>
-          </div>
-        </div>
-
         <div class="attendance-access-notice" id="attendanceAccessNotice">
           <span>Chế độ Thành viên: chỉ xem chấm công và bảng lương.</span>
         </div>
@@ -333,18 +307,20 @@
               <div class="att-stat-sub">Tổng điểm thực tế: <strong id="attTotalGuildRawPoints">0</strong> điểm</div>
             </div>
           </div>
-          <div class="att-reward-settings">
-            <div class="att-threshold-control">
-              <label for="attMinimumParticipationInput">Điều kiện nhận thưởng</label>
-              <input type="number" class="att-pool-input" id="attMinimumParticipationInput" value="0" min="0" max="100" step="any" inputmode="decimal" aria-label="Phần trăm tham gia tối thiểu">
-              <span>%</span>
-            </div>
-            <div class="att-reward-summary" aria-live="polite">
-              <strong id="attThresholdText">Ngưỡng nhận thưởng: ≥ 0%</strong><br>
-              Reward P.Point: <strong id="attTotalEligiblePPoints">0</strong> · <span id="attEligibilitySummary">0 đủ điều kiện · 0 không đạt</span>
+          <div class="att-summary-row">
+            <div class="att-server-summary" id="attServerSummary"></div>
+            <div class="att-reward-settings">
+              <div class="att-threshold-control">
+                <label for="attMinimumParticipationInput">Điều kiện nhận thưởng</label>
+                <input type="number" class="att-pool-input" id="attMinimumParticipationInput" value="0" min="0" max="100" step="any" inputmode="decimal" aria-label="Phần trăm tham gia tối thiểu">
+                <span>%</span>
+              </div>
+              <div class="att-reward-summary" aria-live="polite">
+                <strong id="attThresholdText">Ngưỡng nhận thưởng: ≥ 0%</strong><br>
+                Reward P.Point: <strong id="attTotalEligiblePPoints">0</strong> · <span id="attEligibilitySummary">0 đủ điều kiện · 0 không đạt</span>
+              </div>
             </div>
           </div>
-          <div class="att-server-summary" id="attServerSummary"></div>
 
           <!-- Week Selector Bar -->
           <div class="att-week-bar" id="attWeekBar">
@@ -353,6 +329,10 @@
               <span>Chọn Tuần:</span>
             </span>
             <div class="att-week-tabs-scroll" id="attWeekTabs"></div>
+            <button type="button" class="back-to-boss-btn" id="attBackToBossBtn" title="Quay lại Bảng theo dõi Boss">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              <span>Quay lại Săn Boss</span>
+            </button>
           </div>
 
           <!-- Toolbar -->
@@ -411,7 +391,7 @@
           </section>
 
           <!-- Spreadsheet Table Container -->
-          <div class="att-table-scroll-wrap" id="attTableScrollWrap">
+          <div class="att-table-scroll-wrap" id="attTableScrollWrap" tabindex="0" role="region" aria-label="Danh sách chấm công">
             <table class="att-table" id="attendanceTable">
               <thead id="attTableHead">
                 <!-- Injected dynamically -->
@@ -1969,7 +1949,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261109-discord-auto-fix"></script>
+  <script src="assets/app.js?v=20261109-attendance-layout"></script>
 
 </body>
 </html>

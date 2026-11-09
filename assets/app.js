@@ -8119,6 +8119,8 @@
       closeAttendanceColumnFilter();
       const content = document.getElementById("attendanceContent");
       const notice = document.getElementById("attendanceAccessNotice");
+      const backBtn = document.getElementById("attBackToBossBtn");
+      const weekBar = document.getElementById("attWeekBar");
       if (notice) {
         if (!notice.dataset.originalHtml) notice.dataset.originalHtml = notice.innerHTML;
         if (canViewAdminArea("attendance")) notice.innerHTML = notice.dataset.originalHtml;
@@ -8126,11 +8128,13 @@
       if (!canViewAdminArea("attendance")) {
         if (content) content.hidden = true;
         if (notice) {
+          if (backBtn && backBtn.parentElement === weekBar) notice.after(backBtn);
           notice.hidden = false;
           notice.textContent = "🔒 Tài khoản Admin này chưa được cấp quyền xem chấm công và lương.";
         }
         return;
       }
+      if (backBtn && weekBar && backBtn.parentElement !== weekBar) weekBar.append(backBtn);
       if (content) content.hidden = false;
       if (notice) notice.hidden = isAdmin("attendance");
       if (!attendanceState) attendanceState = loadAttendanceState();
@@ -8197,24 +8201,6 @@
       if (eligiblePPointsEl) eligiblePPointsEl.textContent = formatPoints(calc.totalEligiblePPoints);
       const eligibilitySummary = document.getElementById("attEligibilitySummary");
       if (eligibilitySummary) eligibilitySummary.textContent = `${calc.eligibleMembersCount} đủ điều kiện · ${calc.ineligibleMembersCount} không đạt`;
-
-      const weekLabel = document.getElementById("attWeekLabel");
-      if (weekLabel) {
-        weekLabel.textContent = currWeek?.name || "Tuần Này";
-      }
-
-      const serverBadge = document.getElementById("attServerBadge");
-      if (serverBadge) {
-        serverBadge.textContent = attendanceServerFilter === "all"
-          ? "Toàn Guild • Tất cả Server"
-          : `Chấm công & lương • ${scopeName}`;
-      }
-      const subtitle = document.getElementById("attSubtitle");
-      if (subtitle) {
-        subtitle.textContent = attendanceServerFilter === "all"
-          ? "Chấm công và xem lương tổng hợp của tất cả Server. Quỹ tuần được chia chung theo Reward P.Point."
-          : `Chấm công và xem phần lương được phân bổ cho ${scopeName}. Quỹ DIAS và USDT vẫn dùng chung toàn Guild.`;
-      }
 
       const serverSummaryEl = document.getElementById("attServerSummary");
       if (serverSummaryEl) {
