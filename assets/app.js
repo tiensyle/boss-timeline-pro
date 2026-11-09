@@ -1098,6 +1098,7 @@
           desc += `\n\n📝 **Ghi chú:** ${boss.notes.trim()}`;
         }
 
+
         const bossAlertImage = await generateBossAlertImage(boss, spawnTimeStr);
         const bossPortraitUrl = new URL(getBossPortrait(boss), document.baseURI).href;
         const payload = {
@@ -1136,35 +1137,32 @@
           loadImage(getBossPortrait(boss)), loadImage('assets/portraits/frame.png')
         ]);
         const canvas = document.createElement('canvas');
-        canvas.width = 1000; canvas.height = 460;
+        canvas.width = 880; canvas.height = 320;
         const ctx = canvas.getContext('2d');
         if (!ctx) return null;
-        const bg = ctx.createLinearGradient(0, 0, 1000, 460);
-        bg.addColorStop(0, '#111d30'); bg.addColorStop(1, '#07101d');
-        ctx.fillStyle = bg; ctx.fillRect(0, 0, 1000, 460);
-        ctx.strokeStyle = '#294464'; ctx.lineWidth = 2;
-        ctx.strokeRect(12, 12, 976, 436);
-        ctx.fillStyle = '#53c9fa'; ctx.fillRect(36, 42, 5, 68);
-        const text = (value, x, y, size, color, maxWidth = 560) => {
-          ctx.fillStyle = color; ctx.font = `700 ${size}px Arial`;
-          while (ctx.measureText(value).width > maxWidth && size > 16) ctx.font = `700 ${--size}px Arial`;
-          ctx.fillText(value, x, y, maxWidth);
+        ctx.fillStyle = '#2b2d31'; ctx.fillRect(0, 0, 880, 320);
+        const write = (value, y, size = 30, color = '#f2f3f5') => {
+          ctx.fillStyle = color;
+          ctx.font = `700 ${size}px "Segoe UI", Arial`;
+          while (ctx.measureText(value).width > 510 && size > 20) ctx.font = `700 ${--size}px "Segoe UI", Arial`;
+          ctx.fillText(value, 76, y, 510);
         };
-        text('BOSS  /  Lv. ' + (boss.level || 80), 58, 65, 22, '#79cffa');
-        text(String(boss.name || 'Boss').toUpperCase(), 58, 111, 40, '#ffffff');
-        ctx.fillStyle = '#20344c'; ctx.fillRect(40, 145, 554, 1);
-        text('ĐỊA ĐIỂM', 42, 195, 20, '#91a7c0');
+        const icon = (value, y) => { ctx.font = '32px '+String.fromCharCode(34)+'Segoe UI Emoji'+String.fromCharCode(34); ctx.textAlign = 'center'; ctx.fillText(value, 34, y); ctx.textAlign = 'left'; };
+        icon('👑', 62); icon('📍', 174);
+        write('BOSS: ' + String(boss.name || 'Boss').toUpperCase(), 62, 32);
+        write('Lv. ' + (boss.level || 80), 106, 28, '#b5bac1');
         const words = String(boss.map || 'Chưa rõ').split(/\s+/);
-        let lines = ['']; ctx.font = '700 28px Arial';
+        let lines = ['']; ctx.font = '700 32px "Segoe UI", Arial';
         for (const word of words) {
           const i = lines.length - 1, next = (lines[i] + ' ' + word).trim();
-          if (ctx.measureText(next).width > 550 && lines[i]) lines.push(word); else lines[i] = next;
+          if (ctx.measureText(next).width > 420 && lines[i]) lines.push(word); else lines[i] = next;
         }
-        lines.slice(0, 2).forEach((line, i) => text(line, 42, 235 + i * 34, 28, '#ecf3ff'));
-        text('GIỜ XUẤT HIỆN', 42, 333, 20, '#91a7c0');
-        text(spawnTimeStr, 40, 401, 58, '#7cddff');
-        // Draw the original frame without stretching; crop the portrait inside its opening.
-        const fw = 342, fh = fw * frame.height / frame.width, fx = 632, fy = 4;
+        write('MAP: ' + lines[0], 174, 32);
+        if (lines.length > 1) write(lines.slice(1).join(' '), 216, 32);
+        icon('🕒', lines.length > 1 ? 276 : 242);
+        write('TIME: ' + spawnTimeStr, lines.length > 1 ? 276 : 242, 32);
+        // Preserve frame proportions while trimming its transparent canvas margins.
+        const fw = 270, fh = fw * frame.height / frame.width, fx = 600, fy = -10;
         const px = fx + fw * .14, py = fy + fh * .13, pw = fw * .72, ph = fh * .67;
         const scale = Math.max(pw / portrait.width, ph / portrait.height);
         const sw = pw / scale, sh = ph / scale;
@@ -11880,6 +11878,13 @@
         }
       } catch (e) {}
     }, 60000);
+
+
+
+
+
+
+
 
 
 

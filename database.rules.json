@@ -161,6 +161,13 @@
         ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && newData.exists()))",
         ".validate": "!newData.exists() || (newData.hasChildren(['email', 'name', 'requestedAt']) && newData.child('email').val() === auth.token.email && newData.child('name').isString() && newData.child('requestedAt').isNumber())"
       }
+    },
+    "discord_alert_retention": {
+      ".write": false,
+      ".read": false,
+      ".indexOn": [
+        "expiresAt"
+      ]
     }
   }
 }

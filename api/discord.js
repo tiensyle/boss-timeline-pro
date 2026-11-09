@@ -1,3 +1,4 @@
+import { retainAlert } from "./discord-retention.js";
 const DEFAULT_FIREBASE_API_KEY = "AIzaSyCfVwcvXqDeurizrqEbHmGopNIPHFa-D7Q";
 const DEFAULT_DATABASE_URL = "https://time-boss-chill-default-rtdb.asia-southeast1.firebasedatabase.app";
 const DEFAULT_ALLOWED_ORIGINS = ["https://tiensyle.github.io"];
@@ -98,7 +99,10 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
         body = form;
         headers = undefined;
       }
-      const response = await fetchImpl(webhookUrl, { method: "POST", headers, body, signal: AbortSignal.timeout(15000) });
+      const isBossAlert = payload.username === "Boss Tracker Alert" && payload.embeds?.some(embed => String(embed.title || "").includes("[CẢNH BÁO] BOSS"));
+      const sendUrl = new URL(webhookUrl);
+      if (isBossAlert) sendUrl.searchParams.set("wait", "true");
+      const response = await fetchImpl(sendUrl.href, { method: "POST", headers, body, signal: AbortSignal.timeout(15000) });
       if (response.status === 429) {
         const details = await response.json().catch(() => ({}));
         return res.status(429).json({ error: "Discord Rate Limit", retryAfterMs: Math.ceil((Number(details.retry_after) || 1.2) * 1000) });
@@ -108,7 +112,18 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
         if (response.status === 401 || response.status === 403) return res.status(502).json({ error: "Discord rejected this webhook." });
         return res.status(502).json({ error: "Discord API rejected the message." });
       }
-      return res.status(200).json({ success: true, message: "Webhook delivered successfully." });
+      let cleanupScheduled = false;
+      if (isBossAlert) {
+        try {
+          const sent = await response.json();
+          await retainAlert(fetchImpl, env, webhookUrl, sent.id, now());
+          cleanupScheduled = true;
+        } catch {
+          // Delivery succeeded: do not trigger a duplicate notification on retry.
+          console.error('[Discord] Alert delivered but 24-hour cleanup could not be scheduled. Check server credentials.');
+        }
+      }
+      return res.status(200).json({ success: true, cleanupScheduled, message: "Webhook delivered successfully." });
     } catch {
       return res.status(502).json({ error: "Discord relay failed." });
     }
@@ -116,3 +131,4 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
 }
 
 export default createDiscordHandler();
+
