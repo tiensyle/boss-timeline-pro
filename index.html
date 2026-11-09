@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Boss Timeline Pro</title>
   <link rel="icon" type="image/png" href="assets/boss-logo.png">
-  <link rel="stylesheet" href="assets/app.css?v=20261109-portrait-revert">
+  <link rel="stylesheet" href="assets/app.css?v=20261109-confirm-theme">
 </head>
 <body>
   <div class="app-shell">
@@ -939,7 +939,7 @@
   </div>
 
   <!-- Custom Confirmation Modal -->
-  <div class="modal-backdrop" id="customConfirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" style="z-index: 9999;">
+  <div class="modal-backdrop" id="customConfirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" style="z-index: 10100;">
 
     <div class="modal confirm-modal-box">
       <div class="confirm-modal-header">
@@ -1519,6 +1519,10 @@
           <label for="attActivityDateInput">Thời Gian / Ngày <span style="color: var(--red);">*</span></label>
           <input type="text" id="attActivityDateInput" required maxlength="30" placeholder="Ví dụ: T2 22/09, T3 23/09, CN 28/09...">
         </div>
+        <div style="margin-bottom:14px;">
+          <button type="button" class="button-primary" id="attImportDailyBossesBtn" style="width:100%;min-height:50px;padding:14px 18px;font-size:16px;font-weight:750;border-radius:10px;box-shadow:0 5px 16px rgba(0,140,210,.25);">📅 Thêm tất cả boss trong ngày</button>
+          <small style="display:block;margin-top:6px;color:var(--muted);line-height:1.5;">Lấy lịch server đang mở theo ngày trên. Tự phân ngày/đêm, dùng điểm của từng boss, bỏ qua mục trùng. Xác nhận trước khi thêm vào tuần đang chọn.</small>
+        </div>
         <section class="att-activity-period-card att-activity-name-card">
           <div class="att-activity-period-head">
             <span class="att-period-icon">👑</span>
@@ -1965,10 +1969,14 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="assets/recovery.js?v=20261103-1"></script>
-  <script src="assets/app.js?v=20261109-avatar-4"></script>
+  <script src="assets/app.js?v=20261109-att-import"></script>
 
 </body>
 </html>
+
+
+
+
 
 
 

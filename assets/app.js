@@ -4767,7 +4767,9 @@
           iconBadge.className = "confirm-icon-badge primary";
         }
 
+        const previousFocus = document.activeElement;
         modal.classList.add("open");
+        cancelBtn.focus();
         syncModalScrollLock();
 
         const cleanup = (result) => {
@@ -4776,6 +4778,7 @@
           okBtn.removeEventListener("click", onOk);
           cancelBtn.removeEventListener("click", onCancel);
           modal.removeEventListener("click", onBackdrop);
+          if (previousFocus?.isConnected) previousFocus.focus();
           resolve(result);
         };
 
@@ -10430,6 +10433,8 @@
         if (delBtn) delBtn.style.display = "none";
       }
 
+      const importButton = document.getElementById("attImportDailyBossesBtn");
+      if (importButton) { importButton.hidden = Boolean(actId); importButton.onclick = importAttendanceDailyBosses; }
       refreshAttendanceBossNames();
       updateAttendanceActivityPointPreview();
       modal.classList.add("open");
@@ -10443,6 +10448,108 @@
       syncModalScrollLock();
     }
 
+    function parseAttendanceImportDate(value, now = new Date()) {
+      const match = String(value || '').trim().match(/^(?:(?:T[2-7]|CN)\s+)?(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/i);
+      if (!match) return null;
+      const day = Number(match[1]), month = Number(match[2]) - 1;
+      const years = match[3] ? [Number(match[3])] : [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
+      return years.map(year => new Date(year, month, day))
+        .filter(date => date.getDate() === day && date.getMonth() === month)
+        .sort((a, b) => Math.abs(a - now) - Math.abs(b - now))[0] || null;
+    }
+
+    function buildAttendanceDailyBossActivities(items, date, existing, fallbackPoints = 2) {
+      const label = `${['CN','T2','T3','T4','T5','T6','T7'][date.getDay()]} ${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}`;
+      const dateKey = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const nameKey = name => String(name || '').trim().normalize('NFC').toLocaleLowerCase('vi');
+      const seen = new Set(existing.filter(act => {
+        const d = parseAttendanceImportDate(act.date, date);
+        return d && dateKey(d) === dateKey(date);
+      }).map(act => `${nameKey(act.name)}|${act.timePeriod === 'night' ? 'night' : 'day'}`));
+      const result = [];
+      for (const {boss, eventTime} of items) {
+        const event = new Date(eventTime);
+        if (!Number.isFinite(event.getTime()) || dateKey(event) !== dateKey(date) || !String(boss.name || '').trim()) continue;
+        const period = event.getHours() < 7 ? 'night' : 'day';
+        const key = `${nameKey(boss.name)}|${period}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const basePoints = normalizeAttendanceBasePoints(boss.points ?? fallbackPoints);
+        result.push({id: 'act_' + crypto.randomUUID(), date: label, name: boss.name.trim(), timePeriod: period, basePoints, points: period === 'night' ? basePoints * 2 : basePoints});
+      }
+      return result;
+    }
+
+    async function importAttendanceDailyBosses() {
+      if (!isAdmin('attendance') || document.getElementById('attActivityEditId')?.value) return;
+      const err = document.getElementById('attActivityModalError');
+      const fail = text => { if (err) { err.textContent = text; err.style.display = 'block'; } };
+      const date = parseAttendanceImportDate(document.getElementById('attActivityDateInput')?.value);
+      if (!date) return fail('Nhập ngày hợp lệ, ví dụ T2 09/11 hoặc 09/11/2026.');
+      const items = getBossScheduleItems(date.getTime(), 'today');
+      if (!items.length) return fail('Không có boss trong lịch dự báo của server đang mở cho ngày này.');
+      const week = getActiveWeek();
+      if (!week) return fail('Vui lòng chọn tuần chấm công trước.');
+      const created = buildAttendanceDailyBossActivities(items, date, week.activities || [], document.getElementById('attActivityPointsInput')?.value ?? 2);
+      if (!created.length) return fail('Tất cả boss ngày này đã có trong bảng chấm công.');
+      const button = document.getElementById('attImportDailyBossesBtn');
+      if (button?.disabled) return;
+      const serverId = currentServerId;
+      if (button) button.disabled = true;
+      const pickerBox = document.querySelector("#customConfirmModal .confirm-modal-box");
+      const previousPickerWidth = pickerBox?.style.width || "";
+      if (pickerBox) pickerBox.style.width = "min(860px, calc(100vw - 32px))";
+      const selected = new Set(created.map((_, index) => index));
+      const messageBox = document.getElementById('confirmModalMessage');
+      const confirmButton = document.getElementById('confirmModalOkBtn');
+      const renderList = () => {
+        const group = (period, label) => {
+          const rows = created.map((activity, index) => ({activity, index})).filter(({activity, index}) => activity.timePeriod === period && selected.has(index));
+          return `<section style="margin-top:14px;min-width:0;"><strong>${label} (${rows.length})</strong><div style="display:grid;gap:7px;margin-top:8px;">${rows.length ? rows.map(({activity, index}) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--surface);border:1px solid var(--line-soft);border-radius:8px;"><span style="flex:1;min-width:0;overflow-wrap:anywhere;">${escapeHtml(activity.name)}</span><span style="white-space:nowrap;color:var(--cyan);">${activity.points}đ${period === 'night' ? ' · X2' : ''}</span><button type="button" data-remove-import="${index}" aria-label="${escapeHtml('Bỏ ' + activity.name + (period === 'night' ? ' ban đêm' : ' ban ngày'))}" style="cursor:pointer;border:1px solid var(--red);color:var(--red);background:transparent;padding:6px 10px;border-radius:6px;">Xóa</button></div>`).join('') : '<small style="color:var(--muted);">Không có boss.</small>'}</div></section>`;
+        };
+        messageBox.innerHTML = `<div style="white-space:normal;"><div role="status" aria-live="polite">Đã chọn <strong>${selected.size}</strong> mục cho ${escapeHtml(week.name || 'tuần đang chọn')}.</div><small style="color:var(--muted);">Xóa những boss không đánh khỏi danh sách trước khi xác nhận. Chưa thay đổi dữ liệu chấm công.</small><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-height:48vh;overflow-y:auto;padding-right:4px;">${group('day','☀️ Ban ngày')}${group('night','🌙 Ban đêm')}</div></div>`;
+        confirmButton.textContent = `Thêm ${selected.size} mục boss`;
+        confirmButton.disabled = selected.size === 0;
+      };
+      const onRemove = event => {
+        const target = event.target.closest('[data-remove-import]');
+        if (!target || !messageBox.contains(target)) return;
+        selected.delete(Number(target.dataset.removeImport));
+        const scrollArea = messageBox.querySelector('[style*="overflow-y"]');
+        const scrollTop = scrollArea?.scrollTop || 0;
+        renderList();
+        const newScroll = messageBox.querySelector('[style*="overflow-y"]');
+        if (newScroll) newScroll.scrollTop = scrollTop;
+      };
+      let confirmed;
+      try {
+        const confirmation = showConfirmModal({
+          title: 'Chọn boss để thêm vào chấm công',
+          subtitle: `${date.toLocaleDateString('vi-VN')} · ${getServerNameById(serverId)}`,
+          message: '', confirmText: 'Xác nhận thêm', cancelText: 'Hủy', isDanger: false
+        });
+        renderList();
+        messageBox.addEventListener('click', onRemove);
+        confirmed = await confirmation;
+      } finally {
+        messageBox.removeEventListener('click', onRemove);
+        if (pickerBox) pickerBox.style.width = previousPickerWidth;
+        confirmButton.disabled = false;
+        if (button) button.disabled = false;
+      }
+      if (!confirmed) return;
+      if (!isAdmin('attendance') || currentServerId !== serverId || getActiveWeek()?.id !== week.id) return fail('Ngày hoặc phạm vi chấm công đã thay đổi. Vui lòng mở lại và thử lại.');
+      const currentWeek = getActiveWeek();
+      const keyOf = activity => JSON.stringify([activity.name, activity.timePeriod]);
+      const available = new Set(buildAttendanceDailyBossActivities(items, date, currentWeek.activities || [], document.getElementById('attActivityPointsInput')?.value ?? 2).map(keyOf));
+      const pending = created.filter((activity, index) => selected.has(index) && available.has(keyOf(activity)));
+      if (!pending.length) return fail('Tất cả boss ngày này đã có trong bảng chấm công.');
+      currentWeek.activities.push(...pending);
+      saveAttendanceState(attendanceState, true);
+      closeAttendanceActivityModal();
+      renderAttendanceTable();
+      showToast(`✅ Đã thêm ${pending.length} mục boss theo lịch ngày ${date.toLocaleDateString('vi-VN')} · Tự phân ngày/đêm, bỏ qua mục trùng.`);
+    }
     function saveAttendanceActivity() {
       if (!isAdmin("attendance")) return;
       const dateInput = document.getElementById("attActivityDateInput");
@@ -11878,6 +11985,11 @@
         }
       } catch (e) {}
     }, 60000);
+
+
+
+
+
 
 
 
