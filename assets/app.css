@@ -4547,6 +4547,9 @@
     #attActivityDaySelect { height: 36px; max-width: 200px; }
     .att-table .col-att-day { min-width: 128px; max-width: 180px; }
     .att-day-toggle {
+      box-sizing: border-box;
+      height: 54px;
+      align-content: center;
       display: grid;
       width: 100%;
       gap: 4px;

@@ -8326,6 +8326,7 @@
               <strong>${escapeHtml(day.label)}</strong>
               <span>${day.activities.length} lượt · ${expanded ? "Thu gọn" : "Mở ▸"}</span>
             </button>
+
           </th>`;
           continue;
         }
@@ -8359,6 +8360,7 @@
         </th>`;
       }
 
+      if (adminMode) headHtml += `<th scope="col" style="padding:12px;vertical-align:middle;"><button type="button" class="att-day-toggle att-add-activity-btn" data-att-next-day style="white-space:nowrap;align-content:center;">＋ Thêm ngày hôm sau</button></th>`;
       headHtml += `</tr>`;
       headEl.innerHTML = headHtml;
       const filterHeaders = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
@@ -8397,7 +8399,7 @@
       if (!bodyEl) return;
 
       if (filteredMembers.length === 0) {
-        const colSpanTotal = 14 + activityColumns.length;
+        const colSpanTotal = 14 + activityColumns.length + (adminMode ? 1 : 0);
         bodyEl.innerHTML = `<tr><td colspan="${colSpanTotal}" style="text-align:center; padding:30px; color:var(--muted);">
           Không tìm thấy thành viên nào phù hợp.
         </td></tr>`;
@@ -8482,6 +8484,7 @@
           </td>`;
         }
 
+        if (adminMode) bodyHtml += `<td></td>`;
         bodyHtml += `</tr>`;
       });
 
@@ -9289,7 +9292,28 @@
       clearAttendanceOcrFilePreviews();
       attendanceOcrAnalysisQueue = Promise.resolve();
       document.getElementById("attOcrActivityId").value = actId;
-      document.getElementById("attOcrModalTitle").textContent = `Chấm công: ${activity.name}`;
+      document.getElementById("attOcrModalTitle").textContent = `Chấm công: ${activity.name} · ⭐ ${activity.points ?? 0} điểm`;
+      let timeBadge = document.getElementById("attOcrSpawnTime");
+      if (!timeBadge) {
+        timeBadge = document.createElement("span");
+        timeBadge.id = "attOcrSpawnTime";
+        timeBadge.style.cssText = "margin-left:auto;display:grid;gap:3px;text-align:center;white-space:nowrap;font-weight:700;color:var(--cyan);";
+        document.getElementById("closeAttOcrModal").before(timeBadge);
+      }
+      const activityDate = parseAttendanceImportDate(activity.date);
+      const scheduledTimes = activityDate ? getBossScheduleItems(activityDate.getTime(), 'today')
+        .filter(({boss, eventTime}) => String(boss.name || '').trim().toLocaleLowerCase('vi') === String(activity.name || '').trim().toLocaleLowerCase('vi')
+          && (new Date(eventTime).getHours() < 7 ? 'night' : 'day') === (activity.timePeriod === 'night' ? 'night' : 'day'))
+        .map(({eventTime}) => { const d = new Date(eventTime); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }) : [];
+      const spawnTimes = [...new Set(activity.spawnTime ? [activity.spawnTime] : scheduledTimes)];
+      const timeLabel = document.createElement("span");
+      timeLabel.textContent = "Time Boss";
+      timeLabel.style.cssText = "font-size:12px;color:var(--muted);font-weight:600;";
+      const timeValue = document.createElement("span");
+      timeValue.textContent = spawnTimes.length ? spawnTimes.join(' · ') : 'Chưa có giờ boss';
+      timeValue.style.cssText = "font-size:24px;line-height:1.2;font-variant-numeric:tabular-nums;";
+      timeBadge.replaceChildren(timeLabel, timeValue);
+      timeBadge.title = 'Giờ boss xuất hiện theo lịch boss hằng ngày';
       document.getElementById("attOcrModalSub").textContent = `${activity.date || ""} · Chỉ nhận tên sáng/trắng`;
       document.getElementById("attOcrFileInput").value = "";
       document.getElementById("attOcrProgress").hidden = true;
@@ -10465,6 +10489,15 @@
       if (nightCheckbox) nightCheckbox.checked = period === "night" || period === "both";
     }
 
+    function openAttendanceNextDay() {
+      if (!isAdmin("attendance")) return;
+      const dates = (getActiveWeek().activities || []).map(a => parseAttendanceImportDate(a.date)).filter(Boolean);
+      const next = dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : new Date();
+      next.setDate(next.getDate() + 1);
+      openAttendanceActivityModal();
+      document.getElementById("attActivityDateInput").value = `${['CN','T2','T3','T4','T5','T6','T7'][next.getDay()]} ${String(next.getDate()).padStart(2,'0')}/${String(next.getMonth()+1).padStart(2,'0')}/${next.getFullYear()}`;
+    }
+
     function openAttendanceActivityModal(actId = null) {
       const modal = document.getElementById("attActivityModal");
       if (!modal) return;
@@ -10546,7 +10579,7 @@
         if (seen.has(key)) continue;
         seen.add(key);
         const basePoints = normalizeAttendanceBasePoints(boss.points ?? fallbackPoints);
-        result.push({id: 'act_' + crypto.randomUUID(), date: label, name: boss.name.trim(), timePeriod: period, basePoints, points: period === 'night' ? basePoints * 2 : basePoints});
+        result.push({id: 'act_' + crypto.randomUUID(), date: label, name: boss.name.trim(), spawnTime: `${String(event.getHours()).padStart(2,'0')}:${String(event.getMinutes()).padStart(2,'0')}`, timePeriod: period, basePoints, points: period === 'night' ? basePoints * 2 : basePoints});
       }
       return result;
     }
@@ -10576,7 +10609,7 @@
       const renderList = () => {
         const group = (period, label) => {
           const rows = created.map((activity, index) => ({activity, index})).filter(({activity, index}) => activity.timePeriod === period && selected.has(index));
-          return `<section style="margin-top:14px;min-width:0;"><strong>${label} (${rows.length})</strong><div style="display:grid;gap:7px;margin-top:8px;">${rows.length ? rows.map(({activity, index}) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--surface);border:1px solid var(--line-soft);border-radius:8px;"><span style="flex:1;min-width:0;overflow-wrap:anywhere;">${escapeHtml(activity.name)}</span><span style="white-space:nowrap;color:var(--cyan);">${activity.points}đ${period === 'night' ? ' · X2' : ''}</span><button type="button" data-remove-import="${index}" aria-label="${escapeHtml('Bỏ ' + activity.name + (period === 'night' ? ' ban đêm' : ' ban ngày'))}" style="cursor:pointer;border:1px solid var(--red);color:var(--red);background:transparent;padding:6px 10px;border-radius:6px;">Xóa</button></div>`).join('') : '<small style="color:var(--muted);">Không có boss.</small>'}</div></section>`;
+          return `<section style="margin-top:14px;min-width:0;"><strong>${label} (${rows.length})</strong><div style="display:grid;gap:7px;margin-top:8px;">${rows.length ? rows.map(({activity, index}) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--surface);border:1px solid var(--line-soft);border-radius:8px;"><span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(activity.name)}</span><span style="white-space:nowrap;color:var(--cyan);">${activity.points}đ${period === 'night' ? ' · X2' : ''}</span><time style="margin-left:auto;white-space:nowrap;font-weight:700;">${escapeHtml(activity.spawnTime || '')}</time><button type="button" data-remove-import="${index}" aria-label="${escapeHtml('Bỏ ' + activity.name + (period === 'night' ? ' ban đêm' : ' ban ngày'))}" style="cursor:pointer;border:1px solid var(--red);color:var(--red);background:transparent;padding:6px 10px;border-radius:6px;">×</button></div>`).join('') : '<small style="color:var(--muted);">Không có boss.</small>'}</div></section>`;
         };
         messageBox.innerHTML = `<div style="white-space:normal;"><div role="status" aria-live="polite">Đã chọn <strong>${selected.size}</strong> mục cho ${escapeHtml(week.name || 'tuần đang chọn')}.</div><small style="color:var(--muted);">Xóa những boss không đánh khỏi danh sách trước khi xác nhận. Chưa thay đổi dữ liệu chấm công.</small><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-height:48vh;overflow-y:auto;padding-right:4px;">${group('day','☀️ Ban ngày')}${group('night','🌙 Ban đêm')}</div></div>`;
         confirmButton.textContent = `Thêm ${selected.size} mục boss`;
@@ -11687,6 +11720,7 @@
       const daySelect = document.getElementById("attActivityDaySelect");
       daySelect.addEventListener("change", () => setAttendanceOpenDay(daySelect.value));
       document.getElementById("attTableHead").addEventListener("click", event => {
+        if (event.target.closest("button[data-att-next-day]")) { openAttendanceNextDay(); return; }
         const button = event.target.closest("button[data-att-day-key]");
         if (button) setAttendanceOpenDay(button.dataset.attDayKey === attendanceOpenDay ? "" : button.dataset.attDayKey, button);
       });
