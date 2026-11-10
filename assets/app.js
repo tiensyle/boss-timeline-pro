@@ -1056,7 +1056,7 @@
         const soonLogoUrl = `${baseUrl}/assets/boss-logo-soon.png`;
         const spawnedLogoUrl = `${baseUrl}/assets/boss-logo-spawned.png`;
 
-        const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+        const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { timeZone: "Asia/Bangkok", hourCycle: "h23", hour: "2-digit", minute: "2-digit" });
         const remainMs = Number(eventKey) - getNow();
         const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
 
@@ -1087,6 +1087,17 @@
           logoToUse = spawnedLogoUrl;
         } else {
           return;
+        }
+
+        if (milestoneType === "10m" || milestoneType === "5m") {
+          const safeName = String(boss.name || "Boss").replace(/[@*_~`<>]/g, "");
+          const payload = {
+            username: "Boss Tracker Alert",
+            content: `${discordConfig.tagEveryone ? "@everyone\n" : ""}⏰ **Boss warning**\n⚔️ **${safeName}** sẽ xuất hiện sau **${remainMinutes} phút!**\n🕒 **Time Boss: ${spawnTimeStr} — GMT+7**`,
+            allowed_mentions: { parse: discordConfig.tagEveryone ? ["everyone"] : [] }
+          };
+          return await sendDiscordAlertOnce(alertId, 24 * 60 * 60 * 1000,
+            serverId => sendDiscordWebhook(payload, null, "image.png", serverId));
         }
 
         const thumbnailUrl = (discordConfig.logoUrl && discordConfig.logoUrl.trim())

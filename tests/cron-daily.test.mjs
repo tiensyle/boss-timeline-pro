@@ -110,3 +110,23 @@ test("daily cron releases its claim when boss state cannot be read", async () =>
   await api.run();
   assert.equal(api.sends, 1);
 });
+
+
+test("daily cron falls back to the shared webhook when no server webhook exists", async () => {
+  let destination;
+  const handler = createCronDailyHandler({
+    env: { CRON_SECRET: "secret", DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/456/shared" },
+    fetchImpl: async (url, options = {}) => {
+      if (url.includes("servers_list")) return Response.json([{id:"s1",name:"One"}]);
+      if (url.includes("webhook_urls")) return Response.json(null);
+      if (url.includes("cron_runs")) return Response.json(null, {headers:{etag:'"1"'}});
+      if (url.includes("state/data")) return Response.json({bosses:[],history:[]});
+      destination = url;
+      return new Response(null,{status:204});
+    }
+  });
+  const res = {setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+  await handler({method:"GET",headers:{authorization:"Bearer secret"}},res);
+  assert.equal(destination,"https://discord.com/api/webhooks/456/shared");
+  assert.equal(res.body.results[0].status,"sent");
+});

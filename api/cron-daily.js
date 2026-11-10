@@ -133,7 +133,7 @@ function buildDiscordPayload(serverName, serverIcon, items, dateDisplay) {
         title: `📅 [${iconStr}${serverName}] LỊCH BOSS HÔM NAY — ${dateDisplay}`,
         description: description,
         color: 3447003,
-        footer: { text: "Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày (Vercel Cron)" },
+        footer: { text: "Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày (GMT+7)" },
         timestamp: new Date().toISOString()
       }
     ],
@@ -153,6 +153,23 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
     return res.status(401).json({ success: false, error: "Unauthorized" });
   }
 
+  let databaseEnv = env;
+  if (env.FIREBASE_CRON_EMAIL && env.FIREBASE_CRON_PASSWORD && env.FIREBASE_API_KEY) {
+    try {
+      const login = await fetchImpl(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(env.FIREBASE_API_KEY)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: env.FIREBASE_CRON_EMAIL, password: env.FIREBASE_CRON_PASSWORD, returnSecureToken: true }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!login.ok) throw new Error("login failed");
+      const identity = await login.json();
+      if (!identity.idToken || identity.localId !== env.FIREBASE_CRON_UID) throw new Error("identity mismatch");
+      databaseEnv = { ...env, FIREBASE_DATABASE_AUTH: identity.idToken };
+    } catch {
+      return res.status(503).json({ success: false, error: "Firebase cron sign-in failed; check dedicated account configuration" });
+    }
+  }
+
   const databaseUrl = (env.FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL).trim().replace(/\/$/, "");
   const nowTimestamp = now();
   const vnNow = getVnDateParts(nowTimestamp);
@@ -167,7 +184,7 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
   // ─── Bước 1: Lấy danh sách servers từ Firebase ───────────────────────────
   let serversList = [];
   try {
-    const svListRes = await fetchImpl(firebaseUrl(databaseUrl, "boss_timeline_servers_list", env), {
+    const svListRes = await fetchImpl(firebaseUrl(databaseUrl, "boss_timeline_servers_list", databaseEnv), {
       signal: AbortSignal.timeout(10000)
     });
     if (svListRes.ok) {
@@ -210,7 +227,7 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
     // Fallback: đọc từ Firebase boss_timeline_webhook_urls/{serverId}/url
     if (!webhookUrl) {
       try {
-        const fbWebhookRes = await fetchImpl(firebaseUrl(databaseUrl, `boss_timeline_webhook_urls/${serverId}`, env), {
+        const fbWebhookRes = await fetchImpl(firebaseUrl(databaseUrl, `boss_timeline_webhook_urls/${serverId}`, databaseEnv), {
           signal: AbortSignal.timeout(8000)
         });
         if (fbWebhookRes.ok) {
@@ -222,13 +239,16 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
       } catch (_) {}
     }
 
+    // Preserve server-specific destinations; use the shared webhook only as fallback.
+    if (!webhookUrl) webhookUrl = String(env.DISCORD_WEBHOOK_URL || "").trim();
+
     if (!webhookUrl || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
       results.push({ serverId, serverName, status: "skipped", reason: `No valid webhook: DISCORD_WEBHOOK_${suffix}` });
       continue;
     }
 
     const dateKey = `${yyyy}-${mm}-${dd}`;
-    const lockUrl = firebaseUrl(databaseUrl, `boss_timeline_cron_runs/${dateKey}/${serverId}`, env);
+    const lockUrl = firebaseUrl(databaseUrl, `boss_timeline_cron_runs/${dateKey}/${serverId}`, databaseEnv);
     const owner = randomUUID();
     let claimed = false;
     try {
@@ -249,8 +269,8 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
 
     // Path Firebase: s1 dùng root path, các server khác dùng path riêng
     const statePath = serverId === "s1"
-      ? firebaseUrl(databaseUrl, "boss_timeline_state/data", env)
-      : firebaseUrl(databaseUrl, `boss_timeline_servers/${serverId}/state/data`, env);
+      ? firebaseUrl(databaseUrl, "boss_timeline_state/data", databaseEnv)
+      : firebaseUrl(databaseUrl, `boss_timeline_servers/${serverId}/state/data`, databaseEnv);
 
     let bosses = [];
     let history = [];
