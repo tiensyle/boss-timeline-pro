@@ -60,6 +60,14 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
     if (!payload || typeof payload !== "object" || Array.isArray(payload) || JSON.stringify(payload).length > 64000) {
       return res.status(400).json({ error: "Invalid payload provided." });
     }
+    // Reject legacy image alerts even when an old browser session is still running.
+    // Daily schedules and manual exports use different titles and remain supported.
+    const legacyBossAlert = payload.username === "Boss Tracker Alert"
+      && Array.isArray(payload.embeds)
+      && payload.embeds.some(embed => String(embed?.title || "").includes("[CẢNH BÁO] BOSS"));
+    if (legacyBossAlert) {
+      return res.status(409).json({ error: "Phiên web đang dùng mẫu cảnh báo cũ. Hãy tải lại trang bằng Ctrl+F5.", code: "LEGACY_BOSS_ALERT" });
+    }
     const serverId = String(req.body.serverId || "s1");
     if (!/^[a-zA-Z0-9_-]{1,64}$/.test(serverId)) return res.status(400).json({ error: "Invalid server ID." });
     const suffix = serverId.toUpperCase().replace(/-/g, "_");
