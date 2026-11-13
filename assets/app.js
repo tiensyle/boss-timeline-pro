@@ -1077,7 +1077,7 @@
         const payload = {
           username: "Boss Tracker Alert",
           ...(discordConfig.logoUrl && discordConfig.logoUrl.trim() ? { avatar_url: discordConfig.logoUrl.trim() } : {}),
-          content: `${discordConfig.tagEveryone ? "@everyone\n" : ""}\`\`\`ansi\n\u001b[1;31mBoss warning\u001b[0m\n\u001b[1;36m${safeName.replace(/[\u0000-\u001f\u007f]/g, "")}\u001b[0m ${actionText.replace(/\*\*/g, "")}\n\u001b[1;33mTime Boss: ${spawnTimeStr} — GMT+7\u001b[0m\n\`\`\``,
+          content: `${discordConfig.tagEveryone ? "@everyone\n" : ""}⚠️ **Boss warning**\n⚔️ **${safeName}** ${actionText}\n⏰ **Time Boss: ${spawnTimeStr} — GMT+7**`,
           allowed_mentions: { parse: discordConfig.tagEveryone ? ["everyone"] : [] }
         };
 
