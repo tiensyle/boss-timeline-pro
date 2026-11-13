@@ -168,6 +168,10 @@
       ".indexOn": [
         "expiresAt"
       ]
+    },
+    "boss_timeline_cron_runs": {
+      ".read": "auth != null && auth.uid === 'RcZgf2xYzxbVazHR5PJfY2cLsp73'",
+      ".write": "auth != null && auth.uid === 'RcZgf2xYzxbVazHR5PJfY2cLsp73'"
     }
   }
 }

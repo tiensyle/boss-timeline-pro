@@ -1050,140 +1050,42 @@
 
         const alertId = boss.id + "_" + milestoneType + "_" + eventKey;
 
-        const baseUrl = (window.location && window.location.origin && window.location.origin.startsWith("http"))
-          ? window.location.origin
-          : "https://bosschill.vercel.app";
-        const soonLogoUrl = `${baseUrl}/assets/boss-logo-soon.png`;
-        const spawnedLogoUrl = `${baseUrl}/assets/boss-logo-spawned.png`;
-
         const spawnTimeStr = new Date(eventKey).toLocaleTimeString("vi-VN", { timeZone: "Asia/Bangkok", hourCycle: "h23", hour: "2-digit", minute: "2-digit" });
         const remainMs = Number(eventKey) - getNow();
         const remainMinutes = Math.max(1, Math.round(remainMs / 60000));
 
-        let title = "";
-        let color = 16007006; // Pink / Red (#f43f5e)
-        let contentText = discordConfig.tagEveryone ? "@everyone" : "";
-        let logoToUse = soonLogoUrl;
-
         if (milestoneType === "10m") {
           if (discordConfig.notify10m === false) return;
-          title = `⚠️ [CẢNH BÁO] BOSS SẮP RA (còn ${remainMinutes} PHÚT)`;
-          color = 16007006; // Pink / Red
-          logoToUse = soonLogoUrl;
         } else if (milestoneType === "5m") {
           if (discordConfig.notify5m === false) return;
-          title = `⚠️ [CẢNH BÁO] BOSS SẮP RA (còn ${remainMinutes} PHÚT)`;
-          color = 16007006; // Pink / Red
-          logoToUse = soonLogoUrl;
         } else if (milestoneType === "1m") {
           if (discordConfig.notify1m === false) return;
-          title = `⚠️ [CẢNH BÁO] BOSS SẮP RA (còn 1 PHÚT)`;
-          color = 16007006; // Pink / Red
-          logoToUse = soonLogoUrl;
         } else if (milestoneType === "0m") {
           if (discordConfig.notify0m === false) return;
-          title = "⚠️ [CẢNH BÁO] BOSS ĐÃ RA";
-          color = 16107019; // Gold / Amber (#f59e0b)
-          logoToUse = spawnedLogoUrl;
         } else {
           return;
         }
 
-        if (milestoneType === "10m" || milestoneType === "5m") {
-          const safeName = String(boss.name || "Boss").replace(/[@*_~`<>]/g, "");
-          const payload = {
-            username: "Boss Tracker Alert",
-            content: `${discordConfig.tagEveryone ? "@everyone\n" : ""}⏰ **Boss warning**\n⚔️ **${safeName}** sẽ xuất hiện sau **${remainMinutes} phút!**\n🕒 **Time Boss: ${spawnTimeStr} — GMT+7**`,
-            allowed_mentions: { parse: discordConfig.tagEveryone ? ["everyone"] : [] }
-          };
-          return await sendDiscordAlertOnce(alertId, 24 * 60 * 60 * 1000,
-            serverId => sendDiscordWebhook(payload, null, "image.png", serverId));
+        const safeName = String(boss.name || "Boss").replace(/[@*_~`<>]/g, "");
+        let actionText = `sẽ xuất hiện sau **${remainMinutes} phút!**`;
+        if (milestoneType === "0m") {
+          actionText = "đã xuất hiện!";
+        } else if (milestoneType === "1m") {
+          actionText = "sẽ xuất hiện sau **1 phút!**";
         }
 
-        const thumbnailUrl = (discordConfig.logoUrl && discordConfig.logoUrl.trim())
-          ? discordConfig.logoUrl.trim()
-          : logoToUse;
-
-        let desc = `👑 **BOSS:** **${boss.name || "Boss"}** **(Lv:${boss.level || 80})**\n\n📍 **MAP:** **${boss.map || "Chưa rõ"}**\n\n🕒 **TIME:** **${spawnTimeStr}**`;
-        if (boss.notes && boss.notes.trim()) {
-          desc += `\n\n📝 **Ghi chú:** ${boss.notes.trim()}`;
-        }
-
-
-        const bossAlertImage = await generateBossAlertImage(boss, spawnTimeStr);
-        const bossPortraitUrl = new URL(getBossPortrait(boss), document.baseURI).href;
         const payload = {
           username: "Boss Tracker Alert",
-          avatar_url: thumbnailUrl,
-          content: contentText,
-          embeds: [
-            {
-              title: title,
-              description: bossAlertImage ? (boss.notes?.trim() ? `📝 ${boss.notes.trim()}` : undefined) : desc,
-              color: color,
-              ...(bossAlertImage ? { image: { url: "attachment://boss-alert.png" } } : { thumbnail: { url: bossPortraitUrl } }),
-              footer: { text: "Boss Timeline Pro • Live Alert System" },
-              timestamp: new Date().toISOString()
-            }
-          ]
+          ...(discordConfig.logoUrl && discordConfig.logoUrl.trim() ? { avatar_url: discordConfig.logoUrl.trim() } : {}),
+          content: `${discordConfig.tagEveryone ? "@everyone\n" : ""}⏰ **Boss warning**\n⚔️ **${safeName}** ${actionText}\n🕒 **Time Boss: ${spawnTimeStr} — GMT+7**`,
+          allowed_mentions: { parse: discordConfig.tagEveryone ? ["everyone"] : [] }
         };
 
         return await sendDiscordAlertOnce(alertId, 24 * 60 * 60 * 1000,
-          serverId => sendDiscordWebhook(payload, bossAlertImage, "boss-alert.png", serverId));
+          serverId => sendDiscordWebhook(payload, null, "image.png", serverId));
       } catch (err) {
         console.error("[Discord Bot] sendDiscordBossAlert error:", err);
         return false;
-      }
-    }
-
-    async function generateBossAlertImage(boss, spawnTimeStr) {
-      try {
-        const loadImage = path => new Promise((resolve, reject) => {
-          const img = new Image();
-          const timeout = setTimeout(() => reject(new Error('Image timeout')), 5000);
-          img.onload = () => { clearTimeout(timeout); resolve(img); };
-          img.onerror = () => { clearTimeout(timeout); reject(new Error('Image unavailable')); };
-          img.src = new URL(path, document.baseURI).href;
-        });
-        const [portrait, frame] = await Promise.all([
-          loadImage(getBossPortrait(boss)), loadImage('assets/portraits/frame.png')
-        ]);
-        const canvas = document.createElement('canvas');
-        canvas.width = 880; canvas.height = 320;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return null;
-        ctx.fillStyle = '#2b2d31'; ctx.fillRect(0, 0, 880, 320);
-        const write = (value, y, size = 30, color = '#f2f3f5') => {
-          ctx.fillStyle = color;
-          ctx.font = `700 ${size}px "Segoe UI", Arial`;
-          while (ctx.measureText(value).width > 510 && size > 20) ctx.font = `700 ${--size}px "Segoe UI", Arial`;
-          ctx.fillText(value, 76, y, 510);
-        };
-        const icon = (value, y) => { ctx.font = '32px '+String.fromCharCode(34)+'Segoe UI Emoji'+String.fromCharCode(34); ctx.textAlign = 'center'; ctx.fillText(value, 34, y); ctx.textAlign = 'left'; };
-        icon('👑', 62); icon('📍', 174);
-        write('BOSS: ' + String(boss.name || 'Boss').toUpperCase(), 62, 32);
-        write('Lv. ' + (boss.level || 80), 106, 28, '#b5bac1');
-        const words = String(boss.map || 'Chưa rõ').split(/\s+/);
-        let lines = ['']; ctx.font = '700 32px "Segoe UI", Arial';
-        for (const word of words) {
-          const i = lines.length - 1, next = (lines[i] + ' ' + word).trim();
-          if (ctx.measureText(next).width > 420 && lines[i]) lines.push(word); else lines[i] = next;
-        }
-        write('MAP: ' + lines[0], 174, 32);
-        if (lines.length > 1) write(lines.slice(1).join(' '), 216, 32);
-        icon('🕒', lines.length > 1 ? 276 : 242);
-        write('TIME: ' + spawnTimeStr, lines.length > 1 ? 276 : 242, 32);
-        // Preserve frame proportions while trimming its transparent canvas margins.
-        const fw = 270, fh = fw * frame.height / frame.width, fx = 600, fy = -10;
-        const px = fx + fw * .14, py = fy + fh * .13, pw = fw * .72, ph = fh * .67;
-        const scale = Math.max(pw / portrait.width, ph / portrait.height);
-        const sw = pw / scale, sh = ph / scale;
-        ctx.drawImage(portrait, (portrait.width - sw) / 2, (portrait.height - sh) * .35, sw, sh, px, py, pw, ph);
-        ctx.drawImage(frame, fx, fy, fw, fh);
-        return await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      } catch (err) {
-        console.warn('[Discord] Portrait card unavailable:', err);
-        return null;
       }
     }
     async function generateScheduleImageBlob(items, dateDisplay, now) {

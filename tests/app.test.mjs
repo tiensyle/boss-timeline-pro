@@ -551,7 +551,7 @@ test("automatic respawn notifies only after Firebase accepts the transition", as
     const boss = { id: "a", spawnMode: "interval", diedAt: 100, respawnsAt: 200, revision: 1 };
     const ctx = load(["autoResolveRespawns"], {
       isAdmin: () => true, autoRespawnSaveInFlight: false, getNow: () => 500,
-      state: { bosses: [boss] }, activeSoundNotified: {}, notifyBossAlert: () => order.push("notify"),
+      state: { bosses: [boss] }, activeSoundNotified: {}, notifyBossAlert: () => order.push("notify"), deliverBossDiscordMilestone: () => order.push("notify"),
       performRespawn: item => { item.diedAt = null; item.respawnsAt = null; item.revision++; },
       saveState: async () => { order.push("save"); return outcome; }, currentLang: "vi", showToast: () => order.push("toast")
     });

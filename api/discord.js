@@ -99,7 +99,7 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
         body = form;
         headers = undefined;
       }
-      const isBossAlert = payload.username === "Boss Tracker Alert" && payload.embeds?.some(embed => String(embed.title || "").includes("[CẢNH BÁO] BOSS"));
+      const isBossAlert = payload.username === "Boss Tracker Alert" && (payload.embeds?.some(embed => String(embed.title || "").includes("[CẢNH BÁO] BOSS")) || String(payload.content || "").includes("Boss warning"));
       const sendUrl = new URL(webhookUrl);
       if (isBossAlert) sendUrl.searchParams.set("wait", "true");
       const response = await fetchImpl(sendUrl.href, { method: "POST", headers, body, signal: AbortSignal.timeout(15000) });
