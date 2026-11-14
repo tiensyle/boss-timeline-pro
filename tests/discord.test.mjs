@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import { createDiscordHandler } from "../api/discord.js";
 
 const webhook = "https://discord.com/api/webhooks/123456789/test-token";
-function fixture({ superAdmin = true, active = true, permissions, discordStatus = 204, env = {} } = {}) {
+function fixture({ superAdmin = true, active = true, permissions, discordStatus = 204, storedWebhook, configStatus = 200, env = {} } = {}) {
   const requests = [];
   let timestamp = 1000;
   const fetchImpl = async (url, options) => {
     requests.push({ url, options });
     if (url.includes("accounts:lookup")) return Response.json({ users: [{ localId: "uid", customAttributes: JSON.stringify({ admin: superAdmin }) }] });
+    if (url.includes("boss_timeline_webhook_urls")) return Response.json(storedWebhook === null ? null : {url: storedWebhook || env.DISCORD_WEBHOOK_S2 || webhook}, {status:configStatus});
     if (url.includes("admin_access")) return Response.json({ active, permissions });
     if (discordStatus === 204) return new Response(null, { status: 204 });
     return Response.json({ retry_after: 2.5 }, { status: discordStatus });
@@ -42,7 +43,7 @@ test("Discord rejects missing login, unapproved/revoked admins and unsafe origin
 test("approved secondary admins and super admins can send; server webhook overrides global", async () => {
   const secondary = fixture({ superAdmin: false });
   assert.equal((await secondary.send()).code, 200);
-  assert.equal(secondary.requests.length, 3);
+  assert.equal(secondary.requests.length, 4);
   const otherWebhook = webhook.replace("test-token", "server-two");
   const override = fixture({ env: { DISCORD_WEBHOOK_S2: otherWebhook } });
   assert.equal((await override.send({ body: { serverId: "s2", payload: { content: "Hi" } } })).code, 200);
@@ -60,7 +61,7 @@ test("Discord rejects an active admin without Discord permission", async () => {
 
 test("webhook saved by an admin overrides the old deployment webhook for the selected server", async () => {
   const savedWebhook = webhook.replace("test-token", "new-group-token");
-  const api = fixture({ env: { DISCORD_WEBHOOK_S2: webhook.replace("test-token", "old-group-token") } });
+  const api = fixture({ storedWebhook: savedWebhook, env: { DISCORD_WEBHOOK_S2: webhook.replace("test-token", "old-group-token") } });
   const result = await api.send({ body: { serverId: "s2", webhookUrl: savedWebhook, payload: { content: "New group" } } });
   assert.equal(result.code, 200);
   assert.equal(api.requests.at(-1).url, savedWebhook);
@@ -95,7 +96,7 @@ test("invalid payloads, attachment sizes and unsafe webhook destinations are rej
   assert.equal((await api.send({ body: { payload: {}, serverId: "../../s1" } })).code, 400);
   assert.equal((await api.send({ body: { payload: {}, file: { name: "bad.html", type: "text/html", base64: "test" } } })).code, 400);
   assert.equal((await api.send({ body: { payload: {}, file: { name: "report.png", type: "image/png", base64: "a".repeat(4000001) } } })).code, 413);
-  const invalid = fixture({ env: { DISCORD_WEBHOOK_URL: "https://example.com/not-discord" } });
+  const invalid = fixture({ storedWebhook: "https://example.com/not-discord" });
   assert.equal((await invalid.send()).code, 400);
   assert.equal(api.requests.filter(r => r.url === webhook).length, 0);
 });
@@ -131,3 +132,15 @@ test("CSV fallback reports are accepted as CSV rather than executable attachment
   assert.equal(result.code, 200);
   assert.equal(api.requests.at(-1).options.body.get("files[0]").type, "text/csv;charset=utf-8");
 });
+
+test('server destination cannot be overridden by stale client webhook or global fallback', async()=>{
+ const api=fixture();
+ const res=await api.send({body:{serverId:'s1',webhookUrl:'https://discord.com/api/webhooks/999/wrong',payload:{content:'Hi'}}});
+ assert.equal(res.code,200);assert.equal(api.requests.at(-1).url,webhook);
+ for(const opts of [{storedWebhook:null},{configStatus:403}]){
+  const denied=fixture(opts);const result=await denied.send();
+  assert.ok(result.code>=400);
+  assert.equal(denied.requests.some(r=>r.url.startsWith('https://discord.com/')),false);
+ }
+});
+

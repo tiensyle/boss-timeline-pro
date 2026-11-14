@@ -70,11 +70,18 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
     }
     const serverId = String(req.body.serverId || "s1");
     if (!/^[a-zA-Z0-9_-]{1,64}$/.test(serverId)) return res.status(400).json({ error: "Invalid server ID." });
-    const suffix = serverId.toUpperCase().replace(/-/g, "_");
-    // Ưu tiên webhook mà admin đã lưu cho server hiện tại. Biến môi trường
-    // chỉ là phương án dự phòng để tương thích với cấu hình triển khai cũ.
-    const configuredWebhookUrl = typeof req.body.webhookUrl === "string" ? req.body.webhookUrl.trim() : "";
-    const webhookUrl = (configuredWebhookUrl || env[`DISCORD_WEBHOOK_${suffix}`] || env.DISCORD_WEBHOOK_URL || "").trim();
+    // Resolve only the selected server's saved destination, never a client cache
+    // or a global environment fallback that could point at another channel.
+    let webhookUrl = '';
+    try {
+      const databaseUrl = (env.FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL).replace(/\/$/, '');
+      const config = await fetchImpl(`${databaseUrl}/boss_timeline_webhook_urls/${serverId}.json?auth=${encodeURIComponent(idToken)}`, { signal: AbortSignal.timeout(8000) });
+      if (!config.ok) throw new Error('Unavailable');
+      const saved = await config.json();
+      webhookUrl = typeof saved?.url === 'string' ? saved.url.trim() : '';
+    } catch {
+      return res.status(503).json({ error: 'Không đọc được webhook của server. Đã dừng gửi để tránh sai kênh.' });
+    }
     if (!/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
       return res.status(400).json({ error: "Invalid or missing Discord Webhook URL." });
     }
@@ -139,4 +146,5 @@ export function createDiscordHandler({ fetchImpl = fetch, env = process.env, now
 }
 
 export default createDiscordHandler();
+
 

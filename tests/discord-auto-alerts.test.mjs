@@ -29,3 +29,16 @@ test('fixed boss without death and remotely resolved interval boss both notify o
  assert.equal(s.calls.length,2);assert.ok(s.calls.every(call=>call[1]==='0m'));
 });
 
+test('10m warning catches delayed ticks and ignores unrelated revisions but rejects unconfirmed timers',async()=>{
+ for(const minutes of [10,7,6]){
+  const s=setup();s.setAdmin(true);s.setSuccess(true);
+  const boss={id:'timer',diedAt:100,respawnsAt:s.now()+minutes*60000,revision:9};
+  s.ctx.state.bosses=[boss];s.ctx.bossSyncBase={bosses:[{...boss,revision:8}]};
+  s.ctx.checkBossDiscordAlerts(s.now());await new Promise(setImmediate);
+  assert.equal(s.calls.length,1);assert.equal(s.calls[0][1],'10m');
+ }
+ const s=setup();s.setAdmin(true);
+ s.ctx.state.bosses=[{id:'timer',diedAt:100,respawnsAt:s.now()+600000}];
+ s.ctx.bossSyncBase={bosses:[{id:'timer',diedAt:200,respawnsAt:s.now()+600000}]};
+ s.ctx.checkBossDiscordAlerts(s.now());assert.equal(s.calls.length,0);
+});

@@ -879,7 +879,7 @@
      * Đọc webhook URL từ Firebase về cache
      */
     async function loadWebhookUrl(svId) {
-      if (webhookUrlCache[svId] !== undefined) return webhookUrlCache[svId];
+
       if (!firebaseDb) return "";
       try {
         const snap = await firebaseDb.ref(`boss_timeline_webhook_urls/${svId}`).once("value");
@@ -945,12 +945,12 @@
         if (relayUrl.username || relayUrl.password) return false;
         // Webhook được cấu hình trong giao diện phải được gửi cùng đúng server.
         // API vẫn giữ webhook môi trường làm phương án dự phòng cho cấu hình cũ.
-        const webhookUrl = await loadWebhookUrl(serverId);
+        // Destination is resolved by the API from this server ID.
         for (let attempt = 0; attempt < 3; attempt++) {
           const proxyRes = await fetch(relayUrl.href, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
-            body: JSON.stringify({ payload, serverId, webhookUrl, file }),
+            body: JSON.stringify({ payload, serverId, file }),
             signal: AbortSignal.timeout(45000)
           });
           if (proxyRes.ok) return true;
@@ -1077,7 +1077,7 @@
         const payload = {
           username: "Boss Tracker Alert",
           ...(discordConfig.logoUrl && discordConfig.logoUrl.trim() ? { avatar_url: discordConfig.logoUrl.trim() } : {}),
-          content: `${discordConfig.tagEveryone ? "@everyone\n" : ""}⚠️ **Boss warning**\n⚔️ **${safeName}** ${actionText}\n⏰ **Time Boss: ${spawnTimeStr} — GMT+7**`,
+          content: `${discordConfig.tagEveryone ? "@everyone\n" : ""}⚠️ **Boss warning**\n\n⚔️ **${safeName}** ${actionText}\n\n⏰ **Time Boss: ${spawnTimeStr} — GMT+7**`,
           allowed_mentions: { parse: discordConfig.tagEveryone ? ["everyone"] : [] }
         };
 
@@ -1316,19 +1316,6 @@
       return await sendDiscordWebhook(payload, reportBlob, fileName, serverId, forced);
     }
 
-    function checkDailyScheduleAlert(now) {
-      // Đã tắt: lịch boss 00:00 hàng ngày được gửi tự động bởi Vercel Cron (api/cron-daily.js)
-      // Không gửi từ browser nữa để tránh sai giờ theo múi giờ máy client và phụ thuộc người mở web.
-      return;
-    }
-
-
-
-    async function sendDiscordKillAlert(boss, diedAt, nextRespawn) {
-      // Đã tắt hoàn toàn: chỉ gửi 2 loại thông báo (báo cáo 00h và đếm ngược giờ boss sắp ra)
-      return;
-    }
-
     function playBossMilestone(boss, milestone, eventTime) {
       const key = JSON.stringify([currentServerId, boss.id, milestone]);
       if (localBossMilestones.get(key) === eventTime) return;
@@ -1406,7 +1393,6 @@
             ? (bossSyncBase?.bosses || []).find(item => item.id === boss.id)
             : null;
           timerConfirmed = !!confirmedBoss
-            && Number(confirmedBoss.revision || 0) === Number(boss.revision || 0)
             && confirmedBoss.diedAt === boss.diedAt
             && confirmedBoss.respawnsAt === boss.respawnsAt;
           // Only publish Discord alerts for a timer confirmed by Firebase.
@@ -1422,8 +1408,8 @@
           deliverBossDiscordMilestone(boss, milestoneType, eventTime);
         };
 
-        // Mốc 10 phút (kích hoạt trong khoảng 7.5 phút - 10.5 phút)
-        if (remaining <= 10.5 * 60 * 1000 && remaining > 7.5 * 60 * 1000) {
+        // Báo khi còn 10 phút; bắt lại sau gián đoạn trước khi vào mốc 5 phút.
+        if (remaining <= 10 * 60 * 1000 && remaining > 5.5 * 60 * 1000) {
           deliverMilestone("10m");
         }
         // Mốc 5 phút (kích hoạt trong khoảng 2.5 phút - 5.5 phút)
@@ -2703,7 +2689,6 @@
       updateRoleUI();
       updateSoundUI();
       checkBossDiscordAlerts(now);
-      checkDailyScheduleAlert(now);
       renderClocks(now);
       renderMetrics(now);
       renderTodayScheduleTable(now);
@@ -4093,7 +4078,6 @@
       showToast(isEn ? `⏳ Saving ${boss.name}'s death record…` : `⏳ Đang lưu giờ chết của ${boss.name}…`);
       const saved = await saveState();
       if (saved === true && isBossRevisionCurrent(id, actionRevision)) {
-        sendDiscordKillAlert(boss, now, boss.respawnsAt);
         showToast(isEn ? `💀 ${boss.name} synchronized. Respawn countdown started.` : `💀 Đã đồng bộ ${boss.name} chết! Bắt đầu đếm ngược hồi sinh.`);
       } else if (saved === true) {
         showToast(isEn ? "A newer death record is being synchronized." : "⏳ Có giờ chết mới hơn đang được đồng bộ.");
@@ -4341,7 +4325,6 @@
       showToast(isEn ? `Saving ${boss.name}'s custom death time…` : `⏳ Đang lưu giờ chết tùy chỉnh của ${boss.name}…`);
       const saveResult = await saveState();
       if (saveResult === true && isBossRevisionCurrent(boss.id, actionRevision)) {
-        sendDiscordKillAlert(boss, diedAt, boss.respawnsAt);
         showToast(isEn
           ? `${boss.name} synchronized as dead on ${diedFullStr}. Countdown started!`
           : `${boss.name} đã đồng bộ giờ chết ${diedFullStr}. Bắt đầu đếm ngược!`);
@@ -12010,6 +11993,8 @@
         }
       } catch (e) {}
     }, 60000);
+
+
 
 
 

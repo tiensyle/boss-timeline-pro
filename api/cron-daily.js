@@ -101,8 +101,7 @@ function calculateBossEventTimesForToday(boss, history, nowTimestamp) {
  */
 function buildDiscordPayload(serverName, serverIcon, items, dateDisplay) {
   const iconStr = serverIcon ? `${serverIcon} ` : "";
-  let description = `📅 **BÁO CÁO LỊCH BOSS HÔM NAY — ${dateDisplay}**\n`;
-  description += `🖥️ Server: **${iconStr}${serverName}**\n`;
+  let description = "";
   description += `Tổng số: **${items.length} lượt boss** xuất hiện trong ngày hôm nay (00:00 - 24:00).\n\n`;
 
   if (items.length === 0) {
@@ -127,13 +126,13 @@ function buildDiscordPayload(serverName, serverIcon, items, dateDisplay) {
   return {
     username: "Boss Tracker Alert",
     avatar_url: "https://cdn-icons-png.flaticon.com/512/10329/10329997.png",
-    content: `@everyone 📢 **[${iconStr}${serverName}] BÁO CÁO LỊCH BOSS HÔM NAY (00:00 - 24:00)**`,
+    content: "@everyone",
     embeds: [
       {
         title: `📅 [${iconStr}${serverName}] LỊCH BOSS HÔM NAY — ${dateDisplay}`,
         description: description,
         color: 3447003,
-        footer: { text: "Boss Timeline Pro • Tự động gửi lúc 00:00 hàng ngày (GMT+7)" },
+        footer: { text: "Boss Timeline Pro • Lịch ngày 00:00–24:00 (GMT+7)" },
         timestamp: new Date().toISOString()
       }
     ],
@@ -220,30 +219,27 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
       continue;
     }
 
-    // Chọn đúng webhook cho server này: ưu tiên env var, fallback Firebase
-    const suffix = serverId.toUpperCase().replace(/-/g, "_");
-    let webhookUrl = (env[`DISCORD_WEBHOOK_${suffix}`] || "").trim();
+    // The webhook saved in the UI is authoritative for this server.
+    // Never route a report to a shared destination or hide a failed config read.
 
-    // Fallback: đọc từ Firebase boss_timeline_webhook_urls/{serverId}/url
-    if (!webhookUrl) {
-      try {
-        const fbWebhookRes = await fetchImpl(firebaseUrl(databaseUrl, `boss_timeline_webhook_urls/${serverId}`, databaseEnv), {
-          signal: AbortSignal.timeout(8000)
-        });
-        if (fbWebhookRes.ok) {
-          const fbWebhookData = await fbWebhookRes.json();
-          if (fbWebhookData && typeof fbWebhookData.url === "string") {
-            webhookUrl = fbWebhookData.url.trim();
-          }
-        }
-      } catch (_) {}
+    let webhookUrl = "";
+    try {
+      const response = await fetchImpl(firebaseUrl(databaseUrl, `boss_timeline_webhook_urls/${serverId}`, databaseEnv), {
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('Webhook configuration unavailable');
+      const configured = await response.json();
+      if (configured !== null) {
+        webhookUrl = typeof configured?.url === 'string' ? configured.url.trim() : '';
+      } else {
+        webhookUrl = '';
+      }
+    } catch {
+      results.push({ serverId, serverName, status: 'skipped', reason: 'Cannot read server webhook configuration; no fallback destination used' });
+      continue;
     }
-
-    // Preserve server-specific destinations; use the shared webhook only as fallback.
-    if (!webhookUrl) webhookUrl = String(env.DISCORD_WEBHOOK_URL || "").trim();
-
     if (!webhookUrl || !/^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?.*)?$/.test(webhookUrl)) {
-      results.push({ serverId, serverName, status: "skipped", reason: `No valid webhook: DISCORD_WEBHOOK_${suffix}` });
+      results.push({ serverId, serverName, status: "skipped", reason: "No valid webhook saved for this server in Firebase" });
       continue;
     }
 
@@ -342,3 +338,7 @@ export function createCronDailyHandler({ fetchImpl = globalThis.fetch, env = pro
 }
 
 export default createCronDailyHandler();
+
+
+
+
